@@ -1,17 +1,45 @@
-from glob import glob
-from pydub import AudioSegment
+import telebot
+from keyboa import Keyboa #Keyboa
 
-# Достать все файлы в формате .wav
-playlist_songs = [AudioSegment.from_wav(mp3_file) for mp3_file in glob("*.wav")]
+import config
+import make_beat
 
-# Добавить и удалить первый файл в overlay
-overlay = playlist_songs.pop(0)
+bot = telebot.TeleBot(config.TOKEN)
 
-# Комбинировать все файлы
-for song in playlist_songs:
-    overlay = overlay.overlay(song, position=0)
+@bot.message_handler(commands=['start'])
+def welcome(message):
+    inline_markup = Keyboa(items=config.menu_buttons, items_in_row=2)
+    bot.send_message(message.chat.id, 'Здарова, бот', reply_markup=inline_markup())
 
-# Умножить все файлы
-do_it_over = overlay * 2
-# simple export
-file_handle = do_it_over.export("output.wav", format="wav")
+# Клавиатура меню
+@bot.callback_query_handler(func=lambda call: call.data in config.menu_buttons)
+def menu(call):
+    try:
+        if call.message:
+            if call.data == 'Заказать бит':
+                styles_markup = Keyboa(items=config.styles_markup, items_in_row=2)
+                bot.send_message(call.message.chat.id, 'Выбери стиль бита:', reply_markup=styles_markup())
+            elif call.data == 'Баланс':
+                balance_markup = Keyboa(items=config.balance_buttons, items_in_row=2)
+                bot.send_message(call.message.chat.id, 'Баланс: нищий.', reply_markup=balance_markup())
+            elif call.data == 'О нас':
+                navigation_markup = Keyboa(items=config.navigation_buttons, items_in_row=2)
+                bot.send_message(call.message.chat.id, 'О нас много не скажешь.')
+    except Exception as e:
+        print(repr(e))
+
+# Клавиатура битов
+@bot.callback_query_handler(func=lambda call: call.data in config.styles_markup)
+def menu(call):
+    try:
+        if call.message:
+            if call.data == 'Jersey Club':   
+                bot.send_message(call.message.chat.id, 'Тут типо делается бит')
+                make_beat.jersey_club()
+            elif call.data == 'Plug':
+                bot.send_message(call.message.chat.id, 'Тут типо делается бит')
+                make_beat.plug()
+    except Exception as e:
+        print(repr(e))
+
+bot.infinity_polling()
