@@ -23,3 +23,5 @@ menu_buttons = ['Баланс', 'О нас', 'Заказать бит']
 balance_buttons = ['Пополнить']
 
 navigation_buttons = ['<<Назад']
+
+bpm_buttons = ['130bpm', '150bpm', '180bpm']

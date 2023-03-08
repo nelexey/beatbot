@@ -4,20 +4,21 @@ import random
 
 import config
 
-def jersey_club():
+def jersey_club(chat_id, bpm):
+    print(bpm)
     bass = random.choice([AudioSegment.from_wav(file) for file in glob("style_JC/basses/*.wav")])
     hi_hat = random.choice([AudioSegment.from_wav(file) for file in glob("style_JC/hi-hats/*.wav")])
     kick = random.choice([AudioSegment.from_wav(file) for file in glob("style_JC/kicks/*.wav")])
     clap = random.choice([AudioSegment.from_wav(file) for file in glob("style_JC/claps/*.wav")])
     
     ## sync leads and help_leads ON
-    leads_sync = random.randint(1, len(glob("style_JC/leads/*.wav")))
-    lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/leads/lead{leads_sync}.wav")])
-    help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/help_leads/helplead{leads_sync}.wav")])
+    # leads_sync = random.randint(1, len(glob("style_JC/leads/*.wav")))
+    # lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/leads/lead{leads_sync}.wav")])
+    # help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/help_leads/helplead{leads_sync}.wav")])
     
     ## sync leads and help_leads OFF
-    # lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/leads/*.wav")])
-    # help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/help_leads/*.wav")])
+    lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/leads/*.wav")])
+    help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/help_leads/*.wav")])
 
     ##### ТАКТЫ #####
 
@@ -46,7 +47,7 @@ def jersey_club():
 
     ## 6 ##
 
-    file_handle = overlay.export("output.wav", format="wav")
+    file_handle = overlay.export(f"output_beats/{chat_id}.wav", format="wav")
 
 def plug():
     pass
