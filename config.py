@@ -24,4 +24,4 @@ balance_buttons = ['Пополнить']
 
 navigation_buttons = ['<<Назад']
 
-bpm_buttons = ['130bpm', '150bpm', '180bpm']
+bpm_buttons = ['110bpm', '130bpm', '145bpm']

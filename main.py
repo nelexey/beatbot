@@ -19,11 +19,12 @@ def welcome(message):
 # Клавиатура меню
 @bot.callback_query_handler(func=lambda call: call.data in config.menu_buttons)
 def menu(call):
+    global msg
     try:
         if call.message:
             if call.data == 'Заказать бит':
                 styles_markup = Keyboa(items=config.styles_markup, items_in_row=2)
-                bot.send_message(call.message.chat.id, 'Выбери стиль бита:', reply_markup=styles_markup())
+                msg = bot.send_message(call.message.chat.id, 'Выбери стиль бита:', reply_markup=styles_markup())
             elif call.data == 'Баланс':
                 balance_markup = Keyboa(items=config.balance_buttons, items_in_row=2)
                 bot.send_message(call.message.chat.id, 'Баланс: нищий.', reply_markup=balance_markup())
@@ -37,35 +38,47 @@ def menu(call):
 user_chosen_style = {}
 
 @bot.callback_query_handler(func=lambda call: call.data in config.styles_markup)
-def menu(call):
+def temp(call):
+    global msg
     try:
         if call.message:
             user_chosen_style[call.message.chat.id] = call.data
 
+            bot.delete_message(call.message.chat.id, msg.message_id)
+
             bpm_markup = Keyboa(items=config.bpm_buttons, items_in_row=3)
-            bot.send_message(call.message.chat.id, f'{call.data} - отличный выбор! Теперь выбери темп:', reply_markup=bpm_markup()) 
+            msg = bot.send_message(call.message.chat.id, f'{call.data} - отличный выбор! Теперь выбери темп:', reply_markup=bpm_markup()) 
 
     except Exception as e:
         print(repr(e))
 
 @bot.callback_query_handler(func=lambda call: call.data in config.bpm_buttons)
-def menu(call):
+def style(call):
+    global msg
     try:
         if call.message:
            if user_chosen_style[call.message.chat.id] == 'Jersey Club':
+                
                 del user_chosen_style[call.message.chat.id]
-                msg = bot.send_message(call.message.chat.id, 'Тут типо делается бит')
+
+                bot.delete_message(call.message.chat.id, msg.message_id)
+
+                msg = bot.send_message(call.message.chat.id, 'Делаю бит...')
                 # Сделать бит
                 make_beat.jersey_club(call.message.chat.id, call.data)
                 # Удалить предыдущее сообщение
                 bot.delete_message(call.message.chat.id, msg.message_id)
                 # Отправить бит
+                msg = bot.send_message(call.message.chat.id, 'Отправляю бит...')
+                # Открыть файл
                 beat = open(f'output_beats/{call.message.chat.id}.wav', 'rb')
-                bot.send_message(call.message.chat.id, 'Лови бит')
-                bot.send_document(call.message.chat.id, beat, timeout=20000) 
+                # Скинуть файл
+                bot.send_audio(call.message.chat.id, beat) 
+                # Закрыть файл
                 beat.close()
+                # Удалить файл
                 os.remove(f'output_beats/{call.message.chat.id}.wav')
-                
+
 
     except Exception as e:
         print(repr(e))
