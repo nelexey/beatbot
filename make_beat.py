@@ -1,8 +1,6 @@
 from glob import glob
-from pydub import AudioSegment, silence
+from pydub import AudioSegment
 import random
-
-import config
 
 def speed_change(sound, speed=1.0):
     # Manually override the frame_rate. This tells the computer how many
@@ -17,21 +15,23 @@ def speed_change(sound, speed=1.0):
     return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
 
 def jersey_club(chat_id, bpm):
-    
+    pass
 
-    bass = random.choice([AudioSegment.from_wav(file) for file in glob("style_JC/bass/*.wav")])
-    hi_hat = random.choice([AudioSegment.from_wav(file) for file in glob("style_JC/hi-hat/*.wav")])
-    kick = random.choice([AudioSegment.from_wav(file) for file in glob("style_JC/kick/*.wav")])
-    clap = random.choice([AudioSegment.from_wav(file) for file in glob("style_JC/clap/*.wav")])
+def trap(chat_id, bpm):
+
+    bass = random.choice([AudioSegment.from_wav(file) for file in glob("style_Trap/bass/*.wav")])
+    hi_hat = random.choice([AudioSegment.from_wav(file) for file in glob("style_Trap/hi-hat/*.wav")])
+    kick = random.choice([AudioSegment.from_wav(file) for file in glob("style_Trap/kick/*.wav")])
+    clap = random.choice([AudioSegment.from_wav(file) for file in glob("style_Trap/clap/*.wav")])
     
     ## sync leads and help_leads ON
-    leads_sync = random.randint(1, len(glob("style_JC/lead/*.wav")))
-    lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/lead/lead{leads_sync}.wav")])
-    help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/helplead/helplead{leads_sync}.wav")])
+    leads_sync = random.randint(1, len(glob("style_Trap/lead/*.wav")))
+    lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/lead/lead{leads_sync}.wav")])
+    help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/helplead/helplead{leads_sync}.wav")])
     
     ## sync leads and help_leads OFF
-    # lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/lead/*.wav")])
-    # help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/helplead/*.wav")])
+    # lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"trap/lead/*.wav")])
+    # help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"trap/helplead/*.wav")])
 
     ##### ТАКТЫ #####
 
@@ -41,17 +41,24 @@ def jersey_club(chat_id, bpm):
     #130bpm 4sandwich 59sec 07milisec
 
     ## 1 ##
+
     sandwich1 = lead
-    sandwich1 = sandwich1
+    sandwich1 = sandwich1.overlay(help_lead, position=0)
+    sandwich1 = sandwich1.overlay(clap, position=0)
+    sandwich1 = sandwich1.overlay(hi_hat, position=0)
+    sandwich1 = sandwich1.overlay(kick, position=0)
+    sandwich1 = sandwich1.overlay(bass, position=0)
+
+    sandwich1 = sandwich1[:7380] 
+    octaves = -1
+    new_sample_rate = int(sandwich1.frame_rate * (2.0 ** octaves))
+    sandwich1 = sandwich1._spawn(sandwich1.raw_data, overrides={'frame_rate': new_sample_rate})
 
     overlay = sandwich1
 
     ## 2 ##
-    sandwich2 = lead
-    sandwich2 = sandwich2.overlay(help_lead, position=0)
-    sandwich2 = sandwich2.overlay(clap, position=0)
-    sandwich2 = sandwich2.overlay(hi_hat, position=0)
 
+    sandwich2 = lead
 
     overlay = overlay.append(sandwich2, crossfade=0)
 
@@ -60,10 +67,8 @@ def jersey_club(chat_id, bpm):
     sandwich3 = sandwich3.overlay(help_lead, position=0)
     sandwich3 = sandwich3.overlay(clap, position=0)
     sandwich3 = sandwich3.overlay(hi_hat, position=0)
-    sandwich3 = sandwich3.overlay(kick, position=0)
-    sandwich3 = sandwich3.overlay(bass, position=0)
 
-    
+
     overlay = overlay.append(sandwich3, crossfade=0)
 
     ## 4 ##
@@ -79,17 +84,17 @@ def jersey_club(chat_id, bpm):
 
     ## 5 ##
     sandwich5 = lead
+    sandwich5 = sandwich5.overlay(help_lead, position=0)
     sandwich5 = sandwich5.overlay(clap, position=0)
     sandwich5 = sandwich5.overlay(hi_hat, position=0)
     sandwich5 = sandwich5.overlay(kick, position=0)
     sandwich5 = sandwich5.overlay(bass, position=0)
 
-
+    
     overlay = overlay.append(sandwich5, crossfade=0)
 
     ## 6 ##
     sandwich6 = lead
-    sandwich6 = sandwich6.overlay(help_lead, position=0)
     sandwich6 = sandwich6.overlay(clap, position=0)
     sandwich6 = sandwich6.overlay(hi_hat, position=0)
     sandwich6 = sandwich6.overlay(kick, position=0)
@@ -100,22 +105,28 @@ def jersey_club(chat_id, bpm):
 
     ## 7 ##
     sandwich7 = lead
-    sandwich7 = sandwich2.overlay(help_lead, position=0)
-    
+    sandwich7 = sandwich7.overlay(help_lead, position=0)
+    sandwich7 = sandwich7.overlay(clap, position=0)
+    sandwich7 = sandwich7.overlay(hi_hat, position=0)
+    sandwich7 = sandwich7.overlay(kick, position=0)
+    sandwich7 = sandwich7.overlay(bass, position=0)
+
 
     overlay = overlay.append(sandwich7, crossfade=0)
+
+    ## 8 ##
+    sandwich8 = lead
+    sandwich8 = sandwich8.overlay(help_lead, position=0)
+    
+
+    overlay = overlay.append(sandwich8, crossfade=0)
 
 
     bpm = int(bpm.split('b')[0])
 
     if bpm == 130:
-        pass  
-    elif bpm < 130:
-        overlay = speed_change(overlay, bpm/130)
+        pass       
     else:
-        overlay = overlay.speedup(bpm/130)
+        overlay = speed_change(overlay, bpm/130)
         
     file_handle = overlay.export(f"output_beats/{chat_id}.wav", format="wav")
-
-def plug():
-    pass

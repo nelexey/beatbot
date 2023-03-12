@@ -43,7 +43,6 @@ def temp(call):
     try:
         if call.message:
             user_chosen_style[call.message.chat.id] = call.data
-
             bot.delete_message(call.message.chat.id, msg.message_id)
 
             bpm_markup = Keyboa(items=config.bpm_buttons, items_in_row=3)
@@ -57,28 +56,35 @@ def style(call):
     global msg
     try:
         if call.message:
-           if user_chosen_style[call.message.chat.id] == 'Jersey Club':
-                
-                del user_chosen_style[call.message.chat.id]
 
-                bot.delete_message(call.message.chat.id, msg.message_id)
+            bot.delete_message(call.message.chat.id, msg.message_id)
 
-                msg = bot.send_message(call.message.chat.id, 'Делаю бит...')
-                # Сделать бит
+            msg = bot.send_message(call.message.chat.id, 'Делаю бит...')
+
+            # Сделать бит
+            if user_chosen_style[call.message.chat.id] == 'Jersey Club':
                 make_beat.jersey_club(call.message.chat.id, call.data)
-                # Удалить предыдущее сообщение
-                bot.delete_message(call.message.chat.id, msg.message_id)
-                # Отправить бит
-                msg = bot.send_message(call.message.chat.id, 'Отправляю бит...')
-                # Открыть файл
-                beat = open(f'output_beats/{call.message.chat.id}.wav', 'rb')
-                # Скинуть файл
-                bot.send_audio(call.message.chat.id, beat) 
-                # Закрыть файл
-                beat.close()
-                # Удалить файл
-                os.remove(f'output_beats/{call.message.chat.id}.wav')
+            elif user_chosen_style[call.message.chat.id] == 'Trap':
+                make_beat.trap(call.message.chat.id, call.data)
+            
+            # Удалить предыдущее сообщение
+            bot.delete_message(call.message.chat.id, msg.message_id)
 
+            # Отправить бит
+            bot.send_message(call.message.chat.id, f'Забирай свой бит в стиле:\n{user_chosen_style[call.message.chat.id]}\n\n с темпом:\n{call.data}\n\nБит будет тут 👇')
+            del user_chosen_style[call.message.chat.id]
+
+            # Открыть файл
+            beat = open(f'output_beats/{call.message.chat.id}.wav', 'rb')
+
+            # Скинуть файл
+            bot.send_audio(call.message.chat.id, beat) 
+
+            # Закрыть файл
+            beat.close()
+
+            # Удалить файл
+            os.remove(f'output_beats/{call.message.chat.id}.wav')
 
     except Exception as e:
         print(repr(e))
