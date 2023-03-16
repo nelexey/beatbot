@@ -18,10 +18,22 @@ styles_markup = []
 for key in aliases.keys():
     styles_markup.append(key)
 
-menu_buttons = ['Баланс', 'О нас', 'Заказать бит']
+beat_price = 45
 
-balance_buttons = ['Пополнить']
+# кнопки
+
+menu_buttons = ['Баланс', 'О нас', f'Заказать бит - {beat_price}₽']
+
+balance_buttons = ['45₽', '90₽', '135₽']
 
 navigation_buttons = ['<<Назад']
 
 bpm_buttons = ['110bpm', '130bpm', '145bpm']
+
+start_balance = 0
+
+# данные PostgreSQL
+host = 'localhost'
+user = 'postgres'
+password = '1234567890'
+db_name = 'beatbotdb'
