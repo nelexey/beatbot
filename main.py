@@ -81,7 +81,7 @@ def style(call):
 
             bot.delete_message(call.message.chat.id, msg.message_id)
 
-            if int(db_handler.get_balance(call.message.chat.id)) > config.beat_price:
+            if db_handler.get_balance(call.message.chat.id) >= config.beat_price:
                 msg = bot.send_message(call.message.chat.id, 'Делаю бит...')
 
                 # Сделать бит
