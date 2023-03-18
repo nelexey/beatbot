@@ -12,6 +12,8 @@ for dir in dirs:
 aliases = {
     'Jersey Club': 'JC',
     'Trap': 'Trap',
+    'Drill': 'drill',
+    'Plug': 'plug',
 }
 
 styles_markup = []

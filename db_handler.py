@@ -44,12 +44,12 @@ try:
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE users SET balance = balance + {money} WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
-            print(f'[INFO] the balance of the *{chat_id}* has been successfully replenished')
+            print(f'[INFO] The balance of the *{chat_id}* has been successfully replenished')
     def pay(chat_id, payment):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE users SET balance = balance - {payment} WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
-            print(f'A fee of {payment} sizes has been withdrawn from the *{chat_id}* balance')
+            print(f'[INFO] A fee of {payment} sizes has been withdrawn from the *{chat_id}* balance')
    
 except Exception as _ex:
     print('[INFO] Error while working with PostgreSQL', _ex)

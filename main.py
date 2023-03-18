@@ -87,14 +87,21 @@ def style(call):
                 # Сделать бит
                 if user_chosen_style[call.message.chat.id] == 'Jersey Club':
                     make_beat.jersey_club(call.message.chat.id, call.data)
+
                 elif user_chosen_style[call.message.chat.id] == 'Trap':
                     make_beat.trap(call.message.chat.id, call.data)
-                
+
+                elif user_chosen_style[call.message.chat.id] == 'Drill':
+                    make_beat.drill(call.message.chat.id, call.data)
+                elif user_chosen_style[call.message.chat.id] == 'Plug':
+                    make_beat.plug(call.message.chat.id, call.data)
+
+
                 # Удалить предыдущее сообщение
                 bot.delete_message(call.message.chat.id, msg.message_id)
 
                 # Отправить бит
-                msg = bot.send_message(call.message.chat.id, f'Забирай свой бит\nв стиле:{user_chosen_style[call.message.chat.id]}\nс темпом:{call.data}\n\nС твоего баланса снято {config.beat_price}₽\n\nБит будет тут 👇')
+                msg = bot.send_message(call.message.chat.id, f'Забирай свой бит\nв стиле: {user_chosen_style[call.message.chat.id]}\nс темпом: {call.data}\n\nС твоего баланса снято {config.beat_price}₽\n\nБит будет тут 👇')
                 del user_chosen_style[call.message.chat.id]
 
                 # Открыть файл
@@ -113,7 +120,7 @@ def style(call):
 
             else:    
                 inline_markup = Keyboa(items=config.menu_buttons[0], items_in_row=1)
-                bot.send_message(call.message.chat.id, f'Тебе не хватает денег на балансе, пополни баланс чтобы купить бить', reply_markup=inline_markup())
+                bot.send_message(call.message.chat.id, f'Тебе не хватает денег на балансе, пополни баланс чтобы купить бит.', reply_markup=inline_markup())
     except Exception as e:
         print(repr(e))
         bot.delete_message(call.message.chat.id, msg.message_id)
