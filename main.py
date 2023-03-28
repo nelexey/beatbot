@@ -93,9 +93,9 @@ def style(call):
 
                 elif user_chosen_style[call.message.chat.id] == 'Drill':
                     make_beat.drill(call.message.chat.id, call.data)
+
                 elif user_chosen_style[call.message.chat.id] == 'Plug':
                     make_beat.plug(call.message.chat.id, call.data)
-
 
                 # Удалить предыдущее сообщение
                 bot.delete_message(call.message.chat.id, msg.message_id)

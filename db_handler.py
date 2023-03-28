@@ -26,7 +26,6 @@ try:
             print('[INFO] Table works succesfuly')
         return True
     
-
     def add_user(username, chat_id, balance=0):
         connect()
         with connection.cursor() as cursor:

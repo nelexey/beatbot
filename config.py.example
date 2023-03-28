@@ -1,0 +1,8 @@
+# токен бота
+TOKEN = 'YOUR_TOKEN'
+
+# данные PostgreSQL
+host = 'YOURAPI'
+user = 'USERNAME'
+password = 'YOUR_PASSWORD'
+db_name = 'YOUR_DATABASE'
