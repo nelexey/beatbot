@@ -17,6 +17,12 @@ def speed_change(sound, speed=1.0):
 def jersey_club(chat_id, bpm, file_corr=''):
     pass
 
+def drill(chat_id, bpm, file_corr=''):
+    pass
+
+def plug(chat_id, bpm, file_corr=''):
+    pass
+
 def trap(chat_id, bpm, file_corr=0):
 
     bass = random.choice([AudioSegment.from_wav(file) for file in glob("style_Trap/bass/*.wav")])

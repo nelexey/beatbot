@@ -1,18 +1,22 @@
 import telebot
-from keyboa import Keyboa #Keyboa
+from keyboa import Keyboa
 from os import listdir, remove
 import config
 import make_beat
 import db_handler
 from pydub import AudioSegment
 
+# Подключение бота
 bot = telebot.TeleBot(config.TOKEN)
 
-from os import listdir
+# # Создаем объект YandexCheckout
+# yandex_checkout = YandexCheckout('506751')
+
 styles = []
 for dir in listdir():
     if dir.split('_')[0] == 'style':
         styles.append(dir)
+
 # Ключи - названия стилей на кнопках, значения - названия папок style_*
 aliases = {
     'Jersey Club': 'JC',
@@ -45,6 +49,9 @@ def welcome(message):
 def welcome(message):
     inline_markup = Keyboa(items=menu_buttons, items_in_row=2)
     bot.send_message(message.chat.id, 'Меню:', reply_markup=inline_markup())
+
+# Переменная показывет, в процессе ли обработки пользователь
+processing = {}
 
 # Клавиатура меню
 @bot.callback_query_handler(func=lambda call: call.data in menu_buttons)
@@ -111,21 +118,29 @@ def style(call):
             if db_handler.get_balance(call.message.chat.id) >= beat_price:
                 msg = bot.send_message(call.message.chat.id, 'Создаю...')
 
-                # Сделать бит
-                if user_chosen_style[call.message.chat.id] == 'Jersey Club':
-                    make_beat.jersey_club(call.message.chat.id, call.data, 1)
-                    make_beat.jersey_club(call.message.chat.id, call.data, 2)
-                    make_beat.jersey_club(call.message.chat.id, call.data, 3)
-                elif user_chosen_style[call.message.chat.id] == 'Trap':
-                    make_beat.trap(call.message.chat.id, call.data, 1)
-                    make_beat.trap(call.message.chat.id, call.data, 2)
-                    make_beat.trap(call.message.chat.id, call.data, 3)
+                # style - стиль бита, count - сколько битов сделать
+                def generate_beats(style, count):
+                    if style == 'Jersey Club':
+                        for i in range(1, count+1):
+                            make_beat.jersey_club(call.message.chat.id, call.data, i)
+                    elif style == 'Trap':
+                        for i in range(1, count+1):
+                            make_beat.trap(call.message.chat.id, call.data, i)
+                    elif style == 'Drill':
+                        for i in range(1, count+1):
+                            make_beat.drill(call.message.chat.id, call.data, i)
+                    elif style == 'Plug':
+                        for i in range(1, count+1):
+                            make_beat.plug(call.message.chat.id, call.data, i)
                 
+                # Сделать бит
+                generate_beats(user_chosen_style[call.message.chat.id], 3)
+
                 # Удалить предыдущее сообщение
                 bot.delete_message(call.message.chat.id, msg.message_id)
 
                 # Отправить бит
-                msg = bot.send_message(call.message.chat.id, f'Вот 3 демо версии бита на выбор, ')
+                msg = bot.send_message(call.message.chat.id, f'Вот 3 демо версии битов на твой вкус:')
                 del user_chosen_style[call.message.chat.id]
 
                 # Открыть файл
@@ -165,40 +180,52 @@ def beats(call):
     global msg
     try:
         if call.message:
+            if call.message.chat.id not in processing:
+                if msg:
+                    bot.delete_message(call.message.chat.id, msg.message_id)
+                bot.send_message(call.message.chat.id, f'Твой выбор: {call.data}')
+                if call.data in ['1', '2', '3']:
+                    
+                    # Добавить пользователя в "обработку"
+                    processing[call.message.chat.id] = True
 
-            bot.delete_message(call.message.chat.id, msg.message_id)
-            bot.send_message(call.message.chat.id, f'Твой выбор: {call.data}')
+                    msg = bot.send_message(call.message.chat.id, 'Скидываю полную версию...')
 
-            if call.data in ['1', '2', '3']:
-                msg = bot.send_message(call.message.chat.id, 'Скидываю полную версию...')
+                    # Открыть файл
+                    beat = open(f'output_beats/{call.message.chat.id}_{call.data}.wav', 'rb')
 
-                # Открыть файл
-                beat = open(f'output_beats/{call.message.chat.id}_{call.data}.wav', 'rb')
+                    # Скинуть файл
+                    bot.send_audio(call.message.chat.id, beat)
 
-                # Скинуть файл
-                bot.send_audio(call.message.chat.id, beat)
+                    # Снять деньги
+                    db_handler.pay(call.message.chat.id, beat_price)
 
-                # Снять деньги
-                db_handler.pay(call.message.chat.id, beat_price)
+                    # Увеличеть количество купленых битов на аккаунте
+                    db_handler.get_beat(call.message.chat.id)
 
-                # Увеличеть количество купленых битов на аккаунте
-                db_handler.get_beat(call.message.chat.id)
+                    # Закрыть файл
+                    beat.close()
+                    
+                    # Удалить файлы
+                    remove(f'output_beats/{call.message.chat.id}_1.wav')
+                    remove(f'output_beats/{call.message.chat.id}_2.wav')
+                    remove(f'output_beats/{call.message.chat.id}_3.wav')
 
-                # Закрыть файл
-                beat.close()
-                
-                # Удалить файлы
-                remove(f'output_beats/{call.message.chat.id}_1.wav')
-                remove(f'output_beats/{call.message.chat.id}_2.wav')
-                remove(f'output_beats/{call.message.chat.id}_3.wav')
+                    # Убрать пользователя из "обработки"
+                    del processing[call.message.chat.id]
+                else:   
+                    # Добавить пользователя в "обработку"
+                    processing[call.message.chat.id] = True 
 
-            else:    
-                bot.send_message(call.message.chat.id, f'Не одного бита не выбрано, ты можешь посомтреть ещё несколько битов через время.')
-    
-                # Удалить файлы
-                remove(f'output_beats/{call.message.chat.id}_1.wav')
-                remove(f'output_beats/{call.message.chat.id}_2.wav')
-                remove(f'output_beats/{call.message.chat.id}_3.wav')
+                    bot.send_message(call.message.chat.id, f'Не одного бита не выбрано, ты можешь посомтреть ещё несколько битов через время.')
+        
+                    # Удалить файлы
+                    remove(f'output_beats/{call.message.chat.id}_1.wav')
+                    remove(f'output_beats/{call.message.chat.id}_2.wav')
+                    remove(f'output_beats/{call.message.chat.id}_3.wav')
+
+                    # Убрать пользователя из "обработки"
+                    del processing[call.message.chat.id]
     except Exception as e:
         print(repr(e))
         bot.delete_message(call.message.chat.id, msg.message_id)
