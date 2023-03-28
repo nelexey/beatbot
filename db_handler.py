@@ -12,7 +12,8 @@ try:
         connection = psycopg2.connect(host=host, 
                                     user=user, 
                                     password=password, 
-                                    database=db_name)
+                                    database=db_name,
+                                    )
 
         connection.autocommit = True
     
@@ -22,15 +23,17 @@ try:
                             id SERIAL PRIMARY KEY,
                             username VARCHAR(50) NOT NULL,
                             chat_id	VARCHAR(50) UNIQUE NOT NULL,
-                            balance	INTEGER);''')
+                            balance	INTEGER,
+                            received_beats INTEGER);''')
             print('[INFO] Table works succesfuly')
         return True
     
+
     def add_user(username, chat_id, balance=0):
         connect()
         with connection.cursor() as cursor:
-            cursor.execute(f'''INSERT INTO users (username, chat_id, balance)
-            VALUES ('{username}', {chat_id}, {balance}) ON CONFLICT DO NOTHING;''')
+            cursor.execute(f'''INSERT INTO users (username, chat_id, balance, received_beats)
+            VALUES ('{username}', {chat_id}, {balance}, {0}) ON CONFLICT DO NOTHING;''')
             
             print(f'[INFO] Values for *{username}* succesfuly added')
     def get_balance(chat_id):
@@ -43,13 +46,18 @@ try:
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE users SET balance = balance + {money} WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
-            print(f'[INFO] The balance of the *{chat_id}* has been successfully replenished')
+            print(f'[INFO] the balance of the *{chat_id}* has been successfully replenished')
     def pay(chat_id, payment):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE users SET balance = balance - {payment} WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
-            print(f'[INFO] A fee of {payment} sizes has been withdrawn from the *{chat_id}* balance')
-   
+            print(f'A fee of {payment} sizes has been withdrawn from the *{chat_id}* balance')
+    def get_beat(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE users SET received_beats = received_beats + 1 WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
+            print(f'[INFO] One received beat added to *{chat_id}* received beats')
+
 except Exception as _ex:
     print('[INFO] Error while working with PostgreSQL', _ex)
 finally:
