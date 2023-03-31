@@ -1,10 +1,11 @@
 import telebot
 from keyboa import Keyboa
-from os import listdir, remove
+from os import listdir, remove, path 
 import config
 import make_beat
 import db_handler
 from pydub import AudioSegment
+from glob import glob
 
 # Подключение бота
 bot = telebot.TeleBot(config.TOKEN)
@@ -21,6 +22,7 @@ for dir in listdir():
 aliases = {
     'Jersey Club': 'JC',
     'Trap': 'Trap',
+    'Drill': 'Drill',
 }
 styles_buttons = []
 for key in aliases.keys():
@@ -33,7 +35,6 @@ menu_buttons = ['Баланс', 'О нас', f'Заказать бит - {beat_p
 balance_buttons = ['45₽', '90₽', '135₽']
 navigation_buttons = ['<<Назад']
 bpm_buttons = ['110bpm', '130bpm', '145bpm']
-beats_buttons = ['1', '2', '3', 'Никакой']
 
 # начальный баланс пользователя при добавлении в БД
 start_balance = 0
@@ -46,7 +47,7 @@ def welcome(message):
     db_handler.add_user(message.chat.username, message.chat.id, start_balance)
 
 @bot.message_handler(commands=['menu'])
-def welcome(message):
+def menu(message):
     inline_markup = Keyboa(items=menu_buttons, items_in_row=2)
     bot.send_message(message.chat.id, 'Меню:', reply_markup=inline_markup())
 
@@ -60,8 +61,11 @@ def menu(call):
     try:
         if call.message:
             if call.data == f'Заказать бит - {beat_price}₽':
-                styles_markup = Keyboa(items=styles_buttons, items_in_row=2)
-                msg = bot.send_message(call.message.chat.id, 'Выбери стиль бита:', reply_markup=styles_markup())
+                if db_handler.get_processing(call.message.chat.id) == 0:
+                    db_handler.set_processing(call.message.chat.id) 
+                    styles_markup = Keyboa(items=styles_buttons, items_in_row=2)
+                    msg = bot.send_message(call.message.chat.id, 'Выбери стиль бита:', reply_markup=styles_markup())
+                    db_handler.del_processing(call.message.chat.id)
             elif call.data == 'Баланс':
                 balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
                 balance = db_handler.get_balance(call.message.chat.id)
@@ -74,6 +78,8 @@ def menu(call):
                 bot.send_message(call.message.chat.id, 'О нас много не скажешь.')
     except Exception as e:
         print(repr(e))
+        db_handler.del_processing(call.message.chat.id)
+
 
 @bot.callback_query_handler(func=lambda call: call.data in balance_buttons)
 def balance(call):
@@ -81,10 +87,8 @@ def balance(call):
     try:
         if call.message:
             if call.data == 'Своя сумма':
-                bot.delete_message(call.message.chat.id, msg.message_id)
                 msg = bot.send_message(call.message.chat.id, f'⚠️Эта функция пока не доступна⚠️') 
             else:
-                bot.delete_message(call.message.chat.id, msg.message_id)
                 db_handler.top_balance(call.message.chat.id, call.data.split('₽')[0])
                 msg = bot.send_message(call.message.chat.id, f'Твой баланс пополнен на {call.data}') 
 
@@ -99,96 +103,100 @@ def temp(call):
     global msg
     try:
         if call.message:
-            bot.delete_message(call.message.chat.id, msg.message_id)
-            bpm_markup = Keyboa(items=bpm_buttons, items_in_row=3)
-            msg = bot.send_message(call.message.chat.id, f'{call.data} - отличный выбор! Теперь выбери темп:', reply_markup=bpm_markup()) 
-            user_chosen_style[call.message.chat.id] = call.data
+            if db_handler.get_processing(call.message.chat.id) == 0:
+                db_handler.set_processing(call.message.chat.id)
+                bpm_markup = Keyboa(items=bpm_buttons, items_in_row=3)
+                msg = bot.send_message(call.message.chat.id, f'{call.data} - отличный выбор! Теперь выбери темп:', reply_markup=bpm_markup()) 
+                user_chosen_style[call.message.chat.id] = call.data
+                db_handler.del_processing(call.message.chat.id)
 
     except Exception as e:
         print(repr(e))
+        db_handler.del_processing(call.message.chat.id)
+
+
+# Количество генерируемых демо-версий
+beats = 3
+beats_buttons = [str(i) for i in range(1, beats+1)]
 
 @bot.callback_query_handler(func=lambda call: call.data in bpm_buttons)
 def style(call):
     global msg
+    global beats
     try:
         if call.message:
+            if db_handler.get_processing(call.message.chat.id) == 0:
+                db_handler.set_processing(call.message.chat.id)
 
-            bot.delete_message(call.message.chat.id, msg.message_id)
+                if db_handler.get_balance(call.message.chat.id) >= beat_price:
+                    msg = bot.send_message(call.message.chat.id, 'Создаю версии битов, это может занять несколько минут...')
+                    
+                    # style - стиль бита, count - сколько битов сделать
+                    def generate_beats(style, count):
+                        if style == 'Jersey Club':
+                            for i in range(1, count+1):
+                                make_beat.jersey_club(call.message.chat.id, call.data, i)
+                        elif style == 'Trap':
+                            for i in range(1, count+1):
+                                make_beat.trap(call.message.chat.id, call.data, i)
+                        elif style == 'Drill':
+                            for i in range(1, count+1):
+                                make_beat.drill(call.message.chat.id, call.data, i)
+                        elif style == 'Plug':
+                            for i in range(1, count+1):
+                                make_beat.plug(call.message.chat.id, call.data, i)
+                    
+                    # Обрезать аудио
+                    def trimmed_audio(files_list):
+                        for file_path in files_list:
+                            sound = AudioSegment.from_wav(file_path)
+                            trimmed = sound[45000:55000]
+                            new_file_path = f"{path.splitext(file_path)[0]}_short.wav"
+                            print(new_file_path)
+                            trimmed_sound = trimmed.export(new_file_path, format="wav")
+                            if files_list.index(file_path) == len(files_list)-1:           
+                                beats_markup = Keyboa(items=beats_buttons, items_in_row=3)   
+                                bot.send_audio(call.message.chat.id, trimmed_sound, reply_markup=beats_markup())
+                                return
+                            else:
+                                bot.send_audio(call.message.chat.id, trimmed_sound)
+                        
 
-            if db_handler.get_balance(call.message.chat.id) >= beat_price:
-                msg = bot.send_message(call.message.chat.id, 'Создаю...')
+                    # Сделать бит
+                    generate_beats(user_chosen_style[call.message.chat.id], beats)
+                    del user_chosen_style[call.message.chat.id]
 
-                # style - стиль бита, count - сколько битов сделать
-                def generate_beats(style, count):
-                    if style == 'Jersey Club':
-                        for i in range(1, count+1):
-                            make_beat.jersey_club(call.message.chat.id, call.data, i)
-                    elif style == 'Trap':
-                        for i in range(1, count+1):
-                            make_beat.trap(call.message.chat.id, call.data, i)
-                    elif style == 'Drill':
-                        for i in range(1, count+1):
-                            make_beat.drill(call.message.chat.id, call.data, i)
-                    elif style == 'Plug':
-                        for i in range(1, count+1):
-                            make_beat.plug(call.message.chat.id, call.data, i)
-                
-                # Сделать бит
-                generate_beats(user_chosen_style[call.message.chat.id], 3)
+                    # Отправить бит
+                    msg = bot.send_message(call.message.chat.id, f'Вот 3 демо версии битов на твой вкус:')
+                    
 
-                # Удалить предыдущее сообщение
-                bot.delete_message(call.message.chat.id, msg.message_id)
+                    trimmed_audio(glob(f'output_beats/{call.message.chat.id}_[1-{beats}].wav'))
+                    for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}]_short.wav'):         
+                        remove(file)
 
-                # Отправить бит
-                msg = bot.send_message(call.message.chat.id, f'Вот 3 демо версии битов на твой вкус:')
-                del user_chosen_style[call.message.chat.id]
-
-                # Открыть файл
-                beat1 = AudioSegment.from_wav(f'output_beats/{call.message.chat.id}_1.wav')[7000:14000]
-                beat1 = beat1.export(f"output_beats/{call.message.chat.id}_1_short.wav", format="wav")
-                beat2 = AudioSegment.from_wav(f'output_beats/{call.message.chat.id}_2.wav')[7000:14000]
-                beat2 = beat2.export(f"output_beats/{call.message.chat.id}_2_short.wav", format="wav")
-                beat3 = AudioSegment.from_wav(f'output_beats/{call.message.chat.id}_3.wav')[7000:14000]
-                beat3 = beat3.export(f"output_beats/{call.message.chat.id}_3_short.wav", format="wav")
-
-                # Скинуть файл
-                bot.send_audio(call.message.chat.id, beat1) 
-                bot.send_audio(call.message.chat.id, beat2)
-                beats_markup = Keyboa(items=beats_buttons, items_in_row=3)
-                bot.send_audio(call.message.chat.id, beat3, reply_markup=beats_markup()) 
-
-                # Закрыть файл
-                beat1.close()
-                beat2.close()
-                beat3.close()
-
-                # Удалить файл
-                remove(f'output_beats/{call.message.chat.id}_1_short.wav')
-                remove(f'output_beats/{call.message.chat.id}_2_short.wav')
-                remove(f'output_beats/{call.message.chat.id}_3_short.wav')
-
-            else:    
-                inline_markup = Keyboa(items=menu_buttons[0], items_in_row=1)
-                bot.send_message(call.message.chat.id, f'Тебе не хватает денег на балансе, пополни баланс чтобы купить бить', reply_markup=inline_markup())
+                else:    
+                    inline_markup = Keyboa(items=menu_buttons[0], items_in_row=1)
+                    bot.send_message(call.message.chat.id, f'Тебе не хватает денег на балансе, пополни баланс чтобы купить бить', reply_markup=inline_markup())
+                db_handler.del_processing(call.message.chat.id)
     except Exception as e:
         print(repr(e))
-        bot.delete_message(call.message.chat.id, msg.message_id)
+        db_handler.del_processing(call.message.chat.id)
         bot.send_message(call.message.chat.id, 'Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.')
 
+
 @bot.callback_query_handler(func=lambda call: call.data in beats_buttons)
-def beats(call):
+def send_beat(call):
     global msg
+    global beats
+    global beats_buttons
     try:
         if call.message:
-            if call.message.chat.id not in processing:
-                if msg:
-                    bot.delete_message(call.message.chat.id, msg.message_id)
+            if db_handler.get_processing(call.message.chat.id) == 0:
+                # Добавить пользователя в "обработку"
+                db_handler.set_processing(call.message.chat.id)
                 bot.send_message(call.message.chat.id, f'Твой выбор: {call.data}')
-                if call.data in ['1', '2', '3']:
+                if call.data in beats_buttons:
                     
-                    # Добавить пользователя в "обработку"
-                    processing[call.message.chat.id] = True
-
                     msg = bot.send_message(call.message.chat.id, 'Скидываю полную версию...')
 
                     # Открыть файл
@@ -207,28 +215,20 @@ def beats(call):
                     beat.close()
                     
                     # Удалить файлы
-                    remove(f'output_beats/{call.message.chat.id}_1.wav')
-                    remove(f'output_beats/{call.message.chat.id}_2.wav')
-                    remove(f'output_beats/{call.message.chat.id}_3.wav')
+                    for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].wav'):
+                        remove(file)
 
-                    # Убрать пользователя из "обработки"
-                    del processing[call.message.chat.id]
-                else:   
-                    # Добавить пользователя в "обработку"
-                    processing[call.message.chat.id] = True 
-
+                elif call.data == 'Никакой':   
                     bot.send_message(call.message.chat.id, f'Не одного бита не выбрано, ты можешь посомтреть ещё несколько битов через время.')
-        
                     # Удалить файлы
-                    remove(f'output_beats/{call.message.chat.id}_1.wav')
-                    remove(f'output_beats/{call.message.chat.id}_2.wav')
-                    remove(f'output_beats/{call.message.chat.id}_3.wav')
+                    for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].wav'):
+                        remove(file)
 
-                    # Убрать пользователя из "обработки"
-                    del processing[call.message.chat.id]
+                # Убрать пользователя из "обработки"
+                db_handler.del_processing(call.message.chat.id)
     except Exception as e:
         print(repr(e))
-        bot.delete_message(call.message.chat.id, msg.message_id)
+        db_handler.del_processing(call.message.chat.id)
         bot.send_message(call.message.chat.id, 'Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.')
 
 bot.infinity_polling()
