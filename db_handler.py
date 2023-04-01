@@ -29,7 +29,6 @@ try:
             print('[INFO] Table works succesfuly')
         return True
     
-
     def add_user(username, chat_id, balance=0):
         connect()
         with connection.cursor() as cursor:
@@ -37,6 +36,14 @@ try:
             VALUES ('{username}', {chat_id}, {balance}, {0}) ON CONFLICT DO NOTHING;''')
             
             print(f'[INFO] Values for *{username}* succesfuly added')
+    def get_user(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT chat_id FROM users WHERE CAST(chat_id AS INTEGER) = {chat_id};''')
+            if cursor.fetchone() is None:
+                return False
+            else:
+                return True
     def get_balance(chat_id):
         connect()
         with connection.cursor() as cursor:
