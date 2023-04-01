@@ -25,7 +25,8 @@ try:
                             chat_id	VARCHAR(50) UNIQUE NOT NULL,
                             balance	INTEGER,
                             received_beats INTEGER,
-                            processing INTEGER DEFAULT 0);''')
+                            processing INTEGER DEFAULT 0,
+                            beats_generating INTEGER DEFAULT 0);''')
             print('[INFO] Table works succesfuly')
         return True
     
@@ -79,7 +80,24 @@ try:
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT processing FROM users WHERE CAST(chat_id AS INTEGER) = {chat_id};''')
-            print(f'[INFO] Get processing for *{chat_id}* was completed successfully')
+            print(f'[INFO] Geting processing for *{chat_id}* was completed successfully')
+            return cursor.fetchone()[0]
+        
+    def set_beats_generating(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE users SET beats_generating = 1 WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
+            print(f'[INFO] Setting beats generating for *{chat_id}* was successfully')
+    def del_beats_generating(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE users SET beats_generating = 0 WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
+            print(f'[INFO] *{chat_id}* reset to 0 in beats_generating successfully')
+    def get_beats_generating(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT beats_generating FROM users WHERE CAST(chat_id AS INTEGER) = {chat_id};''')
+            print(f'[INFO] Geting beats beats generating for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]
 except Exception as _ex:
     print('[INFO] Error while working with PostgreSQL', _ex)

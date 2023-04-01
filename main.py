@@ -56,6 +56,8 @@ def menu(message):
 
 # Переменная показывает, в процессе ли обработки пользователь, служит для уменьшения количества запросов в БД на get_processing
 processing = {}
+# Переменная показывает, в процессе ли создания бита пользователь, служит для уменьшения количества запросов в БД на get_beats_generating
+beats_generating = {}
 # user_id: call.data (style)
 user_chosen_style = {}
 # Количество генерируемых демо-версий
@@ -79,15 +81,21 @@ def handler(call):
         try:
             if call.message:
                 if call.data == f'Заказать бит - {beat_price}₽':
-                    if processing.get(call.message.chat.id) is not None or db_handler.get_processing(call.message.chat.id) == 0:
-                        db_handler.set_processing(call.message.chat.id)
-                        processing[call.message.chat.id] = True
+                    if (beats_generating.get(call.message.chat.id) is not None and beats_generating.get(call.message.chat.id) == False) or db_handler.get_beats_generating(call.message.chat.id) == 0:
+                        if processing.get(call.message.chat.id) is not None or db_handler.get_processing(call.message.chat.id) == 0:
+                            db_handler.set_processing(call.message.chat.id)
+                            processing[call.message.chat.id] = True
 
-                        styles_markup = Keyboa(items=styles_buttons, items_in_row=2)
-                        msg = bot.send_message(call.message.chat.id, 'Выбери стиль бита:', reply_markup=styles_markup())
+                            styles_markup = Keyboa(items=styles_buttons, items_in_row=2)
+                            msg = bot.send_message(call.message.chat.id, 'Выбери стиль бита:', reply_markup=styles_markup())
 
-                        db_handler.del_processing(call.message.chat.id)
-                        processing[call.message.chat.id] = False
+                            db_handler.del_processing(call.message.chat.id)
+                            processing[call.message.chat.id] = False
+                    else:
+                        if (processing.get(call.message.chat.id) is not None and processing.get(call.message.chat.id) == False) or db_handler.get_processing(call.message.chat.id) == 0:
+                            bot.send_message(call.message.chat.id, 'Ты не можешь заказать еще один бит во время заказа. Выбери версию бита и дождись её отправки.')    
+                        else:
+                            bot.send_message(call.message.chat.id, 'Ты не можешь заказать еще один бит во время заказа.')    
                 elif call.data == 'Баланс':
                     balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
                     balance = db_handler.get_balance(call.message.chat.id)
@@ -141,6 +149,10 @@ def handler(call):
                     db_handler.set_processing(call.message.chat.id)
                     processing[call.message.chat.id] = True
                     if db_handler.get_balance(call.message.chat.id) >= beat_price:
+
+                        db_handler.set_beats_generating(call.message.chat.id)
+                        beats_generating[call.message.chat.id] = True
+
                         msg = bot.send_message(call.message.chat.id, 'Создаю версии битов, это может занять несколько минут...')
                         
                         # style - стиль бита, num - сколько битов сделать
@@ -186,6 +198,8 @@ def handler(call):
                     else:    
                         inline_markup = Keyboa(items=menu_buttons[0], items_in_row=1)
                         bot.send_message(call.message.chat.id, f'Тебе не хватает денег на балансе, пополни баланс чтобы купить бит', reply_markup=inline_markup())
+                        db_handler.del_beats_generating(call.message.chat.id)
+                        beats_generating[call.message.chat.id] = False
                     db_handler.del_processing(call.message.chat.id)
                     processing[call.message.chat.id] = False
         except Exception as e:
@@ -233,6 +247,8 @@ def handler(call):
                     # Убрать пользователя из "обработки"
                     db_handler.del_processing(call.message.chat.id)
                     processing[call.message.chat.id] = False
+                    db_handler.del_beats_generating(call.message.chat.id)
+                    beats_generating[call.message.chat.id] = False
         except Exception as e:
             print(repr(e))
             db_handler.del_processing(call.message.chat.id)
