@@ -160,6 +160,15 @@ def handler(call):
         try:
             if call.message:
                 if processing.get(call.message.chat.id) is not None or db_handler.get_processing(call.message.chat.id) == 0:
+                    if user_chosen_style.get(call.message.chat.id) is not None:
+                        if call.data not in bpm_buttons[user_chosen_style[call.message.chat.id]]:
+                            bot.send_message(call.message.chat.id, 'Ты не можешь выбрать этот bpm для этого стиля, выбери из вышеприведённых')
+                            return
+                    else:
+                        if call.data not in bpm_buttons[db_handler.get_chosen_style[call.message.chat.id]]:
+                            bot.send_message(call.message.chat.id, 'Ты не можешь выбрать этот bpm для этого стиля, выбери из вышеприведённых')
+                            return
+                        
                     db_handler.set_processing(call.message.chat.id)
                     processing[call.message.chat.id] = True
                     if db_handler.get_balance(call.message.chat.id) >= beat_price:
