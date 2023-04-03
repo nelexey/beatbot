@@ -26,6 +26,7 @@ try:
                             balance	INTEGER,
                             received_beats INTEGER,
                             processing INTEGER DEFAULT 0,
+                            chosen_style VARCHAR(50) DEFAULT NULL,
                             beats_generating INTEGER DEFAULT 0);''')
             print('[INFO] Table works succesfuly')
         return True
@@ -87,7 +88,7 @@ try:
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE users SET beats_generating = 1 WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
-            print(f'[INFO] Setting beats generating for *{chat_id}* was successfully')
+            print(f'[INFO] Setting beats_generating for *{chat_id}* was successfully')
     def del_beats_generating(chat_id):
         connect()
         with connection.cursor() as cursor:
@@ -97,8 +98,24 @@ try:
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT beats_generating FROM users WHERE CAST(chat_id AS INTEGER) = {chat_id};''')
-            print(f'[INFO] Geting beats beats generating for *{chat_id}* was completed successfully')
+            print(f'[INFO] Geting beats_generating for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]
+    
+    def set_chosen_style(chat_id, user_chosen_style):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE users SET chosen_style = '{user_chosen_style}' WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
+            print(f'[INFO] Setting chosen_style for *{chat_id}* was successfully')
+    def del_chosen_style(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE users SET chosen_style = '' WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
+            print(f'[INFO] Deleting *{chat_id}* chosen_style was successfully')
+    def get_chosen_style(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT chosen_style FROM users WHERE CAST(chat_id AS INTEGER) = {chat_id};''')
+            print(f'[INFO] Geting beats beat')
 except Exception as _ex:
     print('[INFO] Error while working with PostgreSQL', _ex)
 finally:

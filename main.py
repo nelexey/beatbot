@@ -54,6 +54,7 @@ def menu(message):
     inline_markup = Keyboa(items=menu_buttons, items_in_row=2)
     bot.send_message(message.chat.id, 'Меню:', reply_markup=inline_markup())
 
+
 # Переменная показывает, в процессе ли обработки пользователь, служит для уменьшения количества запросов в БД на get_processing
 processing = {}
 # Переменная показывает, в процессе ли создания бита пользователь, служит для уменьшения количества запросов в БД на get_beats_generating
@@ -62,9 +63,12 @@ beats_generating = {}
 user_chosen_style = {}
 # Количество генерируемых демо-версий
 beats = 3
+# Кнопки для выбора битов
 beats_buttons = [str(i) for i in range(1, beats+1)]
-
+# Сюда сохраняется message_id, показывающее id сообщения с балансом для каждого пользователя, для последующего изменения этого сообщения. chat_id: msg.message_id
 balance_messages = {}
+# Сообщения для удаления. chat_id: msg
+message_to_delete = {}
 
 @bot.callback_query_handler(func=lambda call: True)
 def handler(call):
@@ -87,7 +91,7 @@ def handler(call):
                             processing[call.message.chat.id] = True
 
                             styles_markup = Keyboa(items=styles_buttons, items_in_row=2)
-                            msg = bot.send_message(call.message.chat.id, 'Выбери стиль бита:', reply_markup=styles_markup())
+                            message_to_delete[call.message.chat.id] = bot.send_message(call.message.chat.id, 'Выбери стиль бита:', reply_markup=styles_markup()).message_id
 
                             db_handler.del_processing(call.message.chat.id)
                             processing[call.message.chat.id] = False
@@ -100,9 +104,9 @@ def handler(call):
                     balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
                     balance = db_handler.get_balance(call.message.chat.id)
                     if balance == 0:
-                        balance_messages[call.message.chat.id] = bot.send_message(call.message.chat.id, f'На твоем балансе {balance}₽\n\n⚠️ Зачисленные деньги будут лежать на балансе сколько угодно, на них в любой момент можно купить бит!', reply_markup=balance_markup())
+                        balance_messages[call.message.chat.id] = bot.send_message(call.message.chat.id, f'На твоем балансе {balance}₽\n\n⚠️ Зачисленные деньги будут лежать на балансе сколько угодно, на них в любой момент можно купить бит!', reply_markup=balance_markup()).message_id
                     else:
-                        balance_messages[call.message.chat.id] = bot.send_message(call.message.chat.id, f'На твоем балансе {balance}₽', reply_markup=balance_markup())
+                        balance_messages[call.message.chat.id] = bot.send_message(call.message.chat.id, f'На твоем балансе {balance}₽', reply_markup=balance_markup()).message_id
                 elif call.data == 'О нас':
                     navigation_markup = Keyboa(items=navigation_buttons, items_in_row=2)
                     bot.send_message(call.message.chat.id, 'О нас много не скажешь.')   
@@ -114,14 +118,17 @@ def handler(call):
         try:
             if call.message:
                 if call.data == 'Своя сумма':
-                    msg = bot.send_message(call.message.chat.id, f'⚠️Эта функция пока не доступна⚠️') 
+                    if message_to_delete.get(call.message.chat.id) is not None:
+                       bot.delete_message(call.message.chat.id, message_to_delete[call.message.chat.id]) 
+                       del message_to_delete[call.message.chat.id]
+                    message_to_delete[call.message.chat.id] = bot.send_message(call.message.chat.id, f'⚠️Эта функция пока не доступна⚠️').message_id
                 else:
                     db_handler.top_balance(call.message.chat.id, call.data.split('₽')[0])
-                    msg = bot.send_message(call.message.chat.id, f'Твой баланс пополнен на {call.data}')
+                    bot.send_message(call.message.chat.id, f'Твой баланс пополнен на {call.data}').message_id
                     if call.message.chat.id in balance_messages: 
                         balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
                         balance = db_handler.get_balance(call.message.chat.id)
-                        bot.edit_message_text(chat_id=call.message.chat.id, message_id=balance_messages[call.message.chat.id].message_id, text=f'На твоем балансе {balance}₽', reply_markup=balance_markup())
+                        bot.edit_message_text(chat_id=call.message.chat.id, message_id=balance_messages[call.message.chat.id], text=f'На твоем балансе {balance}₽', reply_markup=balance_markup())
         except Exception as e:
             print(repr(e))
         return
@@ -132,12 +139,19 @@ def handler(call):
                     db_handler.set_processing(call.message.chat.id)
                     processing[call.message.chat.id] = True
 
+                    if message_to_delete.get(call.message.chat.id) is not None:
+                        bot.delete_message(call.message.chat.id, message_to_delete[call.message.chat.id])
+                        del message_to_delete[call.message.chat.id]
+
                     bpm_markup = Keyboa(items=bpm_buttons[call.data], items_in_row=3)
-                    bot.send_message(call.message.chat.id, f'{call.data} - отличный выбор! Теперь выбери темп:', reply_markup=bpm_markup()) 
+                    message_to_delete[call.message.chat.id] = bot.send_message(call.message.chat.id, f'{call.data} - отличный выбор! Теперь выбери темп:', reply_markup=bpm_markup()).message_id 
+                    
+                    db_handler.set_chosen_style(call.message.chat.id, call.data)
                     user_chosen_style[call.message.chat.id] = call.data
 
                     db_handler.del_processing(call.message.chat.id)
                     processing[call.message.chat.id] = False
+
         except Exception as e:
             print(repr(e))
             db_handler.del_processing(call.message.chat.id)
@@ -153,7 +167,11 @@ def handler(call):
                         db_handler.set_beats_generating(call.message.chat.id)
                         beats_generating[call.message.chat.id] = True
 
-                        msg = bot.send_message(call.message.chat.id, 'Создаю версии битов, это может занять несколько минут...')
+                        if message_to_delete.get(call.message.chat.id) is not None:
+                            bot.delete_message(call.message.chat.id, message_to_delete[call.message.chat.id])
+                            del message_to_delete[call.message.chat.id]
+
+                        message_to_delete[call.message.chat.id] = bot.send_message(call.message.chat.id, 'Создаю версии битов, это может занять несколько минут...').message_id
                         
                         # style - стиль бита, num - сколько битов сделать
                         def generate_beats(style, num):
@@ -173,7 +191,6 @@ def handler(call):
                                 sound = AudioSegment.from_wav(file_path)
                                 trimmed = sound[45000:55000]
                                 new_file_path = f"{path.splitext(file_path)[0]}_short.wav"
-                                print(new_file_path)
                                 trimmed_sound = trimmed.export(new_file_path, format="wav")
                                 if files_list.index(file_path) == len(files_list)-1:           
                                     beats_markup = Keyboa(items=beats_buttons, items_in_row=3)   
@@ -182,14 +199,21 @@ def handler(call):
                                 else:
                                     bot.send_audio(call.message.chat.id, trimmed_sound)
                             
-
                         # Сделать бит
-                        generate_beats(user_chosen_style[call.message.chat.id], beats)
-                        del user_chosen_style[call.message.chat.id]
+                        if user_chosen_style.get(call.message.chat.id) is not None:
+                            generate_beats(user_chosen_style[call.message.chat.id], beats)
+                            del user_chosen_style[call.message.chat.id]
+                            db_handler.del_chosen_style(call.message.chat.id)
+                        else:
+                            generate_beats(db_handler.get_chosen_style(call.message.chat.id), beats)
+                            db_handler.del_chosen_style(call.message.chat.id)
 
+                        if message_to_delete.get(call.message.chat.id) is not None:
+                            bot.delete_message(call.message.chat.id, message_to_delete[call.message.chat.id])
+                            del message_to_delete[call.message.chat.id]
                         # Отправить бит
-                        msg = bot.send_message(call.message.chat.id, f'Вот 3 демо версии битов на твой вкус:')
-                        
+                        message_to_delete[call.message.chat.id] = bot.send_message(call.message.chat.id, f'Вот 3 демо версии битов на твой вкус:').message_id
+
                         trimmed_audio(glob(f'output_beats/{call.message.chat.id}_[1-{beats}].wav'))
 
                         for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}]_short.wav'):         
@@ -205,6 +229,7 @@ def handler(call):
         except Exception as e:
             print(repr(e))
             db_handler.del_processing(call.message.chat.id)
+            db_handler.del_beats_generating(call.message.chat.id)
             bot.send_message(call.message.chat.id, 'Не удалось отправить пробные версии битов, деньги за транзакцию не сняты. Попробуй ещё раз.')
         return
     elif call.data in beats_buttons:
@@ -218,19 +243,17 @@ def handler(call):
                     bot.send_message(call.message.chat.id, f'Твой выбор: {call.data}')
                     if call.data in beats_buttons:
                         
-                        msg = bot.send_message(call.message.chat.id, 'Скидываю полную версию...')
+                        message_to_delete[call.message.chat.id] = bot.send_message(call.message.chat.id, 'Скидываю полную версию...').message_id
 
                         # Открыть файл
                         beat = open(f'output_beats/{call.message.chat.id}_{call.data}.wav', 'rb')
 
                         # Скинуть файл
                         bot.send_audio(call.message.chat.id, beat)
-
-                        # Снять деньги
-                        db_handler.pay(call.message.chat.id, beat_price)
-
-                        # Увеличеть количество купленых битов на аккаунте
-                        db_handler.get_beat(call.message.chat.id)
+                        
+                        if message_to_delete.get(call.message.chat.id) is not None:
+                            bot.delete_message(call.message.chat.id, message_to_delete[call.message.chat.id])
+                            del message_to_delete[call.message.chat.id]
 
                         # Закрыть файл
                         beat.close()
@@ -244,14 +267,23 @@ def handler(call):
                         # Удалить файлы
                         for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].wav'):
                             remove(file)
+
                     # Убрать пользователя из "обработки"
                     db_handler.del_processing(call.message.chat.id)
                     processing[call.message.chat.id] = False
                     db_handler.del_beats_generating(call.message.chat.id)
                     beats_generating[call.message.chat.id] = False
+
+                    # Снять деньги
+                    db_handler.pay(call.message.chat.id, beat_price)
+
+                    # Увеличеть количество купленых битов на аккаунте
+                    db_handler.get_beat(call.message.chat.id)
+                    
         except Exception as e:
             print(repr(e))
             db_handler.del_processing(call.message.chat.id)
+            db_handler.del_beats_generating(call.message.chat.id)
             bot.send_message(call.message.chat.id, 'Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.')
 
 bot.polling()
