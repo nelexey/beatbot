@@ -1,4 +1,5 @@
 import telebot
+from telebot import types
 from keyboa import Keyboa
 from os import listdir, remove, path 
 import config
@@ -7,9 +8,20 @@ import db_handler
 from pydub import AudioSegment
 from glob import glob
 import itertools
+import requests
 
 # Подключение бота
 bot = telebot.TeleBot(config.TOKEN)
+YOOTOKEN = '381764678:TEST:53404'
+# Инициализация API ЮMoney
+SHOP_ID = '53404'
+API_KEY = 'test_2-xvPjaYJwnMHe1O2vnw9tvU-Z5SPRTyMB0gAHmgRNM'
+HEADERS = {
+    'Content-Type': 'application/json',
+    'Authorization': f'Bearer {API_KEY}'
+}
+URL = f'https://api.yookassa.ru/v3/payments'
+
 
 styles = []
 for dir in listdir():
@@ -47,6 +59,7 @@ def welcome(message):
     inline_markup = Keyboa(items=menu_buttons, items_in_row=2)
     bot.send_message(message.chat.id, 'Здарова, бот', reply_markup=inline_markup())
 
+    # Добавление пользователя в таблицу users
     db_handler.add_user(message.chat.username, message.chat.id, start_balance)
 
 @bot.message_handler(commands=['menu'])
@@ -54,6 +67,8 @@ def menu(message):
     inline_markup = Keyboa(items=menu_buttons, items_in_row=2)
     bot.send_message(message.chat.id, 'Меню:', reply_markup=inline_markup())
 
+    # Добавление пользователя в таблицу users
+    db_handler.add_user(message.chat.username, message.chat.id, start_balance)
 
 # Переменная показывает, в процессе ли обработки пользователь, служит для уменьшения количества запросов в БД на get_processing
 processing = {}
@@ -69,6 +84,36 @@ beats_buttons = [str(i) for i in range(1, beats+1)]
 balance_messages = {}
 # Сообщения для удаления. chat_id: msg
 message_to_delete = {}
+
+# Функция создания платежа
+def create_payment(price):
+    data = {
+        'amount': {
+            'value': str(price),
+            'currency': 'RUB'
+        },
+        'confirmation': {
+            'type': 'redirect',
+            'return_url': 'https://example.com/return'
+        },
+        'capture': True,
+        'description': 'Оплата заказа',
+        'metadata': {
+            'custom_data': 'custom_data_value'
+        }
+    }
+    response = requests.post(URL, headers=HEADERS, json=data)
+    response_json = response.json()
+    payment_id = response_json['id']
+    return payment_id
+
+# Функция отправки счета пользователю
+def send_invoice(chat_id, payment_id, price):
+    bot.send_invoice(chat_id, title='Пополнение баланса',description=f'Ваш баланс будет пополнен на {price}₽',provider_token=YOOTOKEN,currency='RUB',prices=[telebot.types.LabeledPrice(label='Цена товара', amount=price * 100)], invoice_payload=str(payment_id))
+
+@bot.pre_checkout_query_handler(func=lambda call: True)
+def proccess_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery):
+    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
 
 @bot.callback_query_handler(func=lambda call: True)
 def handler(call):
@@ -102,6 +147,7 @@ def handler(call):
                             bot.send_message(call.message.chat.id, 'Ты не можешь заказать еще один бит во время заказа.')    
                 elif call.data == 'Баланс':
                     balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
+                    # Запрос баланса пользователя в таблице users
                     balance = db_handler.get_balance(call.message.chat.id)
                     if balance == 0:
                         balance_messages[call.message.chat.id] = bot.send_message(call.message.chat.id, f'На твоем балансе {balance}₽\n\n⚠️ Зачисленные деньги будут лежать на балансе сколько угодно, на них в любой момент можно купить бит!', reply_markup=balance_markup()).message_id
@@ -117,18 +163,21 @@ def handler(call):
     elif call.data in balance_buttons:
         try:
             if call.message:
-                if call.data == 'Своя сумма':
-                    if message_to_delete.get(call.message.chat.id) is not None:
-                       bot.delete_message(call.message.chat.id, message_to_delete[call.message.chat.id]) 
-                       del message_to_delete[call.message.chat.id]
-                    message_to_delete[call.message.chat.id] = bot.send_message(call.message.chat.id, f'⚠️Эта функция пока не доступна⚠️').message_id
-                else:
-                    db_handler.top_balance(call.message.chat.id, call.data.split('₽')[0])
-                    bot.send_message(call.message.chat.id, f'Твой баланс пополнен на {call.data}').message_id
-                    if call.message.chat.id in balance_messages: 
-                        balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
-                        balance = db_handler.get_balance(call.message.chat.id)
-                        bot.edit_message_text(chat_id=call.message.chat.id, message_id=balance_messages[call.message.chat.id], text=f'На твоем балансе {balance}₽', reply_markup=balance_markup())
+                # Получение цены из callback_data
+                price = int(call.data.split('₽')[0])
+                # Создание платежа
+                payment_id = create_payment(price)
+                # Отправка счета пользователю
+                send_invoice(call.message.chat.id, payment_id, price)
+                # bot.send_invoice(chat_id=call.message.chat.id, title=f'Пополнение на {call.data}', description='Описание чего то', invoice_payload='Пополнение баланса', provider_token=YOOTOKEN, currency='RUB', start_parameter='test_bot', prices=[telebot.types.LabeledPrice(label='Цена товара', amount=1000)]) 
+
+                # db_handler.top_balance(call.message.chat.id, call.data.split('₽')[0])
+                # bot.send_message(call.message.chat.id, f'Твой баланс пополнен на {call.data}').message_id
+                # if call.message.chat.id in balance_messages: 
+                #     balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
+                #     balance = db_handler.get_balance(call.message.chat.id)
+                #     bot.edit_message_text(chat_id=call.message.chat.id, message_id=balance_messages[call.message.chat.id], text=f'На твоем балансе {balance}₽', reply_markup=balance_markup())
+        
         except Exception as e:
             print(repr(e))
         return
