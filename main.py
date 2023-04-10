@@ -1,27 +1,22 @@
 import telebot
 from telebot import types
 from keyboa import Keyboa
-from os import listdir, remove, path 
+from os import listdir, remove, path
+from yookassa import Configuration,Payment
+import asyncio
 import config
 import make_beat
 import db_handler
 from pydub import AudioSegment
 from glob import glob
 import itertools
-import requests
+import json
 
 # Подключение бота
 bot = telebot.TeleBot(config.TOKEN)
-YOOTOKEN = '381764678:TEST:53404'
-# Инициализация API ЮMoney
-SHOP_ID = '53404'
-API_KEY = 'test_2-xvPjaYJwnMHe1O2vnw9tvU-Z5SPRTyMB0gAHmgRNM'
-HEADERS = {
-    'Content-Type': 'application/json',
-    'Authorization': f'Bearer {API_KEY}'
-}
-URL = f'https://api.yookassa.ru/v3/payments'
 
+Configuration.account_id = config.SHOP_ID
+Configuration.secret_key = config.SHOP_API_TOKEN
 
 styles = []
 for dir in listdir():
@@ -85,35 +80,29 @@ balance_messages = {}
 # Сообщения для удаления. chat_id: msg
 message_to_delete = {}
 
-# Функция создания платежа
-def create_payment(price):
-    data = {
-        'amount': {
-            'value': str(price),
-            'currency': 'RUB'
-        },
-        'confirmation': {
-            'type': 'redirect',
-            'return_url': 'https://example.com/return'
-        },
-        'capture': True,
-        'description': 'Оплата заказа',
-        'metadata': {
-            'custom_data': 'custom_data_value'
-        }
-    }
-    response = requests.post(URL, headers=HEADERS, json=data)
-    response_json = response.json()
-    payment_id = response_json['id']
-    return payment_id
+@bot.pre_checkout_query_handler(func=lambda query: True)
+def process_pre_checkout_query(pre_checkout_query):
+    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True, error_message=None)
+    print('iddidi')
 
-# Функция отправки счета пользователю
-def send_invoice(chat_id, payment_id, price):
-    bot.send_invoice(chat_id, title='Пополнение баланса',description=f'Ваш баланс будет пополнен на {price}₽',provider_token=YOOTOKEN,currency='RUB',prices=[telebot.types.LabeledPrice(label='Цена товара', amount=price * 100)], invoice_payload=str(payment_id))
+def payment(value,description):
+	payment = Payment.create({
+    "amount": {
+        "value": value,
+        "currency": "RUB"
+    },
+    "payment_method_data": {
+        "type": "bank_card"
+    },
+    "confirmation": {
+        "type": "redirect",
+        "return_url": "https://web.telegram.org/k/#@NeuralBeatBot"
+    },
+    "capture": True,
+    "description": description
+	})
 
-@bot.pre_checkout_query_handler(func=lambda call: True)
-def proccess_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery):
-    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+	return json.loads(payment.json())
 
 @bot.callback_query_handler(func=lambda call: True)
 def handler(call):
@@ -121,6 +110,26 @@ def handler(call):
     global beats
     global beats_buttons
     global balance_messages
+
+    async def check_payment(payment_id):
+        payment = json.loads((Payment.find_one(payment_id)).json())
+        while payment['status'] == 'pending':
+            payment = json.loads((Payment.find_one(payment_id)).json())
+            await asyncio.sleep(3)
+
+        if payment['status']=='succeeded':
+            print("SUCCSESS RETURN")
+            db_handler.top_balance(call.message.chat.id, call.data.split('₽')[0])
+            bot.send_message(call.message.chat.id, f'Твой баланс пополнен на {call.data}').message_id
+            if call.message.chat.id in balance_messages: 
+                balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
+                balance = db_handler.get_balance(call.message.chat.id)
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=balance_messages[call.message.chat.id], text=f'На твоем балансе {balance}₽', reply_markup=balance_markup())
+            return True
+        else:
+            print("BAD RETURN")
+            bot.send_message(call.message.chat.id, 'Не удалось пополнить баланс.')
+            return False
 
     if db_handler.get_user(call.message.chat.id) == False:
         bot.send_message(call.message.chat.id, 'Нужно перезапустить бота командой /start')
@@ -165,19 +174,13 @@ def handler(call):
             if call.message:
                 # Получение цены из callback_data
                 price = int(call.data.split('₽')[0])
-                # Создание платежа
-                payment_id = create_payment(price)
                 # Отправка счета пользователю
-                send_invoice(call.message.chat.id, payment_id, price)
-                # bot.send_invoice(chat_id=call.message.chat.id, title=f'Пополнение на {call.data}', description='Описание чего то', invoice_payload='Пополнение баланса', provider_token=YOOTOKEN, currency='RUB', start_parameter='test_bot', prices=[telebot.types.LabeledPrice(label='Цена товара', amount=1000)]) 
+                payment_data = payment(price, f'Пополнение баланса на {price}₽')
+                payment_id = payment_data['id']
+                confirmation_url = payment_data['confirmation']['confirmation_url']
+                bot.send_message(call.message.chat.id, f'Для пополнения баланса перейди по этой ссылке: {confirmation_url}')
+                asyncio.run(check_payment(payment_id))
 
-                # db_handler.top_balance(call.message.chat.id, call.data.split('₽')[0])
-                # bot.send_message(call.message.chat.id, f'Твой баланс пополнен на {call.data}').message_id
-                # if call.message.chat.id in balance_messages: 
-                #     balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
-                #     balance = db_handler.get_balance(call.message.chat.id)
-                #     bot.edit_message_text(chat_id=call.message.chat.id, message_id=balance_messages[call.message.chat.id], text=f'На твоем балансе {balance}₽', reply_markup=balance_markup())
-        
         except Exception as e:
             print(repr(e))
         return

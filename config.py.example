@@ -1,6 +1,10 @@
 # токен бота
 TOKEN = 'YOUR_TOKEN'
 
+# Данные Юкассы
+SHOP_ID = 'YOUR_SHOPID'
+SHOP_API_TOKEN = 'YOUR_SECRET_KEY'
+
 # данные PostgreSQL
 host = 'YOURAPI'
 user = 'USERNAME'
