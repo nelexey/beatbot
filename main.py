@@ -1,13 +1,12 @@
 import telebot
-from telebot import types
-from keyboa import Keyboa
+from keyboa import Keyboa # Для создания клавиатур
 from os import listdir, remove, path
-from yookassa import Configuration,Payment
-import asyncio
+from yookassa import Configuration,Payment # Для конфигурирования и создания платежа
+import asyncio # Для асинхронной функции проверки платежа
 import config
-import make_beat
-import db_handler
-from pydub import AudioSegment
+import make_beat # Тут создаются биты
+import db_handler # Обработчик запросов к БД
+from pydub import AudioSegment # Для обрезки битов на их демо-версии
 from glob import glob
 import itertools
 import json
@@ -15,31 +14,27 @@ import json
 # Подключение бота
 bot = telebot.TeleBot(config.TOKEN)
 
+# Подключение Юкассы
 Configuration.account_id = config.SHOP_ID
 Configuration.secret_key = config.SHOP_API_TOKEN
-
-styles = []
-for dir in listdir():
-    if dir.split('_')[0] == 'style':
-        styles.append(dir)
 
 # Ключи - названия стилей на кнопках, значения - названия папок style_*
 aliases = {
     'Jersey Club': 'JC',
     'Trap': 'Trap',
     'Drill': 'Drill',
-    'Plug': 'Plug'
+    'Plug': 'Plug',
 }
+
 styles_buttons = []
 for key in aliases.keys():
     styles_buttons.append(key)
 
-beat_price = 45
+beat_price = 90 # RUB
 
-# Кнопки
+# Кнопки 
 menu_buttons = ['Баланс', 'О нас', f'Заказать бит - {beat_price}₽']
 balance_buttons = ['45₽', '90₽', '135₽']
-navigation_buttons = ['<<Назад']
 # Для каждого стиля свои кнопки bpm
 bpm_buttons = {'Jersey Club': ['110bpm', '130bpm', '145bpm'],
                'Trap': ['110bpm', '130bpm', '145bpm'],
@@ -47,16 +42,15 @@ bpm_buttons = {'Jersey Club': ['110bpm', '130bpm', '145bpm'],
                'Plug': ['140bpm', '150bpm', '160bpm']}
 
 # Начальный баланс пользователя при добавлении в БД
-start_balance = 0   
+start_balance = 0 # RUB
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
     inline_markup = Keyboa(items=menu_buttons, items_in_row=2)
     bot.send_message(message.chat.id, 'Здарова, бот', reply_markup=inline_markup())
-
     # Добавление пользователя в таблицу users
     db_handler.add_user(message.chat.username, message.chat.id, start_balance)
-
+    
 @bot.message_handler(commands=['menu'])
 def menu(message):
     inline_markup = Keyboa(items=menu_buttons, items_in_row=2)
@@ -65,6 +59,8 @@ def menu(message):
     # Добавление пользователя в таблицу users
     db_handler.add_user(message.chat.username, message.chat.id, start_balance)
 
+# Переменная хранит данные пользователя, служит для уменьшения количества запросов в БД на get_user
+user = {}
 # Переменная показывает, в процессе ли обработки пользователь, служит для уменьшения количества запросов в БД на get_processing
 processing = {}
 # Переменная показывает, в процессе ли создания бита пользователь, служит для уменьшения количества запросов в БД на get_beats_generating
@@ -80,11 +76,7 @@ balance_messages = {}
 # Сообщения для удаления. chat_id: msg
 message_to_delete = {}
 
-@bot.pre_checkout_query_handler(func=lambda query: True)
-def process_pre_checkout_query(pre_checkout_query):
-    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True, error_message=None)
-    print('iddidi')
-
+# Создает платёж
 def payment(value,description):
 	payment = Payment.create({
     "amount": {
@@ -104,6 +96,12 @@ def payment(value,description):
 
 	return json.loads(payment.json())
 
+# Подтверждает наличие "товара"
+@bot.pre_checkout_query_handler(func=lambda query: True)
+def process_pre_checkout_query(pre_checkout_query):
+    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True, error_message=None)
+
+# Обработчик всех кнопок
 @bot.callback_query_handler(func=lambda call: True)
 def handler(call):
     global msg
@@ -111,6 +109,7 @@ def handler(call):
     global beats_buttons
     global balance_messages
 
+    # Асинхронная функция проверки статуса платежа
     async def check_payment(payment_id):
         payment = json.loads((Payment.find_one(payment_id)).json())
         while payment['status'] == 'pending':
@@ -130,10 +129,18 @@ def handler(call):
             print("BAD RETURN")
             bot.send_message(call.message.chat.id, 'Не удалось пополнить баланс.')
             return False
-
-    if db_handler.get_user(call.message.chat.id) == False:
-        bot.send_message(call.message.chat.id, 'Нужно перезапустить бота командой /start')
-        return
+        
+    # Если бот перезапущен с удалением БД и значения пользователя не существуют
+    if user.get(call.message.chat.id) is None:
+        if db_handler.get_user(call.message.chat.id) == False:
+            bot.send_message(call.message.chat.id, 'Нужно перезапустить бота командой /start')
+            return
+        else:
+            user[call.message.chat.id] = db_handler.get_user(call.message.chat.id)
+    else:
+        if user[call.message.chat.id] == False:
+            bot.send_message(call.message.chat.id, 'Нужно перезапустить бота командой /start')
+            return
 
     if call.data in menu_buttons:
         try:
@@ -163,7 +170,6 @@ def handler(call):
                     else:
                         balance_messages[call.message.chat.id] = bot.send_message(call.message.chat.id, f'На твоем балансе {balance}₽', reply_markup=balance_markup()).message_id
                 elif call.data == 'О нас':
-                    navigation_markup = Keyboa(items=navigation_buttons, items_in_row=2)
                     bot.send_message(call.message.chat.id, 'О нас много не скажешь.')   
         except Exception as e:
             print(repr(e))
@@ -260,14 +266,8 @@ def handler(call):
                                 else:
                                     bot.send_audio(call.message.chat.id, trimmed_sound)
                             
-                        # Сделать бит
-                        if user_chosen_style.get(call.message.chat.id) is not None:
-                            generate_beats(user_chosen_style[call.message.chat.id], beats)
-                            del user_chosen_style[call.message.chat.id]
-                            db_handler.del_chosen_style(call.message.chat.id)
-                        else:
-                            generate_beats(db_handler.get_chosen_style(call.message.chat.id), beats)
-                            db_handler.del_chosen_style(call.message.chat.id)
+                        # Сделать бит     
+                        generate_beats(db_handler.get_chosen_style(call.message.chat.id), beats)
 
                         if message_to_delete.get(call.message.chat.id) is not None:
                             bot.delete_message(call.message.chat.id, message_to_delete[call.message.chat.id])
@@ -301,7 +301,16 @@ def handler(call):
                     db_handler.set_processing(call.message.chat.id)
                     processing[call.message.chat.id] = True
 
-                    bot.send_message(call.message.chat.id, f'Твой выбор: {call.data}')
+                    # Записать в переменную и удалить выбранный стиль
+                    if user_chosen_style.get(call.message.chat.id) is not None: 
+                        chosen_style = user_chosen_style[call.message.chat.id]
+                        del user_chosen_style[call.message.chat.id]
+                    else:
+                        chosen_style = db_handler.get_chosen_style(call.message.chat.id)
+                    db_handler.del_chosen_style(call.message.chat.id)
+
+                    bot.send_message(call.message.chat.id, f'Твой выбор: версия {call.data} в стиле {chosen_style}')
+                    
                     if call.data in beats_buttons:
                         
                         message_to_delete[call.message.chat.id] = bot.send_message(call.message.chat.id, 'Скидываю полную версию...').message_id
