@@ -252,7 +252,6 @@ def plug(chat_id, bpm, file_corr=0):
 
 
 def trap(chat_id, bpm, file_corr=0):
-
     bass = random.choice([AudioSegment.from_wav(file) for file in glob("style_Trap/bass/*.wav")])
     hi_hat = random.choice([AudioSegment.from_wav(file) for file in glob("style_Trap/hi-hat/*.wav")])
     kick = random.choice([AudioSegment.from_wav(file) for file in glob("style_Trap/kick/*.wav")])
@@ -283,7 +282,7 @@ def trap(chat_id, bpm, file_corr=0):
     sandwich1 = sandwich1.overlay(kick, position=0)
     sandwich1 = sandwich1.overlay(bass, position=0)
 
-    sandwich1 = sandwich1[:7380] 
+    sandwich1 = sandwich1[:7380]
     octaves = -1
     new_sample_rate = int(sandwich1.frame_rate * (2.0 ** octaves))
     sandwich1 = sandwich1._spawn(sandwich1.raw_data, overrides={'frame_rate': new_sample_rate})

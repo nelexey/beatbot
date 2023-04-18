@@ -116,6 +116,7 @@ try:
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT chosen_style FROM users WHERE CAST(chat_id AS INTEGER) = {chat_id};''')
             print(f'[INFO] Geting beats beat')
+            return cursor.fetchone()[0]
 except Exception as _ex:
     print('[INFO] Error while working with PostgreSQL', _ex)
 finally:
