@@ -22,6 +22,7 @@ try:
             cursor.execute('''CREATE TABLE IF NOT EXISTS users(
                             id SERIAL PRIMARY KEY,
                             username VARCHAR(50) NOT NULL,
+                            user_initials VARCHAR(290),
                             chat_id	VARCHAR(50) UNIQUE NOT NULL,
                             balance	INTEGER,
                             received_beats INTEGER,
@@ -31,11 +32,11 @@ try:
             print('[INFO] Table works succesfuly')
         return True
     
-    def add_user(username, chat_id, balance=0):
+    def add_user(username, chat_id, user_initials='', balance=0):
         connect()
         with connection.cursor() as cursor:
-            cursor.execute(f'''INSERT INTO users (username, chat_id, balance, received_beats)
-            VALUES ('{username}', {chat_id}, {balance}, {0}) ON CONFLICT DO NOTHING;''')
+            cursor.execute(f'''INSERT INTO users (username, user_initials, chat_id, balance, received_beats)
+            VALUES ('{username}', '{user_initials}', {chat_id}, {balance}, {0}) ON CONFLICT DO NOTHING;''')
             
             print(f'[INFO] Values for *{username}* succesfuly added')
     def get_user(chat_id):

@@ -1,6 +1,6 @@
 from glob import glob
 from pydub import AudioSegment
-import random
+from random import choice, randint
 
 def speed_change(sound, speed=1.0):
     # Manually override the frame_rate. This tells the computer how many
@@ -15,22 +15,129 @@ def speed_change(sound, speed=1.0):
     return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
 
 def jersey_club(chat_id, bpm, file_corr=0):
-    pass
-
-def drill(chat_id, bpm, file_corr=0):
-    bass = random.choice([AudioSegment.from_wav(file) for file in glob("style_Drill/bass/*.wav")])
-    hi_hat = random.choice([AudioSegment.from_wav(file) for file in glob("style_Drill/hi-hat/*.wav")])
-    kick = random.choice([AudioSegment.from_wav(file) for file in glob("style_Drill/kick/*.wav")])
-    clap = random.choice([AudioSegment.from_wav(file) for file in glob("style_Drill/clap/*.wav")])
+    bass = choice([AudioSegment.from_wav(file) for file in glob("style_JC/bass/*.wav")])
+    hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_JC/hi-hat/*.wav")])
+    kick = choice([AudioSegment.from_wav(file) for file in glob("style_JC/kick/*.wav")])
     
     ## sync leads and help_leads ON
-    leads_sync = random.randint(1, len(glob("style_Drill/lead/*.wav")))
-    lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Drill/lead/lead{leads_sync}.wav")])
-    help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Drill/helplead/helplead{leads_sync}.wav")])
+    leads_sync = randint(1, len(glob("style_JC/lead/*.wav")))
+    lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/lead/lead{leads_sync}.wav")])
+    help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/helplead/helplead{leads_sync}.wav")])
     
     ## sync leads and help_leads OFF
-    # lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Drill/lead/*.wav")])
-    # help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Drill/helplead/*.wav")])
+    # lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/lead/*.wav")])
+    # help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/helplead/*.wav")])
+
+    ##### ТАКТЫ #####
+
+    # 13240
+
+    ## 1 ##
+    sandwich1 = lead
+    sandwich1 = sandwich1.overlay(help_lead, position=0)
+    sandwich1 = sandwich1.overlay(kick, position=0)
+    sandwich1 = sandwich1.overlay(hi_hat, position=0)
+    sandwich1 = sandwich1.overlay(bass, position=0)
+
+    sandwich1 = sandwich1[:6620]
+    octaves = -1
+    new_sample_rate = int(sandwich1.frame_rate * (2.0 ** octaves))
+    sandwich1 = sandwich1._spawn(sandwich1.raw_data, overrides={'frame_rate': new_sample_rate})
+
+    overlay = sandwich1
+
+    ## 2 ##
+
+    sandwich2 = lead
+    sandwich2 = sandwich2.overlay(help_lead, position=0)
+    sandwich2 = sandwich2.overlay(hi_hat, position=0)
+
+    overlay = overlay.append(sandwich2, crossfade=0)
+
+    ## 3 ##
+    sandwich3 = lead
+    sandwich3 = sandwich3.overlay(help_lead, position=0)
+    sandwich3 = sandwich3.overlay(hi_hat, position=0)
+    sandwich3 = sandwich3.overlay(kick, position=0)
+    sandwich3 = sandwich3.overlay(bass, position=0)
+
+    overlay = overlay.append(sandwich3, crossfade=0)
+
+    ## 4 ##
+    sandwich4 = lead
+    sandwich4 = sandwich4.overlay(help_lead, position=0)
+    sandwich4 = sandwich4.overlay(hi_hat, position=0)
+    # Наложение не сразу после начала
+    sandwich4 = sandwich4.overlay(kick[3300:], position=3300)
+    sandwich4 = sandwich4.overlay(bass[3300:], position=3300)
+    
+    overlay = overlay.append(sandwich4, crossfade=0)
+
+    ## 5 ##
+    sandwich5 = lead
+    sandwich5 = sandwich5.overlay(help_lead, position=0)
+    sandwich5 = sandwich5.overlay(hi_hat, position=0)
+    sandwich5 = sandwich5.overlay(kick, position=0)
+    sandwich5 = sandwich5.overlay(bass, position=0)
+  
+    overlay = overlay.append(sandwich5, crossfade=0)
+
+    ## 6 ##
+    sandwich6 = lead
+    sandwich6 = sandwich6.overlay(help_lead, position=0)
+    sandwich6 = sandwich6.overlay(hi_hat, position=0)
+    # Наложение не сразу после начала
+    sandwich6 = sandwich6.overlay(kick[3300:], position=3300)
+    sandwich6 = sandwich6.overlay(bass[3300:], position=3300)
+
+    overlay = overlay.append(sandwich6, crossfade=0)
+
+    ## 7 ##
+    sandwich7 = lead
+    sandwich7 = sandwich7.overlay(help_lead, position=0)
+    sandwich7 = sandwich7.overlay(hi_hat, position=0)
+    sandwich7 = sandwich7.overlay(kick, position=0)
+    sandwich7 = sandwich7.overlay(bass, position=0)
+
+    overlay = overlay.append(sandwich7, crossfade=0)
+
+    ## 8 ##
+    sandwich8 = lead
+    sandwich8 = sandwich8.overlay(help_lead, position=0)
+    sandwich8 = sandwich8.overlay(hi_hat, position=0)
+    
+    overlay = overlay.append(sandwich8, crossfade=0)
+
+    ## 9 ##
+    sandwich9 = lead
+    
+    overlay = overlay.append(sandwich9, crossfade=0)
+
+    bpm = int(bpm.split('b')[0])
+
+    overlay = speed_change(overlay, bpm/145)
+    
+    if file_corr!=0:
+        file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.wav", format="wav")
+    else:
+        file_handle = overlay.export(f"output_beats/{chat_id}.wav", format="wav")
+
+    return True
+
+def drill(chat_id, bpm, file_corr=0):
+    bass = choice([AudioSegment.from_wav(file) for file in glob("style_Drill/bass/*.wav")])
+    hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Drill/hi-hat/*.wav")])
+    kick = choice([AudioSegment.from_wav(file) for file in glob("style_Drill/kick/*.wav")])
+    clap = choice([AudioSegment.from_wav(file) for file in glob("style_Drill/clap/*.wav")])
+    
+    ## sync leads and help_leads ON
+    leads_sync = randint(1, len(glob("style_Drill/lead/*.wav")))
+    lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Drill/lead/lead{leads_sync}.wav")])
+    help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Drill/helplead/helplead{leads_sync}.wav")])
+    
+    ## sync leads and help_leads OFF
+    # lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Drill/lead/*.wav")])
+    # help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Drill/helplead/*.wav")])
 
     ##### ТАКТЫ #####
 
@@ -40,7 +147,6 @@ def drill(chat_id, bpm, file_corr=0):
     #130bpm 4sandwich 59sec 07milisec
 
     ## 1 ##
-
     sandwich1 = lead
     sandwich1 = sandwich1.overlay(help_lead, position=0)
     sandwich1 = sandwich1.overlay(clap, position=0)
@@ -56,7 +162,6 @@ def drill(chat_id, bpm, file_corr=0):
     overlay = sandwich1
 
     ## 2 ##
-
     sandwich2 = lead
 
     overlay = overlay.append(sandwich2, crossfade=0)
@@ -67,7 +172,6 @@ def drill(chat_id, bpm, file_corr=0):
     sandwich3 = sandwich3.overlay(clap, position=0)
     sandwich3 = sandwich3.overlay(hi_hat, position=0)
 
-
     overlay = overlay.append(sandwich3, crossfade=0)
 
     ## 4 ##
@@ -77,7 +181,6 @@ def drill(chat_id, bpm, file_corr=0):
     sandwich4 = sandwich4.overlay(hi_hat, position=0)
     sandwich4 = sandwich4.overlay(kick, position=0)
     sandwich4 = sandwich4.overlay(bass, position=0)
-
     
     overlay = overlay.append(sandwich4, crossfade=0)
 
@@ -88,7 +191,6 @@ def drill(chat_id, bpm, file_corr=0):
     sandwich5 = sandwich5.overlay(hi_hat, position=0)
     sandwich5 = sandwich5.overlay(kick, position=0)
     sandwich5 = sandwich5.overlay(bass, position=0)
-
     
     overlay = overlay.append(sandwich5, crossfade=0)
 
@@ -98,7 +200,6 @@ def drill(chat_id, bpm, file_corr=0):
     sandwich6 = sandwich6.overlay(hi_hat, position=0)
     sandwich6 = sandwich6.overlay(kick, position=0)
     sandwich6 = sandwich6.overlay(bass, position=0)
-
 
     overlay = overlay.append(sandwich6, crossfade=0)
 
@@ -110,16 +211,13 @@ def drill(chat_id, bpm, file_corr=0):
     sandwich7 = sandwich7.overlay(kick, position=0)
     sandwich7 = sandwich7.overlay(bass, position=0)
 
-
     overlay = overlay.append(sandwich7, crossfade=0)
 
     ## 8 ##
     sandwich8 = lead
     sandwich8 = sandwich8.overlay(help_lead, position=0)
-    
 
     overlay = overlay.append(sandwich8, crossfade=0)
-
 
     bpm = int(bpm.split('b')[0])
 
@@ -133,20 +231,22 @@ def drill(chat_id, bpm, file_corr=0):
     else:
         file_handle = overlay.export(f"output_beats/{chat_id}.wav", format="wav")
 
+    return True
+
 def plug(chat_id, bpm, file_corr=0):
-    bass = random.choice([AudioSegment.from_wav(file) for file in glob("style_Plug/bass/*.wav")])
-    hi_hat = random.choice([AudioSegment.from_wav(file) for file in glob("style_Plug/hi-hat/*.wav")])
-    kick = random.choice([AudioSegment.from_wav(file) for file in glob("style_Plug/kick/*.wav")])
-    clap = random.choice([AudioSegment.from_wav(file) for file in glob("style_Plug/clap/*.wav")])
+    bass = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/bass/*.wav")])
+    hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/hi-hat/*.wav")])
+    kick = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/kick/*.wav")])
+    clap = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/clap/*.wav")])
     
     ## sync leads and help_leads ON
-    leads_sync = random.randint(1, len(glob("style_Plug/lead/*.wav")))
-    lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Plug/lead/lead{leads_sync}.wav")])
-    help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Plug/helplead/helplead{leads_sync}.wav")])
+    leads_sync = randint(1, len(glob("style_Plug/lead/*.wav")))
+    lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Plug/lead/lead{leads_sync}.wav")])
+    help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Plug/helplead/helplead{leads_sync}.wav")])
     
     ## sync leads and help_leads OFF
-    # lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Plug/lead/*.wav")])
-    # help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Plug/helplead/*.wav")])
+    # lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Plug/lead/*.wav")])
+    # help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Plug/helplead/*.wav")])
 
     ##### ТАКТЫ #####
 
@@ -156,7 +256,6 @@ def plug(chat_id, bpm, file_corr=0):
     #130bpm 4sandwich 59sec 07milisec
 
     ## 1 ##
-
     sandwich1 = lead
     sandwich1 = sandwich1.overlay(help_lead, position=0)
     sandwich1 = sandwich1.overlay(clap, position=0)
@@ -164,7 +263,7 @@ def plug(chat_id, bpm, file_corr=0):
     sandwich1 = sandwich1.overlay(kick, position=0)
     sandwich1 = sandwich1.overlay(bass, position=0)
 
-    sandwich1 = sandwich1[:7380] 
+    sandwich1 = sandwich1[:6620] 
     octaves = -1
     new_sample_rate = int(sandwich1.frame_rate * (2.0 ** octaves))
     sandwich1 = sandwich1._spawn(sandwich1.raw_data, overrides={'frame_rate': new_sample_rate})
@@ -172,7 +271,6 @@ def plug(chat_id, bpm, file_corr=0):
     overlay = sandwich1
 
     ## 2 ##
-
     sandwich2 = lead
 
     overlay = overlay.append(sandwich2, crossfade=0)
@@ -183,7 +281,6 @@ def plug(chat_id, bpm, file_corr=0):
     sandwich3 = sandwich3.overlay(clap, position=0)
     sandwich3 = sandwich3.overlay(hi_hat, position=0)
 
-
     overlay = overlay.append(sandwich3, crossfade=0)
 
     ## 4 ##
@@ -193,8 +290,7 @@ def plug(chat_id, bpm, file_corr=0):
     sandwich4 = sandwich4.overlay(hi_hat, position=0)
     sandwich4 = sandwich4.overlay(kick, position=0)
     sandwich4 = sandwich4.overlay(bass, position=0)
-
-    
+ 
     overlay = overlay.append(sandwich4, crossfade=0)
 
     ## 5 ##
@@ -204,8 +300,7 @@ def plug(chat_id, bpm, file_corr=0):
     sandwich5 = sandwich5.overlay(hi_hat, position=0)
     sandwich5 = sandwich5.overlay(kick, position=0)
     sandwich5 = sandwich5.overlay(bass, position=0)
-
-    
+ 
     overlay = overlay.append(sandwich5, crossfade=0)
 
     ## 6 ##
@@ -214,7 +309,6 @@ def plug(chat_id, bpm, file_corr=0):
     sandwich6 = sandwich6.overlay(hi_hat, position=0)
     sandwich6 = sandwich6.overlay(kick, position=0)
     sandwich6 = sandwich6.overlay(bass, position=0)
-
 
     overlay = overlay.append(sandwich6, crossfade=0)
 
@@ -226,45 +320,39 @@ def plug(chat_id, bpm, file_corr=0):
     sandwich7 = sandwich7.overlay(kick, position=0)
     sandwich7 = sandwich7.overlay(bass, position=0)
 
-
     overlay = overlay.append(sandwich7, crossfade=0)
 
     ## 8 ##
     sandwich8 = lead
     sandwich8 = sandwich8.overlay(help_lead, position=0)
     
-
     overlay = overlay.append(sandwich8, crossfade=0)
-
 
     bpm = int(bpm.split('b')[0])
 
-    if bpm == 145:
-        pass       
-    else:
-        overlay = speed_change(overlay, bpm/145)
+    overlay = speed_change(overlay, bpm/145)
     
     if file_corr!=0:
         file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.wav", format="wav")
     else:
         file_handle = overlay.export(f"output_beats/{chat_id}.wav", format="wav")
 
-
+    return True
 
 def trap(chat_id, bpm, file_corr=0):
-    bass = random.choice([AudioSegment.from_wav(file) for file in glob("style_Trap/bass/*.wav")])
-    hi_hat = random.choice([AudioSegment.from_wav(file) for file in glob("style_Trap/hi-hat/*.wav")])
-    kick = random.choice([AudioSegment.from_wav(file) for file in glob("style_Trap/kick/*.wav")])
-    clap = random.choice([AudioSegment.from_wav(file) for file in glob("style_Trap/clap/*.wav")])
+    bass = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/bass/*.wav")])
+    hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/hi-hat/*.wav")])
+    kick = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/kick/*.wav")])
+    clap = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/clap/*.wav")])
     
     ## sync leads and help_leads ON
-    leads_sync = random.randint(1, len(glob("style_Trap/lead/*.wav")))
-    lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/lead/lead{leads_sync}.wav")])
-    help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/helplead/helplead{leads_sync}.wav")])
+    leads_sync = randint(1, len(glob("style_Trap/lead/*.wav")))
+    lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/lead/lead{leads_sync}.wav")])
+    help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/helplead/helplead{leads_sync}.wav")])
     
     ## sync leads and help_leads OFF
-    # lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/lead/*.wav")])
-    # help_lead = random.choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/helplead/*.wav")])
+    # lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/lead/*.wav")])
+    # help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/helplead/*.wav")])
 
     ##### ТАКТЫ #####
 
@@ -274,7 +362,6 @@ def trap(chat_id, bpm, file_corr=0):
     #130bpm 4sandwich 59sec 07milisec
 
     ## 1 ##
-
     sandwich1 = lead
     sandwich1 = sandwich1.overlay(help_lead, position=0)
     sandwich1 = sandwich1.overlay(clap, position=0)
@@ -290,7 +377,6 @@ def trap(chat_id, bpm, file_corr=0):
     overlay = sandwich1
 
     ## 2 ##
-
     sandwich2 = lead
 
     overlay = overlay.append(sandwich2, crossfade=0)
@@ -311,7 +397,6 @@ def trap(chat_id, bpm, file_corr=0):
     sandwich4 = sandwich4.overlay(hi_hat, position=0)
     sandwich4 = sandwich4.overlay(kick, position=0)
     sandwich4 = sandwich4.overlay(bass, position=0)
-
     
     overlay = overlay.append(sandwich4, crossfade=0)
 
@@ -323,7 +408,6 @@ def trap(chat_id, bpm, file_corr=0):
     sandwich5 = sandwich5.overlay(kick, position=0)
     sandwich5 = sandwich5.overlay(bass, position=0)
 
-    
     overlay = overlay.append(sandwich5, crossfade=0)
 
     ## 6 ##
@@ -332,7 +416,6 @@ def trap(chat_id, bpm, file_corr=0):
     sandwich6 = sandwich6.overlay(hi_hat, position=0)
     sandwich6 = sandwich6.overlay(kick, position=0)
     sandwich6 = sandwich6.overlay(bass, position=0)
-
 
     overlay = overlay.append(sandwich6, crossfade=0)
 
@@ -344,16 +427,13 @@ def trap(chat_id, bpm, file_corr=0):
     sandwich7 = sandwich7.overlay(kick, position=0)
     sandwich7 = sandwich7.overlay(bass, position=0)
 
-
     overlay = overlay.append(sandwich7, crossfade=0)
 
     ## 8 ##
     sandwich8 = lead
     sandwich8 = sandwich8.overlay(help_lead, position=0)
     
-
     overlay = overlay.append(sandwich8, crossfade=0)
-
 
     bpm = int(bpm.split('b')[0])
 
@@ -366,3 +446,5 @@ def trap(chat_id, bpm, file_corr=0):
         file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.wav", format="wav")
     else:
         file_handle = overlay.export(f"output_beats/{chat_id}.wav", format="wav")
+    
+    return True

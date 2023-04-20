@@ -37,27 +37,31 @@ beat_price = 90 # RUB
 menu_buttons = ['💰 Баланс', '🏡 О нас', f'🎵 Сгенерировать бит - {beat_price}₽ 🎵']
 balance_buttons = ['90₽', '180₽', '270₽']
 # Для каждого стиля свои кнопки bpm
-bpm_buttons = {'Jersey Club': ['110bpm', '130bpm', '145bpm'],
+bpm_buttons = {'Jersey Club': ['140bpm', '150bpm', '160bpm'],
                'Trap': ['110bpm', '130bpm', '145bpm'],
                'Drill': ['110bpm', '130bpm', '145bpm'],
                'Plug': ['140bpm', '150bpm', '160bpm']}
 
 # Начальный баланс пользователя при добавлении в БД
 start_balance = 0 # RUB
+# Переменная хранит данные пользователя, служит для уменьшения количества запросов в БД на add_user
+is_added = {}
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
     bot.send_message(message.chat.id, 'Привет! 👋\n\nЯ телеграм-бот, который поможет тебе создать качественные 🎧 биты в разных стилях.\n\nМоя главная особенность - доступная 💰 цена и большой выбор стилей. Ты можешь выбрать любой стиль, который тебе нравится, и я создам для тебя уникальный бит.\n\nНе упусти возможность создать свой собственный звук и выделиться на фоне других исполнителей! 🎶\n\nЧтобы начать, используй команду\n/menu')
+    user_initials = f'{message.from_user.first_name} {message.from_user.last_name}'
     # Добавление пользователя в таблицу users
-    db_handler.add_user(message.chat.username, message.chat.id, start_balance)
+    db_handler.add_user(message.chat.username, message.chat.id, user_initials, start_balance)
     
 @bot.message_handler(commands=['menu'])
 def menu(message):
     inline_markup = Keyboa(items=menu_buttons, items_in_row=2)
     bot.send_message(message.chat.id, "🎶 Привет! Это меню заказа битов 🎶\n\n💥 Ты можешь ознакомиться с примером бита, который я могу создать, используя команду /beats. Просто отправь эту команду в чат и ты получишь ссылку на наш пример.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=inline_markup())
-
+    user_initials = f'{message.from_user.first_name} {message.from_user.last_name}'
     # Добавление пользователя в таблицу users
-    db_handler.add_user(message.chat.username, message.chat.id, start_balance)
+    db_handler.add_user(message.chat.username, message.chat.id, user_initials, start_balance)
+
 
 # Переменная хранит данные пользователя, служит для уменьшения количества запросов в БД на get_user
 user = {}
@@ -129,7 +133,7 @@ def handler(call):
             print("BAD RETURN")
             bot.send_message(call.message.chat.id, 'Не удалось пополнить баланс.')
             return False
-        
+
     # Если бот перезапущен с удалением БД и значения пользователя не существуют
     if user.get(call.message.chat.id) is None:
         if db_handler.get_user(call.message.chat.id) == False:
@@ -222,11 +226,11 @@ def handler(call):
                 if processing.get(call.message.chat.id) is not None or db_handler.get_processing(call.message.chat.id) == 0:
                     if user_chosen_style.get(call.message.chat.id) is not None:
                         if call.data not in bpm_buttons[user_chosen_style[call.message.chat.id]]:
-                            bot.send_message(call.message.chat.id, 'Ты не можешь выбрать этот bpm для этого стиля, выбери из вышеприведённых')
+                            bot.send_message(call.message.chat.id, '⚠️ Ты не можешь выбрать этот bpm для этого стиля, выбери из вышеприведённых')
                             return
                     else:
                         if call.data not in bpm_buttons[db_handler.get_chosen_style[call.message.chat.id]]:
-                            bot.send_message(call.message.chat.id, 'Ты не можешь выбрать этот bpm для этого стиля, выбери из вышеприведённых')
+                            bot.send_message(call.message.chat.id, '⚠️ Ты не можешь выбрать этот bpm для этого стиля, выбери из вышеприведённых')
                             return
                         
                     db_handler.set_processing(call.message.chat.id)
@@ -246,13 +250,17 @@ def handler(call):
                         def generate_beats(style, num):
                             for i in range(1, num+1):
                                 if style == 'Jersey Club':
-                                    make_beat.jersey_club(call.message.chat.id, call.data, i)
+                                    status = make_beat.jersey_club(call.message.chat.id, call.data, i)
                                 elif style == 'Trap':
-                                    make_beat.trap(call.message.chat.id, call.data, i)
+                                    status = make_beat.trap(call.message.chat.id, call.data, i)
                                 elif style == 'Drill':
-                                    make_beat.drill(call.message.chat.id, call.data, i)
+                                    status = make_beat.drill(call.message.chat.id, call.data, i)
                                 elif style == 'Plug':
-                                    make_beat.plug(call.message.chat.id, call.data, i)
+                                    status = make_beat.plug(call.message.chat.id, call.data, i)
+                            if status:
+                                return True
+                            else:
+                                return False   
                         # Обрезать аудио
                         def trimmed_audio(files_list):
                             for file_path in files_list:
@@ -268,7 +276,10 @@ def handler(call):
                                     bot.send_audio(call.message.chat.id, trimmed_sound)
                             
                         # Сделать бит     
-                        generate_beats(db_handler.get_chosen_style(call.message.chat.id), beats)
+                        if generate_beats(db_handler.get_chosen_style(call.message.chat.id), beats) == False:
+                            db_handler.del_processing(call.message.chat.id)
+                            db_handler.del_beats_generating(call.message.chat.id)
+                            return bot.send_message(call.message.chat.id, '⚠️ Не удалось отправить пробные версии битов, деньги за транзакцию не сняты. Попробуй ещё раз.')
 
                         if message_to_delete.get(call.message.chat.id) is not None:
                             bot.delete_message(call.message.chat.id, message_to_delete[call.message.chat.id])
@@ -283,7 +294,7 @@ def handler(call):
 
                     else:    
                         inline_markup = Keyboa(items=menu_buttons[0], items_in_row=1)
-                        bot.send_message(call.message.chat.id, f'Тебе не хватает денег на балансе, пополни баланс чтобы купить бит', reply_markup=inline_markup())
+                        bot.send_message(call.message.chat.id, f'⚠️ Тебе не хватает денег на балансе, пополни баланс чтобы купить бит', reply_markup=inline_markup())
                         db_handler.del_beats_generating(call.message.chat.id)
                         beats_generating[call.message.chat.id] = False
                     db_handler.del_processing(call.message.chat.id)
@@ -292,7 +303,7 @@ def handler(call):
             print(repr(e))
             db_handler.del_processing(call.message.chat.id)
             db_handler.del_beats_generating(call.message.chat.id)
-            bot.send_message(call.message.chat.id, 'Не удалось отправить пробные версии битов, деньги за транзакцию не сняты. Попробуй ещё раз.')
+            bot.send_message(call.message.chat.id, '⚠️ Не удалось отправить пробные версии битов, деньги за транзакцию не сняты. Попробуй ещё раз.')
         return
     elif call.data in beats_buttons:
         try:
@@ -313,7 +324,7 @@ def handler(call):
 
                         # Скинуть файл
                         bot.send_audio(call.message.chat.id, beat)
-                        bot.send_message(call.message.chat.id, f'С твоего баланса снято {beat_price}')
+                        bot.send_message(call.message.chat.id, f'С твоего баланса снято {beat_price}₽\nНадеюсь тебе понравится бит😉')
                         
                         if message_to_delete.get(call.message.chat.id) is not None:
                             bot.delete_message(call.message.chat.id, message_to_delete[call.message.chat.id])
@@ -348,6 +359,6 @@ def handler(call):
             print(repr(e))
             db_handler.del_processing(call.message.chat.id)
             db_handler.del_beats_generating(call.message.chat.id)
-            bot.send_message(call.message.chat.id, 'Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.')
+            bot.send_message(call.message.chat.id, '⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.')
 
 bot.polling()
