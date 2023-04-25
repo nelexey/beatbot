@@ -35,7 +35,7 @@ beat_price = 90 # RUB
 
 # Кнопки 
 menu_buttons = ['💰 Баланс', '🏡 О нас', f'🎵 Сгенерировать бит - {beat_price}₽ 🎵']
-balance_buttons = ['90₽', '180₽', '270₽']
+balance_buttons = ['90₽', '180₽', '360₽']
 # Для каждого стиля свои кнопки bpm
 bpm_buttons = {'Jersey Club': ['140bpm', '150bpm', '160bpm'],
                'Trap': ['110bpm', '130bpm', '145bpm'],
@@ -57,12 +57,26 @@ def welcome(message):
 @bot.message_handler(commands=['menu'])
 def menu(message):
     inline_markup = Keyboa(items=menu_buttons, items_in_row=2)
-    bot.send_message(message.chat.id, "🎶 Привет! Это меню заказа битов 🎶\n\n💥 Ты можешь ознакомиться с примером бита, который я могу создать, используя команду /beats. Просто отправь эту команду в чат и ты получишь ссылку на наш пример.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=inline_markup())
+    bot.send_message(message.chat.id, "🎶 Привет! Это меню заказа битов 🎶\n\n💥 Ты можешь ознакомиться с примером бита, который я могу создать, используя команду /example_beats. Просто отправь эту команду в чат и ты получишь ссылку на наш пример.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=inline_markup())
     user_initials = f'{message.from_user.first_name} {message.from_user.last_name}'
     # Добавление пользователя в таблицу users
     db_handler.add_user(message.chat.username, message.chat.id, user_initials, start_balance)
 
+# Если пользователю уже отправлялись примеры битов, то значение под ключем его chat_id будет True
+got_example_beats = {}
 
+@bot.message_handler(commands=['example_beats'])
+def example(message):
+    if got_example_beats.get(message.chat.id) is None:
+        bot.send_message(message.chat.id, "Конечно! Вот несколько примеров готовых битов 💾\nНе сомневайся, бот сделает такие же и тебе!")
+        for file_path in glob('example_beats/*.wav'):
+            example_beat = open(file_path, 'rb')
+            bot.send_audio(message.chat.id, example_beat)
+            example_beat.close()
+        got_example_beats[message.chat.id] = True
+    else:
+        inline_markup = Keyboa(items=menu_buttons[2], items_in_row=1)
+        bot.send_message(message.chat.id, "Тебе уже отправлены примеры битов 😵‍💫\n\n Если хочешь ещё, бот может сгенерировать тебе собственный бит 😉", reply_markup=inline_markup())
 # Переменная хранит данные пользователя, служит для уменьшения количества запросов в БД на get_user
 user = {}
 # Переменная показывает, в процессе ли обработки пользователь, служит для уменьшения количества запросов в БД на get_processing
@@ -162,7 +176,16 @@ def handler(call):
                             processing[call.message.chat.id] = False
                     else:
                         if (processing.get(call.message.chat.id) is not None and processing.get(call.message.chat.id) == False) or db_handler.get_processing(call.message.chat.id) == 0:
-                            bot.send_message(call.message.chat.id, 'Ты не можешь заказать еще один бит во время заказа. Выбери версию бита и дождись её отправки.')    
+                            if path.isfile(f'output_beats/{call.message.chat.id}_1.wav'):
+                                bot.send_message(call.message.chat.id, 'Ты не можешь заказать еще один бит во время заказа. Выбери версию бита и дождись её отправки.')    
+                            else:
+                                inline_markup = Keyboa(items=menu_buttons[2], items_in_row=1)
+                                bot.send_message(call.message.chat.id, f"🔄 Твои ранее сгенерированные версии битов по прошлому запросу уже удалились.\n\nЧтобы сгенерировать новые биты нажми на кнопку 👉", reply_markup=inline_markup())
+                                # Убрать пользователя из "обработки"
+                                db_handler.del_processing(call.message.chat.id)
+                                processing[call.message.chat.id] = False
+                                db_handler.del_beats_generating(call.message.chat.id)
+                                beats_generating[call.message.chat.id] = False
                         else:
                             bot.send_message(call.message.chat.id, 'Ты не можешь заказать еще один бит во время заказа.')    
                 elif call.data == '💰 Баланс':
