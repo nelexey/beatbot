@@ -14,16 +14,22 @@ def speed_change(sound, speed=1.0):
     # know how to play audio at standard frame rate (like 44.1k)
     return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
 
-def jersey_club(chat_id, bpm, file_corr=0):
+def jersey_club(chat_id, bpm, file_corr=0, sample_preset=0):
     bass = choice([AudioSegment.from_wav(file) for file in glob("style_JC/bass/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_JC/hi-hat/*.wav")])
     kick = choice([AudioSegment.from_wav(file) for file in glob("style_JC/kick/*.wav")])
-    
+   
     ## sync leads and help_leads ON
-    leads_sync = randint(1, len(glob("style_JC/lead/*.wav")))
+    if sample_preset==0: 
+        
+        leads_sync = randint(1, len(glob("style_JC/lead/*.wav")))
+        
+    else:
+        leads_sync = sample_preset
+
     lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/lead/lead{leads_sync}.wav")])
     help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/helplead/helplead{leads_sync}.wav")])
-    
+
     ## sync leads and help_leads OFF
     # lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/lead/*.wav")])
     # help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_JC/helplead/*.wav")])
@@ -124,20 +130,27 @@ def jersey_club(chat_id, bpm, file_corr=0):
 
     return True
 
-def drill(chat_id, bpm, file_corr=0):
+def drill(chat_id, bpm, file_corr=0, sample_preset=0):
+    clap = choice([AudioSegment.from_wav(file) for file in glob("style_Drill/clap/*.wav")])
     bass = choice([AudioSegment.from_wav(file) for file in glob("style_Drill/bass/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Drill/hi-hat/*.wav")])
     kick = choice([AudioSegment.from_wav(file) for file in glob("style_Drill/kick/*.wav")])
-    clap = choice([AudioSegment.from_wav(file) for file in glob("style_Drill/clap/*.wav")])
-    
+   
     ## sync leads and help_leads ON
-    leads_sync = randint(1, len(glob("style_Drill/lead/*.wav")))
+    if sample_preset==0: 
+        
+        leads_sync = randint(1, len(glob("style_Drill/lead/*.wav")))
+        
+    else:
+        leads_sync = sample_preset
+
     lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Drill/lead/lead{leads_sync}.wav")])
     help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Drill/helplead/helplead{leads_sync}.wav")])
-    
+
     ## sync leads and help_leads OFF
     # lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Drill/lead/*.wav")])
     # help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Drill/helplead/*.wav")])
+
 
     ##### ТАКТЫ #####
 
@@ -233,17 +246,23 @@ def drill(chat_id, bpm, file_corr=0):
 
     return True
 
-def plug(chat_id, bpm, file_corr=0):
+def plug(chat_id, bpm, file_corr=0, sample_preset=0):
+    clap = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/clap/*.wav")])
     bass = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/bass/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/hi-hat/*.wav")])
     kick = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/kick/*.wav")])
-    clap = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/clap/*.wav")])
-    
+   
     ## sync leads and help_leads ON
-    leads_sync = randint(1, len(glob("style_Plug/lead/*.wav")))
+    if sample_preset==0: 
+        
+        leads_sync = randint(1, len(glob("style_Plug/lead/*.wav")))
+        
+    else:
+        leads_sync = sample_preset
+
     lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Plug/lead/lead{leads_sync}.wav")])
     help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Plug/helplead/helplead{leads_sync}.wav")])
-    
+
     ## sync leads and help_leads OFF
     # lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Plug/lead/*.wav")])
     # help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Plug/helplead/*.wav")])
@@ -339,17 +358,23 @@ def plug(chat_id, bpm, file_corr=0):
 
     return True
 
-def trap(chat_id, bpm, file_corr=0):
+def trap(chat_id, bpm, file_corr=0, sample_preset=0):
+    clap = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/clap/*.wav")])
     bass = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/bass/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/hi-hat/*.wav")])
     kick = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/kick/*.wav")])
-    clap = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/clap/*.wav")])
-    
+   
     ## sync leads and help_leads ON
-    leads_sync = randint(1, len(glob("style_Trap/lead/*.wav")))
+    if sample_preset==0: 
+        
+        leads_sync = randint(1, len(glob("style_Trap/lead/*.wav")))
+        
+    else:
+        leads_sync = sample_preset
+
     lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/lead/lead{leads_sync}.wav")])
     help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/helplead/helplead{leads_sync}.wav")])
-    
+
     ## sync leads and help_leads OFF
     # lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/lead/*.wav")])
     # help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/helplead/*.wav")])
