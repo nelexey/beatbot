@@ -26,6 +26,7 @@ try:
                             chat_id	VARCHAR(50) UNIQUE NOT NULL,
                             balance	INTEGER,
                             received_beats INTEGER,
+                            menu_id INTEGER DEFAULT 0,
                             processing INTEGER DEFAULT 0,
                             chosen_style VARCHAR(50) DEFAULT NULL,
                             beats_generating INTEGER DEFAULT 0);''')
@@ -68,6 +69,7 @@ try:
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE users SET received_beats = received_beats + 1 WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
             print(f'[INFO] One received beat added to *{chat_id}* received beats')
+
     def set_processing(chat_id):
         connect()
         with connection.cursor() as cursor:
@@ -84,6 +86,7 @@ try:
             cursor.execute(f'''SELECT processing FROM users WHERE CAST(chat_id AS INTEGER) = {chat_id};''')
             print(f'[INFO] Getting processing for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0] 
+        
     def set_beats_generating(chat_id):
         connect()
         with connection.cursor() as cursor:
@@ -100,6 +103,7 @@ try:
             cursor.execute(f'''SELECT beats_generating FROM users WHERE CAST(chat_id AS INTEGER) = {chat_id};''')
             print(f'[INFO] Getting beats_generating for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]
+        
     def set_chosen_style(chat_id, user_chosen_style):
         connect()
         with connection.cursor() as cursor:
@@ -116,6 +120,7 @@ try:
             cursor.execute(f'''SELECT chosen_style FROM users WHERE CAST(chat_id AS INTEGER) = {chat_id};''')
             print(f'[INFO] Getting chosen_style was successfully')
             return cursor.fetchone()[0]   
+        
     def get_beats_generating_chat_ids():
         connect()
         with connection.cursor() as cursor:
@@ -123,6 +128,25 @@ try:
             print(f'[INFO] Getting chat_ids by beats_generating was completed successfully')
             result = cursor.fetchall()
             return [row[0] for row in result]
+        
+    def set_menu_id(chat_id, menu_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE users SET menu_id = {menu_id} WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
+            print(f'[INFO] Setting menu_id for *{chat_id}* was successfully')
+    def del_menu_id(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE users SET menu_id = 0 WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
+            print(f'[INFO] Deleting *{chat_id}* menu_id was successfully')
+    def get_menu_id(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT menu_id FROM users WHERE CAST(chat_id AS INTEGER) = {chat_id};''')
+            print(f'[INFO] Getting menu_id was successfully')
+            return cursor.fetchone()[0]   
+        
+    
     
 except Exception as _ex:
     print('[INFO] Error while working with PostgreSQL', _ex)

@@ -47,6 +47,8 @@ bpm_buttons = {'Jersey Club': ['140bpm', '150bpm', '160bpm'],
 start_balance = 0 # RUB
 # Переменная хранит данные пользователя, служит для уменьшения количества запросов в БД на add_user
 is_added = {}
+# Переменная хранит id menu сообщения пользователя, служит для уменьшения количества запросов в БД на get_menu_id
+menu_id = {}
 
 if launch.mailing_list is not None:
     for chat_id in launch.mailing_list:
@@ -57,16 +59,28 @@ if launch.mailing_list is not None:
 def welcome(message):
     bot.send_message(message.chat.id, 'Привет! 👋\n\nЯ телеграм-бот, который поможет тебе создать качественные 🎧 биты в разных стилях.\n\nМоя главная особенность - доступная 💰 цена и большой выбор стилей. Ты можешь выбрать любой стиль, который тебе нравится, и я создам для тебя уникальный бит.\n\nНе упусти возможность создать свой собственный звук и выделиться на фоне других исполнителей! 🎶\n\nЧтобы начать, используй команду\n/menu')
     user_initials = f'{message.from_user.first_name} {message.from_user.last_name}'
+
     # Добавление пользователя в таблицу users
-    db_handler.add_user(message.chat.username, message.chat.id, user_initials, start_balance)
+    if is_added.get(message.chat.id) is None:
+        is_added[message.chat.id] = True
+        db_handler.add_user(message.chat.username, message.chat.id, user_initials, start_balance)
     
 @bot.message_handler(commands=['menu'])
 def menu(message):
     inline_markup = Keyboa(items=menu_buttons, items_in_row=2)
+
     bot.send_message(message.chat.id, "🎶 Привет! Это меню заказа битов 🎶\n\n💥 Ты можешь ознакомиться с примером бита, который я могу создать, используя команду /example_beats. Просто отправь эту команду в чат и ты получишь ссылку на наш пример.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=inline_markup())
+
+    # Добавить id сообщения в базу данных
+    menu_id[message.chat.id] = message.message_id
+    db_handler.set_menu_id(message.chat.id, message.message_id)
+
     user_initials = f'{message.from_user.first_name} {message.from_user.last_name}'
+
     # Добавление пользователя в таблицу users
-    db_handler.add_user(message.chat.username, message.chat.id, user_initials, start_balance)
+    if is_added.get(message.chat.id) is None:
+        is_added[message.chat.id] = True
+        db_handler.add_user(message.chat.username, message.chat.id, user_initials, start_balance)
 
 # Если пользователю уже отправлялись примеры битов, то значение под ключем его chat_id будет True
 got_example_beats = {}
@@ -100,30 +114,30 @@ balance_messages = {}
 # Сообщения для удаления. chat_id: msg
 message_to_delete = {}
 
-# Создает платёж
-def payment(value,description):
-	payment = Payment.create({
-    "amount": {
-        "value": value,
-        "currency": "RUB"
-    },
-    "payment_method_data": {
-        "type": "bank_card"
-    },
-    "confirmation": {
-        "type": "redirect",
-        "return_url": "https://web.telegram.org/k/#@NeuralBeatBot"
-    },
-    "capture": True,
-    "description": description
-	})
+# # Создает платёж
+# def payment(value,description):
+# 	payment = Payment.create({
+#     "amount": {
+#         "value": value,
+#         "currency": "RUB"
+#     },
+#     "payment_method_data": {
+#         "type": "bank_card"
+#     },
+#     "confirmation": {
+#         "type": "redirect",
+#         "return_url": "https://web.telegram.org/k/#@NeuralBeatBot"
+#     },
+#     "capture": True,
+#     "description": description
+# 	})
 
-	return json.loads(payment.json())
+# 	return json.loads(payment.json())
 
-# Подтверждает наличие "товара"
-@bot.pre_checkout_query_handler(func=lambda query: True)
-def process_pre_checkout_query(pre_checkout_query):
-    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True, error_message=None)
+# # Подтверждает наличие "товара"
+# @bot.pre_checkout_query_handler(func=lambda query: True)
+# def process_pre_checkout_query(pre_checkout_query):
+#     bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True, error_message=None)
 
 # Обработчик всех кнопок
 @bot.callback_query_handler(func=lambda call: True)
@@ -133,26 +147,26 @@ def handler(call):
     global beats_buttons
     global balance_messages
 
-    # Асинхронная функция проверки статуса платежа
-    async def check_payment(payment_id):
-        payment = json.loads((Payment.find_one(payment_id)).json())
-        while payment['status'] == 'pending':
-            payment = json.loads((Payment.find_one(payment_id)).json())
-            await asyncio.sleep(3)
+    # # Асинхронная функция проверки статуса платежа
+    # async def check_payment(payment_id):
+    #     payment = json.loads((Payment.find_one(payment_id)).json())
+    #     while payment['status'] == 'pending':
+    #         payment = json.loads((Payment.find_one(payment_id)).json())
+    #         await asyncio.sleep(3)
 
-        if payment['status']=='succeeded':
-            print("SUCCSESS RETURN")
-            db_handler.top_balance(call.message.chat.id, call.data.split('₽')[0])
-            bot.send_message(call.message.chat.id, f'🤑 Твой баланс пополнен на {call.data}').message_id
-            if call.message.chat.id in balance_messages: 
-                balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
-                balance = db_handler.get_balance(call.message.chat.id)
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=balance_messages[call.message.chat.id], text=f'🏦 На твоем балансе {balance}₽\n\n👉 Выбери сумму для пополнения:', reply_markup=balance_markup())
-            return True
-        else:
-            print("BAD RETURN")
-            bot.send_message(call.message.chat.id, 'Не удалось пополнить баланс.')
-            return False
+    #     if payment['status']=='succeeded':
+    #         print("SUCCSESS RETURN")
+    #         db_handler.top_balance(call.message.chat.id, call.data.split('₽')[0])
+    #         bot.send_message(call.message.chat.id, f'🤑 Твой баланс пополнен на {call.data}').message_id
+    #         if call.message.chat.id in balance_messages: 
+    #             balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
+    #             balance = db_handler.get_balance(call.message.chat.id)
+    #             bot.edit_message_text(chat_id=call.message.chat.id, message_id=balance_messages[call.message.chat.id], text=f'🏦 На твоем балансе {balance}₽\n\n👉 Выбери сумму для пополнения:', reply_markup=balance_markup())
+    #         return True
+    #     else:
+    #         print("BAD RETURN")
+    #         bot.send_message(call.message.chat.id, 'Не удалось пополнить баланс.')
+    #         return False
 
     # Если бот перезапущен с удалением БД и значения пользователя не существуют
     if user.get(call.message.chat.id) is None:
@@ -201,9 +215,9 @@ def handler(call):
                     balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
                     # Запрос баланса пользователя в таблице users
                     balance = db_handler.get_balance(call.message.chat.id) 
-                    balance_messages[call.message.chat.id] = bot.send_message(call.message.chat.id, f'🏦 На твоем балансе {balance}₽\n\n👉 Выбери сумму для пополнения:', reply_markup=balance_markup()).message_id
+                    balance_messages[call.message.chat.id] = bot.send_message(call.message.chat.id, f'🏦 На твоем балансе {balance}₽\n\n🛑НА ДАННЫЙ МОМЕНТ ОПЛАТА РАБОТАЕТ В ТЕСТОВОМ РЕЖИМЕ 🛑 Рабочая оплата будет после одобрения кассы.\n\n👉 Выбери сумму для пополнения:', reply_markup=balance_markup()).message_id
                 elif call.data == '🏡 О нас':
-                    bot.send_message(call.message.chat.id, 'О нас много не скажешь.')   
+                    bot.send_message(call.message.chat.id, '📌Услугу предоставляет:\n\nИНН: 910821614530\n👤Сычёв Егор Владимирович\n\n✉️Почта для связи:\ntech.beatbot@mail.ru\n\n📞Телефон для связи:\n+79781055722\n\n🌍Официальный сайт:\nhttps://beatmaker.site')   
         except Exception as e:
             print(repr(e))
             db_handler.del_processing(call.message.chat.id)
@@ -211,19 +225,26 @@ def handler(call):
     elif call.data in balance_buttons:
         try:
             if call.message:
-                # Получение цены из callback_data
-                price = int(call.data.split('₽')[0])
-                # Отправка счета пользователю
-                payment_data = payment(price, f'Пополнение баланса на {price}₽')
-                payment_id = payment_data['id']
-                confirmation_url = payment_data['confirmation']['confirmation_url']
-                # Создаем объект кнопки с ссылкой на документацию pytelegrambotapi
-                btn = types.InlineKeyboardButton(f'Оплатить {price}₽', url=confirmation_url)
-                # Создаем объект клавиатуры и добавляем на нее кнопку
-                keyboard = types.InlineKeyboardMarkup()
-                keyboard.add(btn)
-                bot.send_message(call.message.chat.id, f'💳 Теперь перейди по ссылке', reply_markup=keyboard)
-                asyncio.run(check_payment(payment_id))
+                # # Получение цены из callback_data
+                # price = int(call.data.split('₽')[0])
+                # # Отправка счета пользователю
+                # payment_data = payment(price, f'Пополнение баланса на {price}₽')
+                # payment_id = payment_data['id']
+                # confirmation_url = payment_data['confirmation']['confirmation_url']
+                # # Создаем объект кнопки с ссылкой на документацию pytelegrambotapi
+                # btn = types.InlineKeyboardButton(f'Оплатить {price}₽', url=confirmation_url)
+                # # Создаем объект клавиатуры и добавляем на нее кнопку
+                # keyboard = types.InlineKeyboardMarkup()
+                # keyboard.add(btn)
+                # bot.send_message(call.message.chat.id, f'💳 Теперь перейди по ссылке', reply_markup=keyboard)
+                # asyncio.run(check_payment(payment_id))
+                print("SUCCSESS RETURN")
+                db_handler.top_balance(call.message.chat.id, call.data.split('₽')[0])
+                bot.send_message(call.message.chat.id, f'🤑 Твой баланс пополнен на {call.data}').message_id
+                if call.message.chat.id in balance_messages: 
+                    balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
+                    balance = db_handler.get_balance(call.message.chat.id)
+                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=balance_messages[call.message.chat.id], text=f'🏦 На твоем балансе {balance}₽\n\n🛑НА ДАННЫЙ МОМЕНТ ОПЛАТА РАБОТАЕТ В ТЕСТОВОМ РЕЖИМЕ 🛑 Рабочая оплата будет после одобрения кассы.\n\nВыбери сумму для пополнения:', reply_markup=balance_markup())
 
         except Exception as e:
             print(repr(e))
@@ -346,7 +367,7 @@ def handler(call):
     elif call.data in beats_buttons:
         try:
             if call.message:
-                if processing.get(call.message.chat.id) is not None or db_handler.get_processing(call.message.chat.id) == 0:
+                if (processing.get(call.message.chat.id) is not None or db_handler.get_processing(call.message.chat.id) == 0) and (beats_generating.get(call.message.chat.id) is not None or db_handler.get_beats_generating(call.message.chat.id) != 0):
                     # Добавить пользователя в "обработку"
                     db_handler.set_processing(call.message.chat.id)
                     processing[call.message.chat.id] = True
