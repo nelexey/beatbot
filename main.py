@@ -37,6 +37,8 @@ beat_price = 90 # RUB
 # Кнопки 
 menu_buttons = ['💰 Баланс', '🏡 О нас', f'🎵 Сгенерировать бит - {beat_price}₽ 🎵']
 balance_buttons = ['90₽', '180₽', '360₽']
+undo_button = ['⬅️Назад']
+styles_button = ['⬅️К стилям']
 # Для каждого стиля свои кнопки bpm
 bpm_buttons = {'Jersey Club': ['140bpm', '150bpm', '160bpm'],
                'Trap': ['110bpm', '130bpm', '145bpm'],
@@ -47,8 +49,6 @@ bpm_buttons = {'Jersey Club': ['140bpm', '150bpm', '160bpm'],
 start_balance = 0 # RUB
 # Переменная хранит данные пользователя, служит для уменьшения количества запросов в БД на add_user
 is_added = {}
-# Переменная хранит id menu сообщения пользователя, служит для уменьшения количества запросов в БД на get_menu_id
-menu_id = {}
 
 if launch.mailing_list is not None:
     for chat_id in launch.mailing_list:
@@ -67,13 +67,9 @@ def welcome(message):
     
 @bot.message_handler(commands=['menu'])
 def menu(message):
+
     inline_markup = Keyboa(items=menu_buttons, items_in_row=2)
-
-    bot.send_message(message.chat.id, "🎶 Привет! Это меню заказа битов 🎶\n\n💥 Ты можешь ознакомиться с примером бита, который я могу создать, используя команду /example_beats. Просто отправь эту команду в чат и ты получишь ссылку на наш пример.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=inline_markup())
-
-    # Добавить id сообщения в базу данных
-    menu_id[message.chat.id] = message.message_id
-    db_handler.set_menu_id(message.chat.id, message.message_id)
+    bot.send_message(message.chat.id, "🎶 Привет! Это меню заказа битов 🎶\n\n💥 Ты можешь ознакомиться с примером бита, который я могу создать, используя команду /example_beats. Просто отправь эту команду в чат и ты получишь ссылку на наш пример.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=inline_markup()).id
 
     user_initials = f'{message.from_user.first_name} {message.from_user.last_name}'
 
@@ -147,6 +143,7 @@ def handler(call):
     global beats_buttons
     global balance_messages
 
+
     # # Асинхронная функция проверки статуса платежа
     # async def check_payment(payment_id):
     #     payment = json.loads((Payment.find_one(payment_id)).json())
@@ -179,18 +176,39 @@ def handler(call):
         if user[call.message.chat.id] == False:
             bot.send_message(call.message.chat.id, 'Нужно перезапустить бота командой /start')
             return
-
-    if call.data in menu_buttons:
+    if call.data in undo_button:
         try:
             if call.message:
+                inline_markup = Keyboa(items=menu_buttons, items_in_row=2)
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="🎶 Привет! Это меню заказа битов 🎶\n\n💥 Ты можешь ознакомиться с примером бита, который я могу создать, используя команду /example_beats. Просто отправь эту команду в чат и ты получишь ссылку на наш пример.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=inline_markup())
+        except Exception as e:
+            print(repr(e))
+    if call.data in styles_button:
+        try:
+            if call.message:
+                db_handler.set_processing(call.message.chat.id)
+                processing[call.message.chat.id] = True
+                
+                styles_markup = Keyboa(items=styles_buttons + undo_button, items_in_row=2)
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='🎵 Генерация бита 🎵\n\n🔥 Выбери стиль, в котором я сгенерирую бит:', reply_markup=styles_markup()).message_id
+                
+                db_handler.del_processing(call.message.chat.id)
+                processing[call.message.chat.id] = False
+        except Exception as e:
+            print(repr(e))
+            
+        return
+    if call.data in menu_buttons:
+        try:
+            if call.message:    
                 if call.data == f'🎵 Сгенерировать бит - {beat_price}₽ 🎵':
                     if (beats_generating.get(call.message.chat.id) is not None and beats_generating.get(call.message.chat.id) == False) or db_handler.get_beats_generating(call.message.chat.id) == 0:
                         if processing.get(call.message.chat.id) is not None or db_handler.get_processing(call.message.chat.id) == 0:
                             db_handler.set_processing(call.message.chat.id)
                             processing[call.message.chat.id] = True
 
-                            styles_markup = Keyboa(items=styles_buttons, items_in_row=2)
-                            message_to_delete[call.message.chat.id] = bot.send_message(call.message.chat.id, '🔥 Выбери стиль, в котором я сгенерирую бит:', reply_markup=styles_markup()).message_id
+                            styles_markup = Keyboa(items=styles_buttons + undo_button, items_in_row=2)
+                            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='🎵 Генерация бита 🎵\n\n🔥 Выбери стиль, в котором я сгенерирую бит:', reply_markup=styles_markup()).message_id
 
                             db_handler.del_processing(call.message.chat.id)
                             processing[call.message.chat.id] = False
@@ -211,13 +229,17 @@ def handler(call):
                             bot.send_message(call.message.chat.id, 'Ты не можешь заказать еще один бит во время заказа. Выбери версию бита и дождись её отправки.')
                         else:
                             bot.send_message(call.message.chat.id, 'Ты не можешь заказать еще один бит во время заказа.')    
+                
                 elif call.data == '💰 Баланс':
-                    balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
+                    balance_markup = Keyboa(items=balance_buttons + undo_button, items_in_row=3)
                     # Запрос баланса пользователя в таблице users
                     balance = db_handler.get_balance(call.message.chat.id) 
-                    balance_messages[call.message.chat.id] = bot.send_message(call.message.chat.id, f'🏦 На твоем балансе {balance}₽\n\n🛑НА ДАННЫЙ МОМЕНТ ОПЛАТА РАБОТАЕТ В ТЕСТОВОМ РЕЖИМЕ 🛑 Рабочая оплата будет после одобрения кассы.\n\n👉 Выбери сумму для пополнения:', reply_markup=balance_markup()).message_id
+                    balance_messages[call.message.chat.id] = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'💰 Баланс\n\n🏦 На твоем балансе {balance}₽\n\n🛑НА ДАННЫЙ МОМЕНТ ОПЛАТА РАБОТАЕТ В ТЕСТОВОМ РЕЖИМЕ 🛑 Рабочая оплата будет после одобрения кассы.\n\n👉 Выбери сумму для пополнения:', reply_markup=balance_markup()).message_id
+                
                 elif call.data == '🏡 О нас':
-                    bot.send_message(call.message.chat.id, '📌Услугу предоставляет:\n\nИНН: 910821614530\n👤Сычёв Егор Владимирович\n\n✉️Почта для связи:\ntech.beatbot@mail.ru\n\n📞Телефон для связи:\n+79781055722\n\n🌍Официальный сайт:\nhttps://beatmaker.site')   
+                    about_markup = Keyboa(items=undo_button)
+                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'🏡 О нас\n\n📌Услугу предоставляет:\n\nИНН: 910821614530\n👤Сычёв Егор Владимирович\n\n✉️Почта для связи:\ntech.beatbot@mail.ru\n\n📞Телефон для связи:\n+79781055722\n\n🌍Официальный сайт:\nhttps://beatmaker.site', reply_markup=about_markup())
+        
         except Exception as e:
             print(repr(e))
             db_handler.del_processing(call.message.chat.id)
@@ -242,7 +264,7 @@ def handler(call):
                 db_handler.top_balance(call.message.chat.id, call.data.split('₽')[0])
                 bot.send_message(call.message.chat.id, f'🤑 Твой баланс пополнен на {call.data}').message_id
                 if call.message.chat.id in balance_messages: 
-                    balance_markup = Keyboa(items=balance_buttons, items_in_row=3)
+                    balance_markup = Keyboa(items=balance_buttons + undo_button, items_in_row=3)
                     balance = db_handler.get_balance(call.message.chat.id)
                     bot.edit_message_text(chat_id=call.message.chat.id, message_id=balance_messages[call.message.chat.id], text=f'🏦 На твоем балансе {balance}₽\n\n🛑НА ДАННЫЙ МОМЕНТ ОПЛАТА РАБОТАЕТ В ТЕСТОВОМ РЕЖИМЕ 🛑 Рабочая оплата будет после одобрения кассы.\n\nВыбери сумму для пополнения:', reply_markup=balance_markup())
 
@@ -256,12 +278,8 @@ def handler(call):
                     db_handler.set_processing(call.message.chat.id)
                     processing[call.message.chat.id] = True
 
-                    if message_to_delete.get(call.message.chat.id) is not None:
-                        bot.delete_message(call.message.chat.id, message_to_delete[call.message.chat.id])
-                        del message_to_delete[call.message.chat.id]
-
-                    bpm_markup = Keyboa(items=bpm_buttons[call.data], items_in_row=3)
-                    message_to_delete[call.message.chat.id] = bot.send_message(call.message.chat.id, f'{call.data} - отличный выбор! Теперь выбери темп:', reply_markup=bpm_markup()).message_id 
+                    bpm_markup = Keyboa(items=bpm_buttons[call.data] + styles_button, items_in_row=3)
+                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'{call.data} - отличный выбор! Теперь выбери темп:', reply_markup=bpm_markup()).message_id 
                     
                     db_handler.set_chosen_style(call.message.chat.id, call.data)
                     user_chosen_style[call.message.chat.id] = call.data

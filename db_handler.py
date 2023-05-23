@@ -26,7 +26,6 @@ try:
                             chat_id	VARCHAR(50) UNIQUE NOT NULL,
                             balance	INTEGER,
                             received_beats INTEGER,
-                            menu_id INTEGER DEFAULT 0,
                             processing INTEGER DEFAULT 0,
                             chosen_style VARCHAR(50) DEFAULT NULL,
                             beats_generating INTEGER DEFAULT 0);''')
@@ -127,25 +126,7 @@ try:
             cursor.execute(f'''SELECT chat_id FROM users WHERE CAST(beats_generating AS INTEGER) = 1;''')
             print(f'[INFO] Getting chat_ids by beats_generating was completed successfully')
             result = cursor.fetchall()
-            return [row[0] for row in result]
-        
-    def set_menu_id(chat_id, menu_id):
-        connect()
-        with connection.cursor() as cursor:
-            cursor.execute(f'''UPDATE users SET menu_id = {menu_id} WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
-            print(f'[INFO] Setting menu_id for *{chat_id}* was successfully')
-    def del_menu_id(chat_id):
-        connect()
-        with connection.cursor() as cursor:
-            cursor.execute(f'''UPDATE users SET menu_id = 0 WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
-            print(f'[INFO] Deleting *{chat_id}* menu_id was successfully')
-    def get_menu_id(chat_id):
-        connect()
-        with connection.cursor() as cursor:
-            cursor.execute(f'''SELECT menu_id FROM users WHERE CAST(chat_id AS INTEGER) = {chat_id};''')
-            print(f'[INFO] Getting menu_id was successfully')
-            return cursor.fetchone()[0]   
-        
+            return [row[0] for row in result]  
     
     
 except Exception as _ex:
