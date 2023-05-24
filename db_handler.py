@@ -14,7 +14,7 @@ try:
                                     password=password, 
                                     database=db_name,
                                     )
-
+        
         connection.autocommit = True
     
         # создать таблицу users если её еще нет
@@ -26,6 +26,7 @@ try:
                             chat_id	VARCHAR(50) UNIQUE NOT NULL,
                             balance	INTEGER,
                             received_beats INTEGER,
+                            beats_vers_messages TEXT DEFAULT '',
                             processing INTEGER DEFAULT 0,
                             chosen_style VARCHAR(50) DEFAULT NULL,
                             beats_generating INTEGER DEFAULT 0);''')
@@ -119,16 +120,36 @@ try:
             cursor.execute(f'''SELECT chosen_style FROM users WHERE CAST(chat_id AS INTEGER) = {chat_id};''')
             print(f'[INFO] Getting chosen_style was successfully')
             return cursor.fetchone()[0]   
-        
+    def del_chosen_style(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE users SET chosen_style = 0 WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
+            print(f'[INFO] Deleting *{chat_id}* chosen_style was successfully')
+
+    def set_beats_versions_messages_ids(chat_id, messages_ids):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE users SET beats_vers_messages = '{messages_ids}' WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
+            print(f'[INFO] Setting beats_vers_messages for *{chat_id}* was completed successfully')
+    def get_beats_versions_messages_ids(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT beats_vers_messages FROM users WHERE CAST(chat_id AS INTEGER) = {chat_id};''')
+            print(f'[INFO] Getting beats_vers_messages was successfully')
+            return cursor.fetchone()[0]      
+    def del_beats_versions_messages_ids(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE users SET beats_vers_messages = '' WHERE CAST(chat_id AS INTEGER) = {chat_id}''')
+            print(f'[INFO] Deleting *{chat_id}* beats_vers_messages was successfully')
+
     def get_beats_generating_chat_ids():
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT chat_id FROM users WHERE CAST(beats_generating AS INTEGER) = 1;''')
             print(f'[INFO] Getting chat_ids by beats_generating was completed successfully')
             result = cursor.fetchall()
-            return [row[0] for row in result]  
-    
-    
+            return [row[0] for row in result]
 except Exception as _ex:
     print('[INFO] Error while working with PostgreSQL', _ex)
 finally:
