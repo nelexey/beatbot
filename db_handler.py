@@ -150,6 +150,13 @@ try:
             print(f'[INFO] Getting chat_ids by beats_generating was completed successfully')
             result = cursor.fetchall()
             return [row[0] for row in result]
+    def get_chat_ids_by_messages_to_del_ids():
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT chat_id FROM users WHERE beats_vers_messages != '';''')
+            print(f'[INFO] Getting chat_ids by messages_to_del_ids was completed successfully')
+            result = cursor.fetchall()
+            return [row[0] for row in result]
 except Exception as _ex:
     print('[INFO] Error while working with PostgreSQL', _ex)
 finally:
