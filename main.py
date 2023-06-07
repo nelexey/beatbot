@@ -53,8 +53,9 @@ is_added = {}
 if launch.mailing_list is not None:
     for chat_id in launch.mailing_list:
         inline_markup = Keyboa(items=menu_buttons[2], items_in_row=1)
-        bot.send_message(chat_id, 'Сожалею, но во время создания твоих битов бот перезапустился 😵‍💫\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Деньги за транзакцию не сняты.\n\nТы можшеь заказать бит еще раз 👉', reply_markup=inline_markup())
+        bot.send_message(chat_id, 'Сожалею, но во время создания твоих битов бот перезапустился 😵‍💫\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Деньги за транзакцию не сняты.\n\nТы можешь заказать бит еще раз 👉', reply_markup=inline_markup())
 
+            
 @bot.message_handler(commands=['start'])
 def welcome(message):
     bot.send_message(message.chat.id, 'Привет! 👋\n\nЯ телеграм-бот, который поможет тебе создать качественные 🎧 биты в разных стилях.\n\nМоя главная особенность - доступная 💰 цена и большой выбор стилей. Ты можешь выбрать любой стиль, который тебе нравится, и я создам для тебя уникальный бит.\n\nНе упусти возможность создать свой собственный звук и выделиться на фоне других исполнителей! 🎶\n\nЧтобы начать, используй команду\n/menu')
@@ -229,7 +230,7 @@ def handler(call):
                     balance_markup = Keyboa(items=balance_buttons + undo_button, items_in_row=3)
                     # Запрос баланса пользователя в таблице users
                     balance = db_handler.get_balance(call.message.chat.id) 
-                    balance_messages[call.message.chat.id] = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'💰 Баланс\n\n🏦 На твоем балансе {balance}₽\n\n🛑НА ДАННЫЙ МОМЕНТ ОПЛАТА РАБОТАЕТ В ТЕСТОВОМ РЕЖИМЕ 🛑 Рабочая оплата будет после одобрения кассы.\n\n👉 Выбери сумму для пополнения:', reply_markup=balance_markup()).message_id
+                    balance_messages[call.message.chat.id] = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'💰 Баланс\n\n🏦 На твоем балансе *{balance}₽*\n\n🛑НА ДАННЫЙ МОМЕНТ ОПЛАТА РАБОТАЕТ В ТЕСТОВОМ РЕЖИМЕ 🛑 Рабочая оплата будет после одобрения кассы.\n\n👉 Выбери сумму для пополнения:', reply_markup=balance_markup(), parse_mode='Markdown').message_id
                 
                 elif call.data == '🏡 О нас':
                     about_markup = Keyboa(items=undo_button)
@@ -257,11 +258,12 @@ def handler(call):
                 # asyncio.run(check_payment(payment_id))
                 print("SUCCSESS RETURN")
                 db_handler.top_balance(call.message.chat.id, call.data.split('₽')[0])
-                bot.send_message(call.message.chat.id, f'🤑 Твой баланс пополнен на {call.data}').message_id
+                inline_markup = Keyboa(items=menu_buttons[2], items_in_row=1)
+                bot.send_message(call.message.chat.id, f'🤑 Твой баланс пополнен на *{call.data}*', reply_markup=inline_markup(), parse_mode='Markdown').message_id
                 if call.message.chat.id in balance_messages: 
                     balance_markup = Keyboa(items=balance_buttons + undo_button, items_in_row=3)
                     balance = db_handler.get_balance(call.message.chat.id)
-                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=balance_messages[call.message.chat.id], text=f'🏦 На твоем балансе {balance}₽\n\n🛑НА ДАННЫЙ МОМЕНТ ОПЛАТА РАБОТАЕТ В ТЕСТОВОМ РЕЖИМЕ 🛑 Рабочая оплата будет после одобрения кассы.\n\nВыбери сумму для пополнения:', reply_markup=balance_markup())
+                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=balance_messages[call.message.chat.id], text=f'🏦 На твоем балансе *{balance}₽*\n\n🛑НА ДАННЫЙ МОМЕНТ ОПЛАТА РАБОТАЕТ В ТЕСТОВОМ РЕЖИМЕ 🛑 Рабочая оплата будет после одобрения кассы.\n\nВыбери сумму для пополнения:', reply_markup=balance_markup(), parse_mode='Markdown')
 
         except Exception as e:
             print(repr(e))
@@ -275,7 +277,7 @@ def handler(call):
                     processing[call.message.chat.id] = True
 
                     bpm_markup = Keyboa(items=bpm_buttons[call.data] + styles_button, items_in_row=3)
-                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'{call.data} - отличный выбор! Теперь выбери темп:', reply_markup=bpm_markup()).message_id 
+                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'*{call.data}* - отличный выбор! Теперь выбери темп:\n\n*{bpm_buttons[call.data][0]}* - замедлено\n*{bpm_buttons[call.data][1]}* - нормально\n*{bpm_buttons[call.data][2]}* - ускорено', reply_markup=bpm_markup(), parse_mode='Markdown').message_id 
                     
                     db_handler.set_chosen_style(call.message.chat.id, call.data)
                     user_chosen_style[call.message.chat.id] = call.data
@@ -312,15 +314,7 @@ def handler(call):
                         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='💽 Создаю версии битов, это может занять несколько минут...\n\n🔽Версии появятся внизу🔽', reply_markup=generating_markup())
                         # style - стиль бита, num - сколько битов сделать
                         def generate_beats(style, num):
-                            for i in range(1, num+1):
-                                if style == 'Jersey Club':
-                                    status = make_beat.jersey_club(call.message.chat.id, call.data, i)
-                                elif style == 'Trap':
-                                    status = make_beat.trap(call.message.chat.id, call.data, i)
-                                elif style == 'Drill':
-                                    status = make_beat.drill(call.message.chat.id, call.data, i)
-                                elif style == 'Plug':
-                                    status = make_beat.plug(call.message.chat.id, call.data, i)
+                            status = make_beat.generate_some_beats(aliases, num, style, call.message.chat.id, call.data)
                             if status:
                                 return True
                             else:
@@ -356,7 +350,7 @@ def handler(call):
                             return bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='⚠️ Не удалось отправить пробные версии битов, деньги за транзакцию не сняты. Попробуй ещё раз.', reply_markup=error_markup())
 
                         # Изменить сообщение о создании битов
-                        message_to_edit[call.message.chat.id] = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'🚀 Вот 3 демо версии битов, выбери ту, которая понравилась:\n\nСтиль - *{db_handler.get_chosen_style(call.message.chat.id)}* Темп - *{call.data}*').message_id
+                        message_to_edit[call.message.chat.id] = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'🚀 Вот 3 демо версии битов, выбери ту, которая понравилась:\n\nСтиль - *{db_handler.get_chosen_style(call.message.chat.id)}* Темп - *{call.data}*', parse_mode='Markdown').message_id
                         
                         trimmed_audio(glob(f'output_beats/{call.message.chat.id}_[1-{beats}].wav'))
 
@@ -411,7 +405,7 @@ def handler(call):
 
                         bot.edit_message_text(chat_id=call.message.chat.id, message_id=message_to_edit[call.message.chat.id], text='🔽 Держи 🔽')
                         end_markup = Keyboa(items=menu_button, items_in_row=3)
-                        bot.send_message(call.message.chat.id, f'С твоего баланса снято {beat_price}₽\nНадеюсь тебе понравится бит😉', reply_markup=end_markup())                        
+                        bot.send_message(call.message.chat.id, f'С твоего баланса снято *{beat_price}₽*\nНадеюсь тебе понравится бит😉', reply_markup=end_markup(), parse_mode='Markdown')                        
                         
                         # Удалить файлы
                         for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].wav'):

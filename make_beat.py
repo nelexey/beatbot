@@ -1,6 +1,6 @@
 from glob import glob
 from pydub import AudioSegment
-from random import choice, randint
+from random import choice, randint, sample
 
 def speed_change(sound, speed=1.0):
     # Manually override the frame_rate. This tells the computer how many
@@ -14,6 +14,24 @@ def speed_change(sound, speed=1.0):
     # know how to play audio at standard frame rate (like 44.1k)
     return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
 
+def generate_some_beats(aliases, num, style, chat_id, bpm):
+    # Выбрать случайные неповторяющиеся лиды 
+    sample_presets = sample(range(1, len(glob(f"style_{aliases[style]}/lead/*.wav"))+1), num) 
+    print(sample_presets)
+    for i in range(1, num+1):
+        if style == 'Jersey Club':
+            status = jersey_club(chat_id, bpm, i, sample_presets[i-1])
+        elif style == 'Trap':
+            status = trap(chat_id, bpm, i, sample_presets[i-1])
+        elif style == 'Drill':
+            status = drill(chat_id, bpm, i, sample_presets[i-1])
+        elif style == 'Plug':
+            status = plug(chat_id, bpm, i, sample_presets[i-1])
+    if status:
+        return True
+    else:
+        return False
+
 def jersey_club(chat_id, bpm, file_corr=0, sample_preset=0):
     bass = choice([AudioSegment.from_wav(file) for file in glob("style_JC/bass/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_JC/hi-hat/*.wav")])
@@ -21,8 +39,8 @@ def jersey_club(chat_id, bpm, file_corr=0, sample_preset=0):
    
     ## sync leads and help_leads ON
     if sample_preset==0: 
-        
-        leads_sync = randint(1, len(glob("style_JC/lead/*.wav")))
+   
+        leads_sync = randint(1, len(glob("style_JC/lead/*.wav"))+1)
         
     else:
         leads_sync = sample_preset
@@ -139,7 +157,7 @@ def drill(chat_id, bpm, file_corr=0, sample_preset=0):
     ## sync leads and help_leads ON
     if sample_preset==0: 
         
-        leads_sync = randint(1, len(glob("style_Drill/lead/*.wav")))
+        leads_sync = randint(1, len(glob("style_Drill/lead/*.wav"))+1)
         
     else:
         leads_sync = sample_preset
@@ -255,7 +273,7 @@ def plug(chat_id, bpm, file_corr=0, sample_preset=0):
     ## sync leads and help_leads ON
     if sample_preset==0: 
         
-        leads_sync = randint(1, len(glob("style_Plug/lead/*.wav")))
+        leads_sync = randint(1, len(glob("style_Plug/lead/*.wav"))+1)
         
     else:
         leads_sync = sample_preset
@@ -367,7 +385,7 @@ def trap(chat_id, bpm, file_corr=0, sample_preset=0):
     ## sync leads and help_leads ON
     if sample_preset==0: 
         
-        leads_sync = randint(1, len(glob("style_Trap/lead/*.wav")))
+        leads_sync = randint(1, len(glob("style_Trap/lead/*.wav"))+1)
         
     else:
         leads_sync = sample_preset

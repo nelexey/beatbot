@@ -23,7 +23,7 @@ try:
                             id SERIAL PRIMARY KEY,
                             username VARCHAR(50) NOT NULL,
                             user_initials VARCHAR(290),
-                            chat_id	VARCHAR(50) UNIQUE NOT NULL,
+                            chat_id	TEXT UNIQUE NOT NULL,
                             balance	INTEGER,
                             received_beats INTEGER,
                             beats_vers_messages TEXT DEFAULT '',
