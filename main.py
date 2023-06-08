@@ -25,6 +25,7 @@ aliases = {
     'Trap': 'Trap',
     'Drill': 'Drill',
     'Plug': 'Plug',
+    'Old School': 'OldSchool'
 }
 
 styles_buttons = []
@@ -43,7 +44,8 @@ styles_button = ['⬅️ К стилям']
 bpm_buttons = {'Jersey Club': ['140bpm', '150bpm', '160bpm'],
                'Trap': ['110bpm', '130bpm', '145bpm'],
                'Drill': ['110bpm', '130bpm', '145bpm'],
-               'Plug': ['140bpm', '150bpm', '160bpm']}
+               'Plug': ['140bpm', '150bpm', '160bpm'],
+               'Old School': ['155bpm', '170bpm', '185bpm']}
 
 # Начальный баланс пользователя при добавлении в БД
 start_balance = 0 # RUB

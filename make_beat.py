@@ -27,6 +27,8 @@ def generate_some_beats(aliases, num, style, chat_id, bpm):
             status = drill(chat_id, bpm, i, sample_presets[i-1])
         elif style == 'Plug':
             status = plug(chat_id, bpm, i, sample_presets[i-1])
+        elif style == 'Old School':
+            status = old_school(chat_id, bpm, i, sample_presets[i-1])
     if status:
         return True
     else:
@@ -140,6 +142,136 @@ def jersey_club(chat_id, bpm, file_corr=0, sample_preset=0):
     bpm = int(bpm.split('b')[0])
 
     overlay = speed_change(overlay, bpm/145)
+    
+    if file_corr!=0:
+        file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.wav", format="wav")
+    else:
+        file_handle = overlay.export(f"output_beats/{chat_id}.wav", format="wav")
+
+    return True
+
+def old_school(chat_id, bpm, file_corr=0, sample_preset=0):
+    clap = choice([AudioSegment.from_wav(file) for file in glob("style_OldSchool/clap/*.wav")])
+    bass = choice([AudioSegment.from_wav(file) for file in glob("style_OldSchool/bass/*.wav")])
+    hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_OldSchool/hi-hat/*.wav")])
+    kick = choice([AudioSegment.from_wav(file) for file in glob("style_OldSchool/kick/*.wav")])
+   
+    ## sync leads and help_leads ON
+    if sample_preset==0: 
+        
+        leads_sync = randint(1, len(glob("style_OldSchool/lead/*.wav"))+1)
+        
+    else:
+        leads_sync = sample_preset
+
+    lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_OldSchool/lead/lead{leads_sync}.wav")])
+    help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_OldSchool/helplead/helplead{leads_sync}.wav")])
+
+    ## sync leads and help_leads OFF
+    # lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_OldSchool/lead/*.wav")])
+    # help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_OldSchool/helplead/*.wav")])
+
+    # 11290
+    ##### ТАКТЫ #####
+
+    ## 1 ##
+    sandwich1 = lead
+
+    overlay = sandwich1
+
+    ## 2 ##
+    sandwich2 = lead
+    sandwich2 = sandwich2.overlay(hi_hat, position=0)
+    sandwich2 = sandwich2.overlay(kick, position=0)
+
+    overlay = overlay.append(sandwich2, crossfade=0)
+
+    ## 3 ##
+    sandwich3 = lead
+    sandwich3 = sandwich3.overlay(help_lead, position=0)
+    sandwich3 = sandwich3.overlay(clap, position=0)
+    sandwich3 = sandwich3.overlay(hi_hat, position=0)
+    sandwich3 = sandwich3.overlay(kick, position=0)
+    sandwich3 = sandwich3.overlay(bass, position=0)
+
+    overlay = overlay.append(sandwich3, crossfade=0)
+
+    ## 4 ##
+    sandwich4 = lead
+    sandwich4 = sandwich4.overlay(help_lead, position=0)
+    sandwich4 = sandwich4.overlay(clap, position=0)
+    sandwich4 = sandwich4.overlay(hi_hat, position=0)
+    sandwich4 = sandwich4.overlay(kick, position=0)
+    sandwich4 = sandwich4.overlay(bass, position=0)
+ 
+    overlay = overlay.append(sandwich4, crossfade=0)
+
+    ## 5 ##
+    sandwich5 = lead
+    sandwich5 = sandwich5.overlay(hi_hat, position=0)
+    sandwich5 = sandwich5.overlay(kick, position=0)
+ 
+    overlay = overlay.append(sandwich5, crossfade=0)
+
+    ## 6 ##
+    sandwich6 = lead
+    sandwich6 = sandwich6.overlay(help_lead, position=0)
+    sandwich6 = sandwich6.overlay(clap, position=0)
+    sandwich6 = sandwich6.overlay(hi_hat, position=0)
+    sandwich6 = sandwich6.overlay(kick, position=0)
+    sandwich6 = sandwich6.overlay(bass, position=0)
+
+    overlay = overlay.append(sandwich6, crossfade=0)
+
+    ## 7 ##
+    sandwich7 = lead
+    sandwich7 = sandwich7.overlay(help_lead, position=0)
+    sandwich7 = sandwich7.overlay(clap, position=0)
+    sandwich7 = sandwich7.overlay(hi_hat, position=0)
+    sandwich7 = sandwich7.overlay(kick, position=0)
+    sandwich7 = sandwich7.overlay(bass, position=0)
+
+    overlay = overlay.append(sandwich7, crossfade=0)
+
+    ## 8 ##
+    sandwich8 = lead
+    sandwich8 = sandwich8.overlay(help_lead, position=0)
+    sandwich8 = sandwich8.overlay(clap, position=0)
+    sandwich8 = sandwich8.overlay(hi_hat, position=0)
+    sandwich8 = sandwich8.overlay(kick, position=0)
+    sandwich8 = sandwich8.overlay(bass, position=0)
+
+    overlay = overlay.append(sandwich8, crossfade=0)
+
+    ## 9 ##
+    sandwich9 = lead
+    sandwich9 = sandwich9.overlay(help_lead, position=0)
+    sandwich9 = sandwich9.overlay(clap, position=0)
+    sandwich9 = sandwich9.overlay(hi_hat, position=0)
+    sandwich9 = sandwich9.overlay(kick, position=0)
+    sandwich9 = sandwich9.overlay(bass, position=0)
+
+    overlay = overlay.append(sandwich9, crossfade=0)
+
+    ## 10 ##
+    sandwich10 = lead
+    sandwich10 = sandwich10.overlay(hi_hat, position=0)
+    sandwich10 = sandwich10.overlay(kick, position=0)
+    
+    overlay = overlay.append(sandwich10, crossfade=0)
+
+    ## 11 ##
+    sandwich11 = lead
+    
+    overlay = overlay.append(sandwich11, crossfade=0)
+
+    bpm = int(bpm.split('b')[0])
+
+    if bpm == 170:
+        pass       
+    else:
+        overlay = speed_change(overlay, bpm/170)
+    
     
     if file_corr!=0:
         file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.wav", format="wav")
