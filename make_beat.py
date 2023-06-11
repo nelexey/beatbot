@@ -14,27 +14,27 @@ def speed_change(sound, speed=1.0):
     # know how to play audio at standard frame rate (like 44.1k)
     return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
 
-def generate_some_beats(aliases, num, style, chat_id, bpm):
+def generate_some_beats(aliases, num, style, chat_id, bpm, extension):
     # Выбрать случайные неповторяющиеся лиды 
     sample_presets = sample(range(1, len(glob(f"style_{aliases[style]}/lead/*.wav"))+1), num) 
     print(sample_presets)
     for i in range(1, num+1):
         if style == 'Jersey Club':
-            status = jersey_club(chat_id, bpm, i, sample_presets[i-1])
+            status = jersey_club(chat_id, bpm, i, sample_presets[i-1], extension)
         elif style == 'Trap':
-            status = trap(chat_id, bpm, i, sample_presets[i-1])
+            status = trap(chat_id, bpm, i, sample_presets[i-1], extension)
         elif style == 'Drill':
-            status = drill(chat_id, bpm, i, sample_presets[i-1])
+            status = drill(chat_id, bpm, i, sample_presets[i-1], extension)
         elif style == 'Plug':
-            status = plug(chat_id, bpm, i, sample_presets[i-1])
+            status = plug(chat_id, bpm, i, sample_presets[i-1], extension)
         elif style == 'Old School':
-            status = old_school(chat_id, bpm, i, sample_presets[i-1])
+            status = old_school(chat_id, bpm, i, sample_presets[i-1], extension)
     if status:
         return True
     else:
         return False
 
-def jersey_club(chat_id, bpm, file_corr=0, sample_preset=0):
+def jersey_club(chat_id, bpm, file_corr=0, sample_preset=0, extension='wav'):
     bass = choice([AudioSegment.from_wav(file) for file in glob("style_JC/bass/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_JC/hi-hat/*.wav")])
     kick = choice([AudioSegment.from_wav(file) for file in glob("style_JC/kick/*.wav")])
@@ -144,13 +144,13 @@ def jersey_club(chat_id, bpm, file_corr=0, sample_preset=0):
     overlay = speed_change(overlay, bpm/145)
     
     if file_corr!=0:
-        file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.wav", format="wav")
+        file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.{extension}", format=extension)
     else:
-        file_handle = overlay.export(f"output_beats/{chat_id}.wav", format="wav")
+        file_handle = overlay.export(f"output_beats/{chat_id}.{extension}", format=extension)
 
     return True
 
-def old_school(chat_id, bpm, file_corr=0, sample_preset=0):
+def old_school(chat_id, bpm, file_corr=0, sample_preset=0, extension='wav'):
     clap = choice([AudioSegment.from_wav(file) for file in glob("style_OldSchool/clap/*.wav")])
     bass = choice([AudioSegment.from_wav(file) for file in glob("style_OldSchool/bass/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_OldSchool/hi-hat/*.wav")])
@@ -274,13 +274,13 @@ def old_school(chat_id, bpm, file_corr=0, sample_preset=0):
     
     
     if file_corr!=0:
-        file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.wav", format="wav")
+        file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.{extension}", format=f"{extension}")
     else:
-        file_handle = overlay.export(f"output_beats/{chat_id}.wav", format="wav")
+        file_handle = overlay.export(f"output_beats/{chat_id}.{extension}", format=f"{extension}")
 
     return True
 
-def drill(chat_id, bpm, file_corr=0, sample_preset=0):
+def drill(chat_id, bpm, file_corr=0, sample_preset=0, extension='wav'):
     clap = choice([AudioSegment.from_wav(file) for file in glob("style_Drill/clap/*.wav")])
     bass = choice([AudioSegment.from_wav(file) for file in glob("style_Drill/bass/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Drill/hi-hat/*.wav")])
@@ -390,13 +390,13 @@ def drill(chat_id, bpm, file_corr=0, sample_preset=0):
         overlay = speed_change(overlay, bpm/130)
     
     if file_corr!=0:
-        file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.wav", format="wav")
+        file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.{extension}", format=f"{extension}")
     else:
-        file_handle = overlay.export(f"output_beats/{chat_id}.wav", format="wav")
+        file_handle = overlay.export(f"output_beats/{chat_id}.{extension}", format=f"{extension}")
 
     return True
 
-def plug(chat_id, bpm, file_corr=0, sample_preset=0):
+def plug(chat_id, bpm, file_corr=0, sample_preset=0, extension='wav'):
     clap = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/clap/*.wav")])
     bass = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/bass/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/hi-hat/*.wav")])
@@ -502,13 +502,13 @@ def plug(chat_id, bpm, file_corr=0, sample_preset=0):
     overlay = speed_change(overlay, bpm/145)
     
     if file_corr!=0:
-        file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.wav", format="wav")
+        file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.{extension}", format=f"{extension}")
     else:
-        file_handle = overlay.export(f"output_beats/{chat_id}.wav", format="wav")
+        file_handle = overlay.export(f"output_beats/{chat_id}.{extension}", format=f"{extension}")
 
     return True
 
-def trap(chat_id, bpm, file_corr=0, sample_preset=0):
+def trap(chat_id, bpm, file_corr=0, sample_preset=0, extension='wav'):
     clap = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/clap/*.wav")])
     bass = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/bass/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/hi-hat/*.wav")])
@@ -618,8 +618,8 @@ def trap(chat_id, bpm, file_corr=0, sample_preset=0):
         overlay = speed_change(overlay, bpm/130)
     
     if file_corr!=0:
-        file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.wav", format="wav")
+        file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.{extension}", format=f"{extension}")
     else:
-        file_handle = overlay.export(f"output_beats/{chat_id}.wav", format="wav")
+        file_handle = overlay.export(f"output_beats/{chat_id}.{extension}", format=f"{extension}")
     
     return True

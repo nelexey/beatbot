@@ -37,9 +37,11 @@ beat_price = 90 # RUB
 # Кнопки 
 menu_buttons = ['💰 Баланс', '🏡 О нас', f'🎵 Сгенерировать бит - {beat_price}₽ 🎵']
 balance_buttons = ['90₽', '180₽', '360₽']
+extensions_buttons = ['wav', 'mp3']
 undo_button = ['⬅️ Назад']
 menu_button = ['⬅️ В меню']
 styles_button = ['⬅️ К стилям']
+
 # Для каждого стиля свои кнопки bpm
 bpm_buttons = {'Jersey Club': ['140bpm', '150bpm', '160bpm'],
                'Trap': ['110bpm', '130bpm', '145bpm'],
@@ -117,6 +119,10 @@ beats_buttons = [str(i) for i in range(1, beats+1)]
 balance_messages = {}
 # Сообщения для удаления. chat_id: msg
 message_to_edit = {}
+# chat_id: call.data (bpm)
+user_chosen_bpm = {}
+# chat_id: call.data (extension)
+user_chosen_extension = {}
 
 # # Создает платёж
 # def payment(value,description):
@@ -150,6 +156,7 @@ def handler(call):
     global user
     global beats
     global beats_buttons
+    global user_bpm
     global balance_messages
     global message_to_edit
     global beats_generating
@@ -207,7 +214,6 @@ def handler(call):
                 del processing[call.message.chat.id]
         except Exception as e:
             print(repr(e))
-            
         return
     if call.data in menu_buttons:
         try:
@@ -295,19 +301,48 @@ def handler(call):
             print(repr(e))
             # db_handler.del_processing(call.message.chat.id)
         return
+    
     elif call.data in list(itertools.chain(*bpm_buttons.values())):
         try:
             if call.message:
                 # if processing.get(call.message.chat.id) is None or db_handler.get_processing(call.message.chat.id) == 0:
-                if (processing.get(call.message.chat.id) is None) and (beats_generating.get(call.message.chat.id) is not None and beats_generating.get(call.message.chat.id) == False) or db_handler.get_beats_generating(call.message.chat.id) == 0:
+                if processing.get(call.message.chat.id) is None:
+                    user_chosen_bpm[call.message.chat.id] = call.data
                     if user_chosen_style.get(call.message.chat.id) is not None:
-                        if call.data not in bpm_buttons[user_chosen_style[call.message.chat.id]]:
+                        if user_chosen_bpm[call.message.chat.id] not in bpm_buttons[user_chosen_style[call.message.chat.id]]:
                             bot.send_message(call.message.chat.id, '⚠️ Ты не можешь выбрать этот bpm для этого стиля, выбери из вышеприведённых')
                             return
                     else:
-                        if call.data not in bpm_buttons[db_handler.get_chosen_style[call.message.chat.id]]:
+                        if user_chosen_bpm[call.message.chat.id] not in bpm_buttons[db_handler.get_chosen_style[call.message.chat.id]]:
                             bot.send_message(call.message.chat.id, '⚠️ Ты не можешь выбрать этот bpm для этого стиля, выбери из вышеприведённых')
                             return
+                    # db_handler.set_processing(call.message.chat.id)
+                    processing[call.message.chat.id] = True
+
+                    bpm_markup = Keyboa(items=extensions_buttons + styles_button, items_in_row=2)
+                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'В каком формате скинуть финальный бит?\n\n*.wav* - оригинальное качество, используется профессионалами для записи. (Не воспроизводится на iphone)\n\n*.mp3* - более низкое качество, значительно меньше весит, не подходит для профессиональной записи.', reply_markup=bpm_markup(), parse_mode='Markdown').message_id 
+    
+
+                    # db_handler.del_processing(call.message.chat.id)
+                    del processing[call.message.chat.id]
+        except Exception as e:
+            print(repr(e))
+            # db_handler.del_processing(call.message.chat.id)
+            db_handler.del_beats_generating(call.message.chat.id)
+            del processing[call.message.chat.id]
+            error_markup = Keyboa(items=undo_button, items_in_row=3)
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='⚠️ Не удалось отправить пробные версии битов, деньги за транзакцию не сняты. Попробуй ещё раз.', reply_markup=error_markup())
+            # Удалить файлы
+            for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].*'):
+                remove(file)
+        return
+    elif call.data in extensions_buttons:
+        try:
+            if call.message:
+                # if processing.get(call.message.chat.id) is None or db_handler.get_processing(call.message.chat.id) == 0:
+                if (processing.get(call.message.chat.id) is None) and (beats_generating.get(call.message.chat.id) is not None and beats_generating.get(call.message.chat.id) == False) or db_handler.get_beats_generating(call.message.chat.id) == 0:
+                    
+                        
                         
                     # db_handler.set_processing(call.message.chat.id)
                     processing[call.message.chat.id] = True
@@ -316,11 +351,13 @@ def handler(call):
                         db_handler.set_beats_generating(call.message.chat.id)
                         beats_generating[call.message.chat.id] = True
 
+                        user_chosen_extension[call.message.chat.id] = call.data
+
                         generating_markup = Keyboa(items=undo_button)
                         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='💽 Создаю версии битов, это может занять несколько минут...\n\n🔽Версии появятся внизу🔽', reply_markup=generating_markup())
                         # style - стиль бита, num - сколько битов сделать
                         def generate_beats(style, num):
-                            status = make_beat.generate_some_beats(aliases, num, style, call.message.chat.id, call.data)
+                            status = make_beat.generate_some_beats(aliases, num, style, call.message.chat.id, user_chosen_bpm[call.message.chat.id], call.data)
                             if status:
                                 return True
                             else:
@@ -330,10 +367,10 @@ def handler(call):
                         def trimmed_audio(files_list):
                             messages_ids = []
                             for file_path in files_list:
-                                sound = AudioSegment.from_wav(file_path)
+                                sound = AudioSegment.from_file(file_path)
                                 trimmed = sound[45000:55000]
-                                new_file_path = f"{path.splitext(file_path)[0]}_short.wav"
-                                trimmed_sound = trimmed.export(new_file_path, format="wav")
+                                new_file_path = f"{path.splitext(file_path)[0]}_short.mp3"
+                                trimmed_sound = trimmed.export(new_file_path, format=f"mp3")
                                 
                                 # Добавление проверки наличия элемента в списке перед использованием index()
                                 if file_path in files_list:
@@ -350,17 +387,17 @@ def handler(call):
                             db_handler.del_beats_generating(call.message.chat.id)
                             beats_generating[call.message.chat.id] = False
                             # Удалить файлы
-                            for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].wav'):
+                            for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].*'):
                                 remove(file)
                             error_markup = Keyboa(items=undo_button, items_in_row=3)
                             return bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='⚠️ Не удалось отправить пробные версии битов, деньги за транзакцию не сняты. Попробуй ещё раз.', reply_markup=error_markup())
 
                         # Изменить сообщение о создании битов
-                        message_to_edit[call.message.chat.id] = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'🚀 Вот 3 демо версии битов, выбери ту, которая понравилась:\n\nСтиль - *{db_handler.get_chosen_style(call.message.chat.id)}* Темп - *{call.data}*', parse_mode='Markdown').message_id
+                        message_to_edit[call.message.chat.id] = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'🚀 Вот 3 демо версии битов, выбери ту, которая понравилась:\n\nСтиль - *{db_handler.get_chosen_style(call.message.chat.id)}* Темп - *{user_chosen_bpm[call.message.chat.id]}*', parse_mode='Markdown').message_id
                         
-                        trimmed_audio(glob(f'output_beats/{call.message.chat.id}_[1-{beats}].wav'))
+                        trimmed_audio(glob(f'output_beats/{call.message.chat.id}_[1-{beats}].*'))
 
-                        for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}]_short.wav'):         
+                        for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}]_short.*'):         
                             remove(file)
 
                     else:    
@@ -378,7 +415,7 @@ def handler(call):
             error_markup = Keyboa(items=undo_button, items_in_row=3)
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='⚠️ Не удалось отправить пробные версии битов, деньги за транзакцию не сняты. Попробуй ещё раз.', reply_markup=error_markup())
             # Удалить файлы
-            for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].wav'):
+            for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].*'):
                 remove(file)
         return
     elif call.data in beats_buttons:
@@ -401,7 +438,7 @@ def handler(call):
                         db_handler.del_beats_versions_messages_ids(call.message.chat.id)
 
                         # Открыть файл
-                        beat = open(f'output_beats/{call.message.chat.id}_{call.data}.wav', 'rb')
+                        beat = open(f'output_beats/{call.message.chat.id}_{call.data}.{user_chosen_extension[call.message.chat.id]}', 'rb')
 
                         # Скинуть файл
                         bot.send_audio(call.message.chat.id, beat)
@@ -414,19 +451,20 @@ def handler(call):
                         bot.send_message(call.message.chat.id, f'С твоего баланса снято *{beat_price}₽*\nНадеюсь тебе понравится бит😉', reply_markup=end_markup(), parse_mode='Markdown')                        
                         
                         # Удалить файлы
-                        for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].wav'):
+                        for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].*'):
                             remove(file)
 
 
                     elif call.data == 'Никакой':   
                         bot.send_message(call.message.chat.id, f'Не одного бита не выбрано, ты можешь посомтреть ещё несколько битов через время.')
                         # Удалить файлы
-                        for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].wav'):
+                        for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].*'):
                             remove(file)
 
                     # Убрать пользователя из "обработки"
                     # db_handler.del_processing(call.message.chat.id)
                     del processing[call.message.chat.id]
+                    del user_chosen_extension[call.message.chat.id]
                     db_handler.del_beats_generating(call.message.chat.id)
                     beats_generating[call.message.chat.id] = False
 
@@ -440,10 +478,12 @@ def handler(call):
             print(repr(e))
             # db_handler.del_processing(call.message.chat.id)
             del processing[call.message.chat.id]
+            del user_chosen_extension[call.message.chat.id]
             db_handler.del_beats_generating(call.message.chat.id)
             # Удалить файлы
-            for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].wav'):
+            for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].*'):
                 remove(file)
-            bot.send_message(call.message.chat.id, '⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.')
+            error_markup = Keyboa(items=undo_button, items_in_row=3)
+            bot.send_message(call.message.chat.id, '⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.', reply_markup=error_markup())
 
 bot.polling()

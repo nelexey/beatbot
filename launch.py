@@ -9,7 +9,7 @@ chat_ids_by_messages_to_del_ids = db_handler.get_chat_ids_by_messages_to_del_ids
 mailing_list = []
 
 for chat_id in chat_ids:
-    for file in glob(f'output_beats/{chat_id}_[1-{beats}]*.wav'):
+    for file in glob(f'output_beats/{chat_id}_[1-{beats}]*.*'):
         remove(file)
     db_handler.del_beats_generating(chat_id)
     db_handler.del_processing(chat_id)
