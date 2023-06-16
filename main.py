@@ -12,6 +12,7 @@ from pydub import AudioSegment # Для обрезки битов на их де
 from glob import glob
 import itertools
 
+
 # Подключение бота
 bot = telebot.TeleBot(config.TOKEN)
 
@@ -55,13 +56,16 @@ start_balance = 0 # RUB
 is_added = {}
 
 if launch.mailing_list is not None:
-    for chat_id in launch.mailing_list:
-        inline_markup = Keyboa(items=menu_buttons[2], items_in_row=1)
-        bot.send_message(chat_id, 'Сожалею, но во время создания твоих битов бот перезапустился 😵‍💫\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Деньги за транзакцию не сняты.\n\nТы можешь заказать бит еще раз 👉', reply_markup=inline_markup())         
-    for chat_id in launch.chat_ids_by_messages_to_del_ids:
-        messages_ids = db_handler.get_beats_versions_messages_ids(chat_id).split(', ')
-        for mes_id in messages_ids:
-            bot.delete_message(chat_id, mes_id)
+    try:
+        for chat_id in launch.mailing_list:
+            inline_markup = Keyboa(items=menu_buttons[2], items_in_row=1)
+            bot.send_message(chat_id, 'Сожалею, но во время создания твоих битов бот перезапустился 😵‍💫\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Деньги за транзакцию не сняты.\n\nТы можешь заказать бит еще раз 👉', reply_markup=inline_markup())         
+        for chat_id in launch.chat_ids_by_messages_to_del_ids:
+            messages_ids = db_handler.get_beats_versions_messages_ids(chat_id).split(', ')
+            for mes_id in messages_ids:
+                bot.delete_message(chat_id, mes_id)
+            db_handler.del_beats_versions_messages_ids(chat_id)
+    except:
         db_handler.del_beats_versions_messages_ids(chat_id)
 
 @bot.message_handler(commands=['start'])
@@ -152,15 +156,7 @@ user_chosen_extension = {}
 # Обработчик всех кнопок
 @bot.callback_query_handler(func=lambda call: True)
 def handler(call):
-    global msg
-    global user
-    global beats
-    global beats_buttons
-    global user_bpm
-    global balance_messages
-    global message_to_edit
-    global beats_generating
-    global processing
+    global msg, user, beats, beats_buttons, user_bpm, balance_messages, message_to_edit, beats_generating, processing
 
     # # Асинхронная функция проверки статуса платежа
     # async def check_payment(payment_id):
@@ -356,50 +352,56 @@ def handler(call):
                         generating_markup = Keyboa(items=undo_button)
                         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='💽 Создаю версии битов, это может занять несколько минут...\n\n🔽Версии появятся внизу🔽', reply_markup=generating_markup())
                         # style - стиль бита, num - сколько битов сделать
-                        def generate_beats(style, num):
-                            status = make_beat.generate_some_beats(aliases, num, style, call.message.chat.id, user_chosen_bpm[call.message.chat.id], call.data)
-                            if status:
-                                return True
-                            else:
-                                return False
+                        # def generate_beats(aliases, num, style, chat_id, bpm, extension):
+                        #     status = make_beat.generate_some_beats(aliases, num, style, chat_id, bpm, extension)
+                        #     if status:
+                        #         return True
+                        #     else:
+                        #         return False
 
-                        # Обрезать аудио на демо-версии и отправить пользователю, добавить id демо версии в бд
-                        def trimmed_audio(files_list):
-                            messages_ids = []
-                            for file_path in files_list:
-                                sound = AudioSegment.from_file(file_path)
-                                trimmed = sound[45000:55000]
-                                new_file_path = f"{path.splitext(file_path)[0]}_short.mp3"
-                                trimmed_sound = trimmed.export(new_file_path, format=f"mp3")
+                        # # Обрезать аудио на демо-версии и отправить пользователю, добавить id демо версии в бд
+                        # def trimmed_audio(files_list):
+                        #     for file_path in files_list:
                                 
-                                # Добавление проверки наличия элемента в списке перед использованием index()
-                                if file_path in files_list:
-                                    if files_list.index(file_path) == len(files_list)-1:
-                                        beats_markup = Keyboa(items=beats_buttons, items_in_row=3)
-                                        messages_ids.append(bot.send_audio(call.message.chat.id, trimmed_sound, reply_markup=beats_markup()).message_id)
-                                        db_handler.set_beats_versions_messages_ids(call.message.chat.id, ', '.join(str(messages_id) for messages_id in messages_ids))
-                                        return
-                                    else:
-                                        messages_ids.append(bot.send_audio(call.message.chat.id, trimmed_sound).message_id)
-                        # Сделать бит     
-                        if generate_beats(db_handler.get_chosen_style(call.message.chat.id), beats) == False:
-                            # db_handler.del_processing(call.message.chat.id)
-                            db_handler.del_beats_generating(call.message.chat.id)
-                            beats_generating[call.message.chat.id] = False
-                            # Удалить файлы
-                            for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].*'):
-                                remove(file)
-                            error_markup = Keyboa(items=undo_button, items_in_row=3)
-                            return bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='⚠️ Не удалось отправить пробные версии битов, деньги за транзакцию не сняты. Попробуй ещё раз.', reply_markup=error_markup())
-
-                        # Изменить сообщение о создании битов
-                        message_to_edit[call.message.chat.id] = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'🚀 Вот 3 демо версии битов, выбери ту, которая понравилась:\n\nСтиль - *{db_handler.get_chosen_style(call.message.chat.id)}* Темп - *{user_chosen_bpm[call.message.chat.id]}*', parse_mode='Markdown').message_id
+                        #         sound = AudioSegment.from_file(file_path)
+                        #         trimmed = sound[45000:55000]
+                        #         new_file_path = f"{path.splitext(file_path)[0]}_short.mp3"
+                        #         trimmed.export(new_file_path, format=f"mp3")
+                                                        
+                        async def check_response():
+                            while True:
+                                beats_files = sorted(glob(f'output_beats/{call.message.chat.id}_[1-{beats}].*'))
+                                beats_shorts_files = sorted(glob(f'output_beats/{call.message.chat.id}_[1-{beats}]_short.*'))
+                                
+                                print(beats_shorts_files)
+                                if len(beats_files)==beats and len(beats_shorts_files)==beats:
+                                    message_to_edit[call.message.chat.id] = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'🚀 Вот 3 демо версии битов, выбери ту, которая понравилась:\n\nСтиль - *{db_handler.get_chosen_style(call.message.chat.id)}* Темп - *{user_chosen_bpm[call.message.chat.id]}*', parse_mode='Markdown').message_id
                         
-                        trimmed_audio(glob(f'output_beats/{call.message.chat.id}_[1-{beats}].*'))
+                                    files_list = beats_shorts_files
 
-                        for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}]_short.*'):         
-                            remove(file)
+                                    messages_ids = []
 
+                                    for file_path in files_list:
+                                        with open(file_path, 'rb') as trimmed_sound:
+                                            if files_list.index(file_path) == len(files_list)-1:
+                                                beats_markup = Keyboa(items=beats_buttons, items_in_row=3)
+                                                messages_ids.append(bot.send_audio(call.message.chat.id, trimmed_sound, reply_markup=beats_markup()).message_id)
+                                                db_handler.set_beats_versions_messages_ids(call.message.chat.id, ', '.join(str(messages_id) for messages_id in messages_ids))
+                                                trimmed_sound.close()
+                                                for file in files_list:         
+                                                    remove(file)
+                                                del messages_ids
+                                                return
+                                            else:
+                                                messages_ids.append(bot.send_audio(call.message.chat.id, trimmed_sound).message_id)
+                    
+                                await asyncio.sleep(2)
+                            
+
+                        # Добавить в очередь 
+                        db_handler.set_query(call.message.chat.id, user_chosen_style[call.message.chat.id], user_chosen_bpm[call.message.chat.id], call.data)
+                        asyncio.run(check_response())
+                        
                     else:    
                         inline_markup = Keyboa(items=menu_buttons[0], items_in_row=1)
                         bot.send_message(call.message.chat.id, f'⚠️ Тебе не хватает денег на балансе, пополни баланс чтобы купить бит', reply_markup=inline_markup())
@@ -438,6 +440,7 @@ def handler(call):
                         db_handler.del_beats_versions_messages_ids(call.message.chat.id)
 
                         # Открыть файл
+
                         beat = open(f'output_beats/{call.message.chat.id}_{call.data}.{user_chosen_extension[call.message.chat.id]}', 'rb')
 
                         # Скинуть файл
