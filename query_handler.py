@@ -1,5 +1,5 @@
 import db_handler
-import asyncio
+import time
 import make_beat
 from pydub import AudioSegment # Для обрезки битов на их демо-версии
 from os import path
@@ -17,8 +17,7 @@ aliases = {
 
 class Handler():
 
-    
-    async def cheking():
+    def cheking():
         while True:
             query = db_handler.get_query()
             if query is not None:
@@ -46,6 +45,6 @@ class Handler():
                 trimmed_audio(sorted(glob(f'output_beats/{query[0]}_[1-{beats}].*'), key=lambda x: int(x.split('_')[-1].split('.')[0])))
                 db_handler.del_query()
 
-            await asyncio.sleep(6)
+            time.sleep(6)
 
-asyncio.run(Handler.cheking())
+Handler.cheking()

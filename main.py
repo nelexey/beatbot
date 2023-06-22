@@ -350,6 +350,9 @@ def make_query(call):
                             generating_markup = Keyboa(items=[UNDO_BUTTON])
                             message_to_edit[call.message.chat.id] = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='💽 Создаю версии битов, это может занять несколько минут...\n\n🔽Версии появятся внизу🔽', reply_markup=generating_markup()).message_id
 
+                            # Удалить файлы
+                            for file in glob(f'output_beats/{chat_id}_[1-{beats}]*.*'):
+                                remove(file)
                                                             
                             def check_response():
                                 while True:
@@ -358,7 +361,7 @@ def make_query(call):
                                     
                                     print(beats_shorts_files)
                                     if len(beats_files)==beats and len(beats_shorts_files)==beats:
-                                        message_to_edit[call.message.chat.id] = bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'🚀 Вот 3 демо версии битов, выбери ту, которая понравилась:\n\nСтиль - *{db_handler.get_chosen_style(call.message.chat.id)}* Темп - *{user_chosen_bpm[call.message.chat.id]}*', parse_mode='Markdown').message_id
+                                        message_to_edit[call.message.chat.id] = bot.edit_message_text(chat_id=call.message.chat.id, message_id=message_to_edit[call.message.chat.id], text=f'🚀 Вот 3 демо версии битов, выбери ту, которая понравилась:\n\nСтиль - *{db_handler.get_chosen_style(chat_id)}* Темп - *{db_handler.get_chosen_bpm(chat_id)}*', parse_mode='Markdown').message_id
                             
                                         files_list = beats_shorts_files
 
@@ -405,6 +408,13 @@ def make_query(call):
         db_handler.del_processing(call.message.chat.id)
         # Удалить beats_generating для пользователя
         db_handler.del_beats_generating(call.message.chat.id)
+        # Удалить файлы
+        for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].*'):
+            remove(file)
+            
+        error_markup = Keyboa(items=[UNDO_BUTTON], items_in_row=3)
+        bot.send_message(call.message.chat.id, '⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.', reply_markup=error_markup())
+
     
 @bot.callback_query_handler(func=lambda call: call.data in BEATS_BUTTONS)
 def send_beat(call):
@@ -429,7 +439,6 @@ def send_beat(call):
                 db_handler.del_beats_versions_messages_ids(chat_id)
 
                 # Открыть файл
-                print(f'output_beats/{chat_id}_{pressed_button}.{db_handler.get_chosen_extension(chat_id).split(".")[-1]}')
                 beat = open(f'output_beats/{chat_id}_{pressed_button}.{db_handler.get_chosen_extension(chat_id).split(".")[-1]}', 'rb')
 
                 # Скинуть файл
@@ -444,7 +453,7 @@ def send_beat(call):
                 bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\nНадеюсь тебе понравится бит😉', reply_markup=end_markup(), parse_mode='Markdown')                        
                 
                 # Удалить файлы
-                for file in glob(f'output_beats/{chat_id}_[1-{beats}].*'):
+                for file in glob(f'output_beats/{chat_id}_[1-{beats}]*.*'):
                     remove(file)
 
                 # Снять деньги
