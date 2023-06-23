@@ -4,7 +4,8 @@ import make_beat
 from pydub import AudioSegment # Для обрезки битов на их демо-версии
 from os import path
 from glob import glob
-from launch import beats
+
+beats = 3
 
 # Ключи - названия стилей на кнопках, значения - названия папок style_*
 aliases = {
@@ -45,6 +46,6 @@ class Handler():
                 trimmed_audio(sorted(glob(f'output_beats/{query[0]}_[1-{beats}].*'), key=lambda x: int(x.split('_')[-1].split('.')[0])))
                 db_handler.del_query()
 
-            time.sleep(6)
+            time.sleep(3)
 
 Handler.cheking()

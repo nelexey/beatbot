@@ -355,6 +355,7 @@ def make_query(call):
                                 remove(file)
                                                             
                             def check_response():
+                                order_number = 0
                                 while True:
                                     beats_files = sorted(glob(f'output_beats/{call.message.chat.id}_[1-{beats}].*'))
                                     beats_shorts_files = sorted(glob(f'output_beats/{call.message.chat.id}_[1-{beats}]_short.*'))
@@ -380,9 +381,24 @@ def make_query(call):
                                                     return
                                                 else:
                                                     messages_ids.append(bot.send_audio(call.message.chat.id, trimmed_sound).message_id)
-                        
-                                    time.sleep(2)
+
+                                    new_order_number = db_handler.get_query_by_chat_id(call.message.chat.id)
+                                    # Если заявка пользователя удалится из очереди, то количество заявок перед ним будет 0, т.к биты не скинулись а заявка удалена отправить ошибку
+                                    if new_order_number==0:
+                                        # Удалить beats_generating для пользователя
+                                        db_handler.del_beats_generating(call.message.chat.id)
+                                        # Удалить файлы
+                                        for file in glob(f'output_beats/{call.message.chat.id}_[1-{beats}].*'):
+                                            remove(file)
+                                        error_markup = Keyboa(items=[UNDO_BUTTON], items_in_row=3)
+                                        bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id, text=f'⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.', reply_markup=error_markup())
+                                        return
+                                    print(new_order_number)
+                                    if new_order_number != order_number:
+                                        order_number = new_order_number
+                                        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'💽 Создаю версии битов, это может занять несколько минут...\n\nТвоё место в очереди: {order_number}\n\n🔽Версии появятся внизу🔽', parse_mode='Markdown')  
                             
+                                    time.sleep(2)
                             # Добавить в очередь 
                             db_handler.set_query(chat_id, db_handler.get_chosen_style(chat_id), db_handler.get_chosen_bpm(chat_id), db_handler.get_chosen_extension(chat_id).split('.')[-1])
 
@@ -413,7 +429,7 @@ def make_query(call):
             remove(file)
             
         error_markup = Keyboa(items=[UNDO_BUTTON], items_in_row=3)
-        bot.send_message(call.message.chat.id, '⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.', reply_markup=error_markup())
+        bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id, text=f'⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.', reply_markup=error_markup())
 
     
 @bot.callback_query_handler(func=lambda call: call.data in BEATS_BUTTONS)
@@ -450,7 +466,7 @@ def send_beat(call):
                 # Отправка сообщения
                 bot.edit_message_text(chat_id=chat_id, message_id=message_to_edit[chat_id], text='🔽 Держи 🔽')
                 end_markup = Keyboa(items=[MENU_BUTTON], items_in_row=3)
-                bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\nНадеюсь тебе понравится бит😉', reply_markup=end_markup(), parse_mode='Markdown')                        
+                bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\nНадеюсь, тебе понравится бит 😉', reply_markup=end_markup(), parse_mode='Markdown')                        
                 
                 # Удалить файлы
                 for file in glob(f'output_beats/{chat_id}_[1-{beats}]*.*'):
