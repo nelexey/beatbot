@@ -22,6 +22,7 @@ import keyboards
 
 import itertools
 from os import remove
+import random
 
 # Установка уровня логирования
 logging.basicConfig(level=logging.INFO)
@@ -116,7 +117,7 @@ async def return_to_styles(c: types.CallbackQuery):
 @dp.callback_query_handler(lambda c: c.data in keyboards.UNDO_BUTTON or c.data in keyboards.MENU_BUTTON)
 async def return_to_menu(c: types.CallbackQuery):
     chat_id = c.message.chat.id
-    if get_user(chat_id):
+    if await get_user(chat_id):
         # Обнулить выбранные пользователем параметры бита
         await reset_chosen_params(chat_id)
         # Отправка сообщения
@@ -249,7 +250,9 @@ async def show_extensions(c: types.CallbackQuery):
 # Сообщение для редактирования
 message_to_edit = {}
 
-async def check_response(chat_id):
+async def check_response(chat_id, message_id):
+    order_number = 0
+
     while True:
         beats_files = sorted(glob(f'output_beats/{chat_id}_[1-{beats}].*'))
         beats_shorts_files = sorted(glob(f'output_beats/{chat_id}_[1-{beats}]_short.*'))
@@ -257,7 +260,13 @@ async def check_response(chat_id):
         print(beats_shorts_files)
         if len(beats_files)==beats and len(beats_shorts_files)==beats:
             return True
-        await asyncio.sleep(2)
+        
+        new_order_number = db_handler.get_query_by_chat_id(chat_id)
+        if new_order_number != order_number:
+            order_number = new_order_number
+            await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'💽 Создаю версии битов, это может занять несколько минут...\n\nТвоё место в очереди: *{order_number}*\n\n🔽Версии появятся внизу🔽', parse_mode='Markdown')  
+
+        await asyncio.sleep(2*order_number)
             
 @dp.callback_query_handler(lambda c: c.data in keyboards.EXTENSIONS_BUTTONS)
 async def make_query(c: types.CallbackQuery):
@@ -286,7 +295,8 @@ async def make_query(c: types.CallbackQuery):
                             # Добавить пользователя в beats_generating
                             db_handler.set_beats_generating(chat_id)
 
-                            await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text='💽 Создаю версии битов, это может занять несколько минут...\n\n🔽Версии появятся внизу🔽')
+                            message = await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text='💽 Создаю версии битов, это может занять несколько минут...\n\n🔽Версии появятся внизу🔽')
+                            message_to_edit[chat_id] = message.message_id
 
                             # Удалить файлы
                             for file in glob(f'output_beats/{chat_id}_[1-{beats}]*.*'):
@@ -295,12 +305,14 @@ async def make_query(c: types.CallbackQuery):
                             # Добавить в очередь 
                             db_handler.set_query(chat_id, db_handler.get_chosen_style(chat_id), db_handler.get_chosen_bpm(chat_id), db_handler.get_chosen_extension(chat_id).split('.')[-1])
                             
-                            if await check_response(chat_id):
+                            if await check_response(chat_id, message_to_edit[chat_id]):
                                 files_list = sorted(glob(f'output_beats/{chat_id}_[1-{beats}]_short.*'))
 
                                 messages_ids = []
 
-                                message = await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🚀 Вот 3 демо версии битов, выбери ту, которая понравилась:\n\nСтиль - *{user_chosen_style}* Темп - *{user_chosen_bpm}*', parse_mode='Markdown')
+                                await bot.delete_message(chat_id=chat_id, message_id=c.message.message_id)
+
+                                message = await bot.send_message(chat_id=chat_id, text=f'✅ Вот 3 демо-версии битов, выбери ту, которая понравилась, и я скину полную версию:\n\nСтиль - *{user_chosen_style}* Темп - *{user_chosen_bpm}*', parse_mode='Markdown')
                                 message_to_edit[chat_id] = message.message_id
 
                                 for file_path in files_list:
@@ -342,7 +354,7 @@ async def make_query(c: types.CallbackQuery):
         for file in glob(f'output_beats/{c.message.chat.id}_[1-{beats}]*.*'):
             remove(file)
             
-        await bot.edit_message_text(chat_id=c.message.message_id, message_id=c.message.message_id, text=f'⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.', reply_markup=keyboards.undo_keyboard)
+        await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.', reply_markup=keyboards.undo_keyboard)
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.BEATS_BUTTONS)
 async def send_beat(c: types.CallbackQuery):

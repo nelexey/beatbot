@@ -227,6 +227,11 @@ try:
         with connection.cursor() as cursor:
             cursor.execute(f'''DELETE FROM query WHERE order_number = (SELECT MIN(order_number) FROM query);''')
             print(f'[INFO] Deleted query')
+    def del_all_queries():
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''DELETE FROM query;''')
+            print(f'[INFO] Deleted all queries')
     def del_query_by_chat_id(chat_id):
         connect()
         with connection.cursor() as cursor:
