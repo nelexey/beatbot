@@ -29,6 +29,8 @@ try:
                             beats_vers_messages TEXT DEFAULT '',
                             processing INTEGER DEFAULT 0,
                             chosen_style VARCHAR(50) DEFAULT NULL,
+                            chosen_bpm VARCHAR(50) DEFAULT NULL,
+                            chosen_extension VARCHAR(50) DEFAULT NULL,
                             beats_generating INTEGER DEFAULT 0);''')
             print('[INFO] Table "users" works succesfuly')
 
