@@ -18,11 +18,11 @@ import db_handler
 # Клавиатура
 import keyboards
 # Для конфигурирования и создания платежа
-# from yookassa import Configuration,Payment 
+from yookassa import Configuration,Payment 
 
 import itertools
 from os import remove
-import random
+import json
 
 # Установка уровня логирования
 logging.basicConfig(level=logging.INFO)
@@ -32,8 +32,8 @@ bot = Bot(token=config.TOKEN)
 dp = Dispatcher(bot)
 
 # Подключение Юкассы
-# Configuration.account_id = config.SHOP_ID
-# Configuration.secret_key = config.SHOP_API_TOKEN
+Configuration.account_id = config.SHOP_ID
+Configuration.secret_key = config.SHOP_API_TOKEN
 
 # Цена бита
 beat_price = config.beat_price # RUB
@@ -64,7 +64,7 @@ async def safe_launch():
 async def send_hello(message: types.Message):
     # Отправка сообщения
     await bot.send_message(message.chat.id, text='Привет! 👋\n\nЯ телеграм-бот, который поможет тебе создать качественные 🎧 биты в разных стилях.\n\nМоя главная особенность - доступная 💰 цена и большой выбор стилей. Ты можешь выбрать любой стиль, который тебе нравится, и я создам для тебя уникальный бит.\n\nНе упусти возможность создать свой собственный звук и выделиться на фоне других исполнителей! 🎶\n\nЧтобы начать, используй команду\n/menu')
-
+# Обработка команды /menu
 @dp.message_handler(commands=['menu'])
 async def menu(message: types.Message):
     # Отправка сообщения
@@ -75,6 +75,16 @@ async def menu(message: types.Message):
     user_initials = f'{message.from_user.first_name} {message.from_user.last_name}'
     # Если пользователь уже добавлен то повторная запись не произойдет
     db_handler.add_user(message.chat.username, message.chat.id, user_initials, start_balance)
+# Обработка команды /example_beats
+@dp.message_handler(commands=['example_beats'])
+async def menu(message: types.Message):
+    # Отправка сообщения
+    if db_handler.get_beats_generating(message.chat.id) == 0:
+            await bot.send_message(message.chat.id, "Конечно! Вот несколько примеров готовых битов 💾\nНе сомневайся, бот сделает такие же и тебе!")
+            for file_path in glob('example_beats/*.wav'):
+                example_beat = open(file_path, 'rb')
+                await bot.send_audio(message.chat.id, example_beat)
+                example_beat.close()
 
 ## Обработка кнопок
 
@@ -165,8 +175,87 @@ async def show_menu(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.set_processing(c.message.chat.id)
 
+# Создает платёж
+async def payment(value,description):
+	payment = Payment.create({
+    "amount": {
+        "value": value,
+        "currency": "RUB"
+    },
+    "payment_method_data": {
+        "type": "bank_card"
+    },
+    "confirmation": {
+        "type": "redirect",
+        "return_url": "https://web.telegram.org/k/#@NeuralBeatBot"
+    },
+    "capture": True,
+    "description": description
+	})
+
+	return json.loads(payment.json())
+
+# Подтверждает наличие "товара"
+@dp.pre_checkout_query_handler()
+async def process_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery):
+    await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+
+# Асинхронная функция проверки статуса платежа
+async def check_payment(payment_id, c):
+    payment = json.loads((Payment.find_one(payment_id)).json())
+    while payment['status'] == 'pending':
+        payment = json.loads((Payment.find_one(payment_id)).json())
+        await asyncio.sleep(3)
+
+    if payment['status']=='succeeded':
+        print("SUCCSESS RETURN")
+        db_handler.top_balance(c.message.chat.id, c.data.split('₽')[0])
+        await bot.send_message(c.message.chat.id, f'🤑 Твой баланс пополнен на {c.data}')
+        # Удалить processing для пользователя
+        db_handler.del_processing(c.message.chat.id)
+        return True
+    else:
+        print("BAD RETURN")
+        await bot.send_message(c.message.chat.id, 'Не удалось пополнить баланс.')
+        # Удалить processing для пользователя
+        db_handler.del_processing(c.message.chat.id)
+        return False
 
 
+@dp.callback_query_handler(lambda c: c.data in keyboards.BALANCE_BUTTONS)
+async def prepare_payment(c: types.CallbackQuery):
+    try:
+
+        chat_id = c.message.chat.id
+
+        if await get_user(chat_id):
+            # Проверить, не находится ли пользователь в beats_generating
+            if db_handler.get_beats_generating(chat_id) == 0:
+                # Проверить, не находится ли пользователь в processing
+                if db_handler.get_processing(chat_id) == 0:
+                    # Установить processing для пользователя
+                    db_handler.set_processing(chat_id)
+
+                    # Получение цены из callback_data
+                    price = int(c.data.split('₽')[0])
+                    # Отправка счета пользователю
+                    payment_data = await payment(price, f'Пополнение баланса на {price}₽')
+                    payment_id = payment_data['id']
+                    confirmation_url = payment_data['confirmation']['confirmation_url']
+                    # Создаем объект кнопки с ссылкой на документацию pytelegrambotapi
+                    btn = types.InlineKeyboardButton(f'Оплатить {price}₽', url=confirmation_url)
+                    # Создаем объект клавиатуры и добавляем на нее кнопку
+                    keyboard = types.InlineKeyboardMarkup()
+                    keyboard.add(btn)
+                    await bot.send_message(c.message.chat.id, f'💳 Теперь перейди по ссылке\n\n(по проблемам писать на почту *tech.beatbot@mail.ru*)', reply_markup=keyboard, parse_mode='Markdown')
+                    await check_payment(payment_id, c)
+            else:
+                # Отправка оповещения
+                await bot.answer_callback_query(callback_query_id=c.id, text='Ты не можешь пополнить баланс во время генерации бита.', show_alert=True)
+    except Exception as e:   
+        print(repr(e))
+        # Удалить processing для пользователя
+        db_handler.set_processing(c.message.chat.id) 
 @dp.callback_query_handler(lambda c: c.data in keyboards.STYLES_BUTTONS)
 async def show_bpm(c: types.CallbackQuery):
     try:
