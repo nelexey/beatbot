@@ -24,9 +24,9 @@ class Handler():
             if query is not None:
 
                 chat_id, style, bpm, extension = query[0], query[1], query[2], query[3]
-                
+
                 print(query)
-                
+
                 def generate_beats(aliases, num, style, chat_id, bpm, extension):
                     status = make_beat.generate_some_beats(aliases, num, style, chat_id, bpm, extension)
                     if status:
@@ -36,9 +36,9 @@ class Handler():
                 # Обрезать аудио на демо-версии и отправить пользователю, добавить id демо версии в бд
                 def trimmed_audio(files_list):
                     for file_path in files_list:
-                        
+ 
                         sound = AudioSegment.from_file(file_path)
-                        trimmed = sound[45000:55000]
+                        trimmed = sound[35000:45000]
                         new_file_path = f"{path.splitext(file_path)[0]}_short.mp3"
                         trimmed.export(new_file_path, format=f"mp3")
 

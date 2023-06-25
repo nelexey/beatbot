@@ -1,6 +1,7 @@
 from glob import glob
 from pydub import AudioSegment
 from random import choice, randint, sample
+import re
 
 def speed_change(sound, speed=1.0):
     # Manually override the frame_rate. This tells the computer how many
@@ -16,9 +17,17 @@ def speed_change(sound, speed=1.0):
 
 def generate_some_beats(aliases, num, style, chat_id, bpm, extension):
     # Выбрать случайные неповторяющиеся лиды 
-    sample_presets = sample(range(1, len(glob(f"style_{aliases[style]}/lead/*.wav"))+1), num) 
+    get_leads = sample(glob(f"style_{aliases[style]}/lead/*.wav"), 3)
+    
+    sample_presets = []
+    for file in get_leads:
+        match = re.search(r'\d+', file)
+        if match:
+            sample_presets.append(int(match.group()))
+
     print(sample_presets)
     for i in range(1, num+1):
+        # ОБЯЗАТЕЛЬНО УКАЗЫВАТЬ SAMPLE_PRESET ЕСЛИ ЗВУКИ НЕ ИДУТ В ТОЧНОМ ЧИСЛОВОМ ПОРЯДКЕ
         if style == 'Jersey Club':
             status = jersey_club(chat_id, bpm, i, sample_presets[i-1], extension)
         elif style == 'Trap':
