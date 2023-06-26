@@ -3,7 +3,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Инициализация кнопок
 # Кнопки меню
-BUTTON_GENERATE_BEAT = f'🎤 Бит под голос - {beat_price}₽ 🎤'
+BUTTON_GENERATE_BEAT = f'🎤 Бит под запись - {beat_price}₽ 🎤'
 BUTTON_BALANCE = '💰 Баланс'
 BUTTON_ABOUT = '🏡 О нас'
 

@@ -69,23 +69,33 @@ async def send_hello(message: types.Message):
 async def menu(message: types.Message):
     # Отправка сообщения
 
-    await bot.send_message(message.chat.id, text="🎶 Это меню заказа битов 🎶\n\nОсновное предназначение бота - писать качественные биты за доступную цену, отправь эту команду в чат, чтобы получить примеры битов, созданных ботом 👉\n\n /example_beats.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=keyboards.menu_keyboard)
+    await bot.send_message(message.chat.id, text="🎶 Это меню заказа битов 🎶\n\nОсновное предназначение бота - писать качественные биты за доступную цену, отправь эту команду в чат, чтобы получить примеры битов, созданных ботом 👉\n/example_beats.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=keyboards.menu_keyboard)
     # Добавление в БД
     # Имя и фамилия пользователя
     user_initials = f'{message.from_user.first_name} {message.from_user.last_name}'
     # Если пользователь уже добавлен то повторная запись не произойдет
     db_handler.add_user(message.chat.username, message.chat.id, user_initials, start_balance)
 # Обработка команды /example_beats
+got_example_beats = {}
 @dp.message_handler(commands=['example_beats'])
 async def menu(message: types.Message):
-    # Отправка сообщения
+    
     if db_handler.get_beats_generating(message.chat.id) == 0:
+        if got_example_beats.get(message.chat.id) is None:
+            # Отправка сообщения
             await bot.send_message(message.chat.id, "Конечно! Вот несколько примеров готовых битов 💾\nНе сомневайся, бот сделает такие же и тебе!")
             for file_path in glob('example_beats/*.wav'):
                 example_beat = open(file_path, 'rb')
+                # Отправка аудио
                 await bot.send_audio(message.chat.id, example_beat)
                 example_beat.close()
-
+            got_example_beats[message.chat.id] = True
+        else:
+            # Отправка сообщения
+            await bot.send_message(message.chat.id, "Тебе уже отправлены примеры битов 😵‍💫\n\n Если хочешь ещё, бот может сгенерировать тебе собственный бит 😉", reply_markup=keyboards.MENU_BUTTONS[2])
+    else:
+        # Отправка оповещения
+        await bot.answer_callback_query(callback_query_id=message.id, text='Я не могу скинуть примеры во время генерации бита.', show_alert=True)
 ## Обработка кнопок
 
 # Обработка кнопок интерфейса
@@ -131,7 +141,7 @@ async def return_to_menu(c: types.CallbackQuery):
         # Обнулить выбранные пользователем параметры бита
         await reset_chosen_params(chat_id)
         # Отправка сообщения
-        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text="🎶 Это меню заказа битов 🎶\n\n💥 Ты можешь ознакомиться с примером бита, который я могу создать, используя команду /example_beats. Просто отправь эту команду в чат и ты получишь ссылку на наш пример.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=keyboards.menu_keyboard)
+        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text="🎶 Это меню заказа битов 🎶\n\nОсновное предназначение бота - писать качественные биты за доступную цену, отправь эту команду в чат, чтобы получить примеры битов, созданных ботом 👉\n/example_beats.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=keyboards.menu_keyboard)
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.MENU_BUTTONS)
 async def show_menu(c: types.CallbackQuery):
@@ -164,7 +174,7 @@ async def show_menu(c: types.CallbackQuery):
                 # Запрос баланса пользователя в таблице users
                 balance = db_handler.get_balance(chat_id)
                 # Отправка сообщения
-                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'💰 Баланс\n\n🏦 На твоем балансе *{balance}₽*\n\n🛑НА ДАННЫЙ МОМЕНТ ОПЛАТА РАБОТАЕТ В ТЕСТОВОМ РЕЖИМЕ 🛑 Рабочая оплата будет после одобрения кассы.\n\n👉 Выбери сумму для пополнения:', reply_markup=keyboards.balance_keyboard, parse_mode='Markdown')
+                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'💰 Баланс\n\nНа твоем балансе: *{balance}₽*\n\nЦены:\n------------\n|{keyboards.BUTTON_GENERATE_BEAT}|\n\n👉 Выбери сумму для пополнения:', reply_markup=keyboards.balance_keyboard, parse_mode='Markdown')
 
             elif pressed_button == keyboards.BUTTON_ABOUT:
                 # Отправка сообщения
@@ -210,7 +220,7 @@ async def check_payment(payment_id, c):
     if payment['status']=='succeeded':
         print("SUCCSESS RETURN")
         db_handler.top_balance(c.message.chat.id, c.data.split('₽')[0])
-        await bot.send_message(c.message.chat.id, f'🤑 Твой баланс пополнен на {c.data}')
+        await bot.send_message(c.message.chat.id, f'🤑 Твой баланс пополнен на {c.data}', reply_markup=keyboards.MENU_BUTTON)
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
         return True
@@ -220,7 +230,6 @@ async def check_payment(payment_id, c):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
         return False
-
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.BALANCE_BUTTONS)
 async def prepare_payment(c: types.CallbackQuery):
@@ -247,7 +256,7 @@ async def prepare_payment(c: types.CallbackQuery):
                     # Создаем объект клавиатуры и добавляем на нее кнопку
                     keyboard = types.InlineKeyboardMarkup()
                     keyboard.add(btn)
-                    await bot.send_message(c.message.chat.id, f'💳 Теперь перейди по ссылке\n\n(по проблемам писать на почту *tech.beatbot@mail.ru*)', reply_markup=keyboard, parse_mode='Markdown')
+                    await bot.send_message(c.message.chat.id, f'💳 Нажмите на ссылку под сообщением, оплатите удобным вам способом.\n\n💾 Идентификатор чата - *{c.message.chat.id}*\nУслугу предоставляет: ИНН: 910821614530\n\n🎟️ Заказывая услугу, вы соглашаетесь с договором оферты: https://beatmaker.site/offer\n\n✉️ Техническая поддержка: *tech.beatbot@mail.ru*', reply_markup=keyboard, parse_mode='Markdown')
                     await check_payment(payment_id, c)
             else:
                 # Отправка оповещения
@@ -318,7 +327,7 @@ async def show_extensions(c: types.CallbackQuery):
 
                             db_handler.set_chosen_bpm(chat_id, user_chosen_bpm)
                             # Отправка сообщения
-                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'В каком формате скинуть финальный бит?\n\n*.wav* - оригинальное качество, используется профессионалами для записи. (Не воспроизводится на iphone)\n\n*.mp3* - более низкое качество, значительно меньше весит, не подходит для профессиональной записи.', reply_markup=keyboards.extensions_keyboard, parse_mode='Markdown')       
+                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'В каком формате скинуть финальный бит?\n\n*.wav* - оригинальное качество, используется профессионалами для записи. (Не воспроизводится на iphone)\n\n*.mp3* - более низкое качество, значительно меньше весит, не подходит для профессиональной записи.\n\nПосле выбора формата начнётся генерация битов', reply_markup=keyboards.extensions_keyboard, parse_mode='Markdown')       
                         else:
                             # Отправка оповещения
                             await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь выбрать этот bpm для этого стиля, выбери из вышеприведённых', show_alert=True)
