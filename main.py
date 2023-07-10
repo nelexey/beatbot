@@ -96,6 +96,14 @@ async def menu(message: types.Message):
     else:
         # Отправка оповещения
         await bot.answer_callback_query(callback_query_id=message.id, text='Я не могу скинуть примеры во время генерации бита.', show_alert=True)
+
+## Обработка текста
+
+@dp.message_handler()
+async def echo(message: types.Message):
+    await bot.send_message(message.chat.id, 'Я не воспринимаю текстовые команды\n\nВызвать меню можно по команде /menu или нажав на кнопку в нижнем левом углу экрана.')
+
+
 ## Обработка кнопок
 
 # Обработка кнопок интерфейса
@@ -174,11 +182,11 @@ async def show_menu(c: types.CallbackQuery):
                 # Запрос баланса пользователя в таблице users
                 balance = db_handler.get_balance(chat_id)
                 # Отправка сообщения
-                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'💰 Баланс\n\nНа твоем балансе: *{balance}₽*\n\nЦены:\n------------\n|{keyboards.BUTTON_GENERATE_BEAT}|\n\n👉 Выбери сумму для пополнения:', reply_markup=keyboards.balance_keyboard, parse_mode='Markdown')
+                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'💰 Баланс\n\nНа твоем балансе: *{balance}₽*\n\n👉 Выбери сумму для пополнения:', reply_markup=keyboards.balance_keyboard, parse_mode='Markdown')
 
             elif pressed_button == keyboards.BUTTON_ABOUT:
                 # Отправка сообщения
-                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'🏡 О нас\n\n📌Услугу предоставляет:\n\nИНН: 910821614530\n👤Сычёв Егор Владимирович\n\n✉️Почта для связи:\ntech.beatbot@mail.ru\n\n📞Телефон для связи:\n+79781055722\n\n🌍Официальный сайт:\nhttps://beatmaker.site', reply_markup=keyboards.undo_keyboard)
+                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'🏡 О нас\n\n📌 Услугу предоставляет:\n\n👤 ИНН: 910821614530\n\n✉️Почта для связи:\ntech.beatbot@mail.ru\n\n🌍Официальный сайт:\nhttps://beatmaker.site', reply_markup=keyboards.undo_keyboard)
             
     except Exception as e:
         print(repr(e))
@@ -433,7 +441,7 @@ async def make_query(c: types.CallbackQuery):
                             # Отправка сообщения
                             await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Не удалось выбрать расширение, попробуй ещё раз. Выбрать параметры бита нужно строго в предлагаемом ботом порядке и в одном окне', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
                     else:
-                        balance_keyboard = InlineKeyboardButton().add(keyboards.btn_balance)
+                        balance_keyboard = InlineKeyboardMarkup().add(keyboards.btn_balance)
                         await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Сперва тебе нужно пополнить баланс', reply_markup=balance_keyboard, parse_mode='Markdown')
 
                 # Удалить processing для пользователя

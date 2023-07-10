@@ -17,14 +17,14 @@ def speed_change(sound, speed=1.0):
 
 def generate_some_beats(aliases, num, style, chat_id, bpm, extension):
     # Выбрать случайные неповторяющиеся лиды 
+
     get_leads = sample(glob(f"style_{aliases[style]}/lead/*.wav"), 3)
     
     sample_presets = []
     for file in get_leads:
         match = re.search(r'\d+', file)
         if match:
-            sample_presets.append(int(match.group()))
-
+            sample_presets.append(int(match.group())) 
     print(sample_presets)
     for i in range(1, num+1):
         # ОБЯЗАТЕЛЬНО УКАЗЫВАТЬ SAMPLE_PRESET ЕСЛИ ЗВУКИ НЕ ИДУТ В ТОЧНОМ ЧИСЛОВОМ ПОРЯДКЕ
