@@ -33,10 +33,10 @@ try:
 
             cursor.execute('''CREATE TABLE IF NOT EXISTS orders(
                             id SERIAL PRIMARY KEY,
-                            chat_id	TEXT NOT NULL,
+                            chat_id	TEXT UNIQUE NOT NULL,
                             chosen_style VARCHAR(50) DEFAULT NULL,
                             chosen_bpm VARCHAR(50) DEFAULT NULL,
-                            chosen_format VARCHAR(50) DEFAULT NULL
+                            chosen_extension VARCHAR(50) DEFAULT NULL
                             );''')
             print('[INFO] Table "orders" works succesfuly')
 
@@ -66,6 +66,8 @@ try:
     def get_user(chat_id):
         connect()
         with connection.cursor() as cursor:
+            cursor.execute(f'''INSERT INTO orders (chat_id)
+            VALUES ('{chat_id}') ON CONFLICT DO NOTHING;''')
             cursor.execute(f'''SELECT chat_id FROM bot_users WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
             if cursor.fetchone() is None:
                 return False
