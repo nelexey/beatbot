@@ -51,7 +51,7 @@ async def safe_launch():
         try:
             for chat_id in launch.mailing_list:
                 beat_keyboard = InlineKeyboardMarkup().add(keyboards.btn_generate_beat)
-                await bot.send_message(chat_id, 'Сожалею, но во время создания твоих битов бот перезапустился 😵‍💫\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Деньги за транзакцию не сняты.\n\nТы можешь заказать бит еще раз 👉', reply_markup=beat_keyboard)         
+                await bot.send_message(chat_id, 'Сожалею, но во время создания твоих битов бот перезапустился 🔄\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Деньги за транзакцию не сняты.\n\nТы можешь заказать бит еще раз 👉', reply_markup=beat_keyboard)         
             for chat_id in launch.chat_ids_by_messages_to_del_ids:
                 messages_ids = db_handler.get_beats_versions_messages_ids(chat_id).split(', ')
                 for mes_id in messages_ids:
@@ -64,7 +64,7 @@ async def safe_launch():
 @dp.message_handler(commands=['start'])
 async def send_hello(message: types.Message):
     # Отправка сообщения
-    await bot.send_message(message.chat.id, text='Привет! 👋\n\nЯ телеграм-бот, который поможет тебе создать качественные 🎧 биты в разных стилях.\n\nМоя главная особенность - доступная 💰 цена и большой выбор стилей. Ты можешь выбрать любой стиль, который тебе нравится, и я создам для тебя уникальный бит.\n\nНе упусти возможность создать свой собственный звук и выделиться на фоне других исполнителей! 🎶\n\nЧтобы начать, используй команду\n/menu')
+    await bot.send_message(message.chat.id, text='Привет! 👋\n\nЯ телеграм-бот, который может генерировать биты в разных стилях.\n\nМоя главная особенность - доступная 💰 цена и большой выбор стилей. Ты можешь выбрать любой стиль, который тебе нравится, и я создам для тебя уникальный бит.\n\nНе упусти возможность создать свой собственный звук и выделиться на фоне других исполнителей! 🎶\n\nЧтобы начать, используй команду */menu*', parse_mode='Markdown')
 # Обработка команды /menu
 @dp.message_handler(commands=['menu'])
 async def menu(message: types.Message):
@@ -85,7 +85,7 @@ async def menu(message: types.Message):
     if db_handler.get_beats_generating(message.chat.id) == 0:
         if got_example_beats.get(message.chat.id) is None:
             # Отправка сообщения
-            await bot.send_message(message.chat.id, "Конечно! Вот несколько примеров готовых битов 💾\nНе сомневайся, бот сделает такие же и тебе!")
+            await bot.send_message(message.chat.id, "Конечно! Такие биты генерирует наш бот 👉")
             for file_path in glob('example_beats/*.wav'):
                 example_beat = open(file_path, 'rb')
                 # Отправка аудио
@@ -137,7 +137,7 @@ async def return_to_styles(c: types.CallbackQuery):
                 await reset_chosen_params(chat_id)
                 
                 # Отправка сообщения
-                await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🎵 Генерация бита 🎵\n\n🔥 Выбери стиль, в котором я сгенерирую бит:', reply_markup=keyboards.styles_keyboard)
+                await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🪩 *СТИЛИ*\n\nЯ могу генерировать в разных стилях, каждый из них имеет свои особенности. Такие биты подойдут под запись голоса.\n\n*⏺ - Стиль*\n⏺ - Темп\n⏺ - Формат', reply_markup=keyboards.styles_keyboard, parse_mode='Markdown')
                 
                 # Удалить processing для пользователя
                 db_handler.del_processing(chat_id)
@@ -173,7 +173,7 @@ async def show_menu(c: types.CallbackQuery):
                         await reset_chosen_params(c.message.chat.id)
 
                         # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🎵 Генерация бита 🎵\n\n🔥 Выбери стиль, в котором я сгенерирую бит:', reply_markup=keyboards.styles_keyboard)
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🪩 *СТИЛИ*\n\nЯ могу генерировать в разных стилях, каждый из них имеет свои особенности. Такие биты подойдут под запись голоса.\n\n*⏺ - Стиль*\n⏺ - Темп\n⏺ - Формат', reply_markup=keyboards.styles_keyboard, parse_mode='Markdown')
                         
                         # Удалить processing для пользователя
                         db_handler.del_processing(chat_id)
@@ -189,7 +189,7 @@ async def show_menu(c: types.CallbackQuery):
 
             elif pressed_button == keyboards.BUTTON_ABOUT:
                 # Отправка сообщения
-                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'🏡 О нас\n\n📌 Услугу предоставляет:\n\n👤 ИНН: 910821614530\n\n✉️Почта для связи:\ntech.beatbot@mail.ru\n\n🌍Официальный сайт:\nhttps://beatmaker.site', reply_markup=keyboards.undo_keyboard)
+                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'🏡 О нас\n\n📌 Услугу предоставляет:\n\n👤 ИНН: 910821614530\n\n✉️ Почта для связи:\ntech.beatbot@mail.ru\n\n🌐 Официальный сайт:\nhttps://beatmaker.site', reply_markup=keyboards.undo_keyboard)
             
     except Exception as e:
         print(repr(e))
@@ -332,7 +332,7 @@ async def show_bpm(c: types.CallbackQuery):
                         btn_to_styles = keyboards.btn_to_styles
                         bpm_keyboard = InlineKeyboardMarkup(row_width=3).add(btn_bpm1, btn_bpm2, btn_bpm3, btn_to_styles)
                         
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'*{c.data}* - отличный выбор! Теперь выбери темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено', reply_markup=bpm_keyboard, parse_mode='Markdown') 
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ТЕМП*\n\nТеперь выбери темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Формат', reply_markup=bpm_keyboard, parse_mode='Markdown') 
                         
                         # Удалить processing для пользователя
                         db_handler.del_processing(chat_id)
@@ -370,7 +370,7 @@ async def show_extensions(c: types.CallbackQuery):
 
                             db_handler.set_chosen_bpm(chat_id, user_chosen_bpm)
                             # Отправка сообщения
-                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'В каком формате скинуть финальный бит?\n\n*.wav* - оригинальное качество, используется профессионалами для записи. (Не воспроизводится на iphone)\n\n*.mp3* - более низкое качество, значительно меньше весит, не подходит для профессиональной записи.\n\nПосле выбора формата начнётся генерация битов', reply_markup=keyboards.extensions_keyboard, parse_mode='Markdown')       
+                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ФОРМАТ*\n\nВ каком формате скинуть финальный бит?\n\n*.wav* - оригинальное качество, используется профессионалами для записи. (Не воспроизводится на iphone)\n\n*.mp3* - более низкое качество, значительно меньше весит, не подходит для профессиональной записи.\n\n✅ - {user_chosen_style}\n✅ - {user_chosen_bpm}\n*⏺ - Формат*\n\nПосле выбора формата начнётся генерация битов', reply_markup=keyboards.extensions_keyboard, parse_mode='Markdown')       
                         else:
                             # Отправка оповещения
                             await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь выбрать этот bpm для этого стиля, выбери из вышеприведённых', show_alert=True)
