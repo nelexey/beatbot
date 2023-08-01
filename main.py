@@ -5,6 +5,7 @@ from aiogram.utils import executor
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.types import CallbackQuery
 from aiogram.utils.callback_data import CallbackData
+
 # Инструмент для выборки путей к файлам
 from glob import glob
 # Файл данных
@@ -75,6 +76,7 @@ async def menu(message: types.Message):
     user_initials = f'{message.from_user.first_name} {message.from_user.last_name}'
     # Если пользователь уже добавлен то повторная запись не произойдет
     db_handler.add_user(message.chat.username, message.chat.id, user_initials, start_balance)
+
 # Обработка команды /example_beats
 got_example_beats = {}
 @dp.message_handler(commands=['example_beats'])
@@ -92,10 +94,11 @@ async def menu(message: types.Message):
             got_example_beats[message.chat.id] = True
         else:
             # Отправка сообщения
-            await bot.send_message(message.chat.id, "Тебе уже отправлены примеры битов 😵‍💫\n\n Если хочешь ещё, бот может сгенерировать тебе собственный бит 😉", reply_markup=keyboards.MENU_BUTTONS[2])
+            beat_keyboard = InlineKeyboardMarkup().add(keyboards.btn_generate_beat)
+            await bot.send_message(message.chat.id, "Тебе уже отправлены примеры битов 😵‍💫\n\nЕсли хочешь ещё, бот может сгенерировать тебе собственный бит 😉", reply_markup=beat_keyboard)
     else:
         # Отправка оповещения
-        await bot.answer_callback_query(callback_query_id=message.id, text='Я не могу скинуть примеры во время генерации бита.', show_alert=True)
+        pass
 
 ## Обработка текста
 
@@ -218,9 +221,21 @@ async def payment(value,description):
 async def process_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery):
     await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
 
+
+# Перед запуском асинхронной функции создается пара ключ значение user: value.
+# Это сделано для того, чтобы не создавать лишние ссылки и не запускать лишние асинхронные функции, для экономии ресурсов
+users_payment_transactions = {}
+
 # Асинхронная функция проверки статуса платежа
 async def check_payment(payment_id, c):
     payment = json.loads((Payment.find_one(payment_id)).json())
+    
+    db_handler.set_payment_checking(c.message.chat.id)
+
+    # Удаление пары ключ значение user: value.
+    def del_user_payment_transactions(chat_id, value):
+        users_payment_transactions[chat_id].remove(value)
+
     while payment['status'] == 'pending':
         payment = json.loads((Payment.find_one(payment_id)).json())
         await asyncio.sleep(3)
@@ -228,15 +243,20 @@ async def check_payment(payment_id, c):
     if payment['status']=='succeeded':
         print("SUCCSESS RETURN")
         db_handler.top_balance(c.message.chat.id, c.data.split('₽')[0])
-        await bot.send_message(c.message.chat.id, f'🤑 Твой баланс пополнен на {c.data}', reply_markup=keyboards.MENU_BUTTON)
-        # Удалить processing для пользователя
-        db_handler.del_processing(c.message.chat.id)
+        
+        await bot.send_message(c.message.chat.id, f'💵 Твой баланс пополнен на {c.data}', reply_markup=keyboards.to_menu_keyboard)
+        # Удалить payment_checking для пользователя
+        db_handler.del_payment_checking(c.message.chat.id)
+
+        del_user_payment_transactions(c.message.chat.id, c.data)
         return True
     else:
         print("BAD RETURN")
-        await bot.send_message(c.message.chat.id, 'Не удалось пополнить баланс.')
-        # Удалить processing для пользователя
-        db_handler.del_processing(c.message.chat.id)
+        # await bot.send_message(c.message.chat.id, 'Время ожидания на оплату по ссылке истекло.')
+        # Удалить payment_checking для пользователя
+        db_handler.del_payment_checking(c.message.chat.id)
+
+        del_user_payment_transactions(c.message.chat.id, c.data)
         return False
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.BALANCE_BUTTONS)
@@ -255,20 +275,35 @@ async def prepare_payment(c: types.CallbackQuery):
 
                     # Получение цены из callback_data
                     price = int(c.data.split('₽')[0])
+
+                    print(users_payment_transactions)
+
+                    if users_payment_transactions.get(chat_id) is not None and c.data in users_payment_transactions[chat_id]:
+                        # Удалить processing для пользователя
+                        db_handler.del_processing(chat_id)
+                        return await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Вам уже сгенерирована ссылка на эту сумму для оплаты, пожалуйста оплатите по ней.', show_alert=True)
+                                
+                    # Добавление транзакции оплаты пользователя
+                    if users_payment_transactions.get(chat_id) is None:
+                        users_payment_transactions[chat_id] = []
+                    users_payment_transactions[chat_id].append(c.data)
+
                     # Отправка счета пользователю
                     payment_data = await payment(price, f'Пополнение баланса на {price}₽')
                     payment_id = payment_data['id']
-                    confirmation_url = payment_data['confirmation']['confirmation_url']
-                    # Создаем объект кнопки с ссылкой на документацию pytelegrambotapi
+                    confirmation_url = payment_data['confirmation']['confirmation_url'] 
+                    # Создаем объект кнопки
                     btn = types.InlineKeyboardButton(f'Оплатить {price}₽', url=confirmation_url)
                     # Создаем объект клавиатуры и добавляем на нее кнопку
                     keyboard = types.InlineKeyboardMarkup()
                     keyboard.add(btn)
                     await bot.send_message(c.message.chat.id, f'💳 Нажмите на ссылку под сообщением, оплатите удобным вам способом.\n\n💾 Идентификатор чата - *{c.message.chat.id}*\nУслугу предоставляет: ИНН: 910821614530\n\n🎟️ Заказывая услугу, вы соглашаетесь с договором оферты: https://beatmaker.site/offer\n\n✉️ Техническая поддержка: *tech.beatbot@mail.ru*', reply_markup=keyboard, parse_mode='Markdown')
+                    # Удалить processing для пользователя
+                    db_handler.del_processing(chat_id)
                     await check_payment(payment_id, c)
             else:
                 # Отправка оповещения
-                await bot.answer_callback_query(callback_query_id=c.id, text='Ты не можешь пополнить баланс во время генерации бита.', show_alert=True)
+                await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь пополнить баланс во время генерации бита.', show_alert=True)
     except Exception as e:   
         print(repr(e))
         # Удалить processing для пользователя
