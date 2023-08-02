@@ -36,7 +36,8 @@ try:
                             chat_id	TEXT UNIQUE NOT NULL,
                             chosen_style VARCHAR(50) DEFAULT NULL,
                             chosen_bpm VARCHAR(50) DEFAULT NULL,
-                            chosen_extension VARCHAR(50) DEFAULT NULL
+                            chosen_extension VARCHAR(50) DEFAULT NULL,
+                            chosen_harmony VARCHAR(50) DEFAULT NULL
                             );''')
             print('[INFO] Table "orders" works succesfuly')
 
@@ -46,6 +47,7 @@ try:
                             chosen_beat VARCHAR(50) DEFAULT NULL,
                             chosen_bpm VARCHAR(50) DEFAULT NULL,
                             chosen_format VARCHAR(50) DEFAULT NULL,
+                            chosen_harmony VARCHAR(50) DEFAULT NULL,
                             order_number INTEGER
                             );''')
             print('[INFO] Table "query" works succesfuly')
@@ -220,16 +222,33 @@ try:
             cursor.execute(f'''UPDATE orders SET chosen_extension = '' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
             print(f'[INFO] Deleting *{chat_id}* chosen_extension was successfully')
 
-    # запросы к таблице query
-    def set_query(chat_id, chosen_beat, chosen_bpm, chosen_format):
+    def set_chosen_harmony(chat_id, user_chosen_harmony):
         connect()
         with connection.cursor() as cursor:
-            cursor.execute(f'''INSERT INTO query (chat_id, chosen_beat, chosen_bpm, chosen_format, order_number) VALUES ('{chat_id}', '{chosen_beat}', '{chosen_bpm}', '{chosen_format}',  (SELECT COALESCE(MAX(order_number), 0) + 1 FROM query));''')
+            cursor.execute(f'''UPDATE orders SET chosen_harmony = '{user_chosen_harmony}' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] Setting chosen_harmony for *{chat_id}* was successfully')    
+    def get_chosen_harmony(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT chosen_harmony FROM orders WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
+            print(f'[INFO] Getting chosen_harmony was successfully')
+            return cursor.fetchone()[0]   
+    def del_chosen_harmony(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE orders SET chosen_harmony = '' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] Deleting *{chat_id}* chosen_harmony was successfully')
+
+    # запросы к таблице query
+    def set_query(chat_id, chosen_beat, chosen_bpm, chosen_format, chosen_harmony):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''INSERT INTO query (chat_id, chosen_beat, chosen_bpm, chosen_format, chosen_harmony, order_number) VALUES ('{chat_id}', '{chosen_beat}', '{chosen_bpm}', '{chosen_harmony}', '{chosen_format}',  (SELECT COALESCE(MAX(order_number), 0) + 1 FROM query));''')
             print(f'[INFO] Query for {chat_id} added') 
     def get_query():
         connect()
         with connection.cursor() as cursor:
-            cursor.execute(f'''SELECT chat_id, chosen_beat, chosen_bpm, chosen_format, order_number FROM query WHERE order_number = (SELECT MIN(order_number) FROM query);''')
+            cursor.execute(f'''SELECT chat_id, chosen_beat, chosen_bpm, chosen_format, chosen_harmony, order_number FROM query WHERE order_number = (SELECT MIN(order_number) FROM query);''')
             print(f'[INFO] Getting query')
             return cursor.fetchone()   
     def get_query_by_chat_id(chat_id):

@@ -138,7 +138,7 @@ async def return_to_styles(c: types.CallbackQuery):
                 await reset_chosen_params(chat_id)
                 
                 # Отправка сообщения
-                await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🪩 *СТИЛИ*\n\nЯ могу генерировать в разных стилях, каждый из них имеет свои особенности. Такие биты подойдут под запись голоса.\n\n*⏺ - Стиль*\n⏺ - Темп\n⏺ - Формат', reply_markup=keyboards.styles_keyboard, parse_mode='Markdown')
+                await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🪩 *СТИЛИ*\n\nЯ могу генерировать в разных стилях, каждый из них имеет свои особенности. Такие биты подойдут под запись голоса.\n\n*⏺ - Стиль*\n⏺ - Темп\n⏺ - Лад\n⏺ - Формат', reply_markup=keyboards.styles_keyboard, parse_mode='Markdown')
                 
                 # Удалить processing для пользователя
                 db_handler.del_processing(chat_id)
@@ -174,7 +174,7 @@ async def show_menu(c: types.CallbackQuery):
                         await reset_chosen_params(c.message.chat.id)
 
                         # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🪩 *СТИЛИ*\n\nЯ могу генерировать в разных стилях, каждый из них имеет свои особенности. Такие биты подойдут под запись голоса.\n\n*⏺ - Стиль*\n⏺ - Темп\n⏺ - Формат', reply_markup=keyboards.styles_keyboard, parse_mode='Markdown')
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🪩 *СТИЛИ*\n\nЯ могу генерировать в разных стилях, каждый из них имеет свои особенности. Такие биты подойдут под запись голоса.\n\n*⏺ - Стиль*\n⏺ - Темп\n⏺ - Лад\n⏺ - Формат', reply_markup=keyboards.styles_keyboard, parse_mode='Markdown')
                         
                         # Удалить processing для пользователя
                         db_handler.del_processing(chat_id)
@@ -334,7 +334,7 @@ async def show_bpm(c: types.CallbackQuery):
                         btn_to_styles = keyboards.btn_to_styles
                         bpm_keyboard = InlineKeyboardMarkup(row_width=3).add(btn_bpm1, btn_bpm2, btn_bpm3, btn_send_example, btn_to_styles)
                         
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ТЕМП*\n\nТеперь выбери темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Формат\n\nПосмотри *примеры* сгенерированных битов в этом стиле', reply_markup=bpm_keyboard, parse_mode='Markdown') 
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ТЕМП*\n\nТеперь выбери темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Лад\n⏺ - Формат\n\nПосмотри *примеры* сгенерированных битов в этом стиле', reply_markup=bpm_keyboard, parse_mode='Markdown') 
                         
                         # Удалить processing для пользователя
                         db_handler.del_processing(chat_id)
@@ -406,10 +406,48 @@ async def show_extensions(c: types.CallbackQuery):
 
                             db_handler.set_chosen_bpm(chat_id, user_chosen_bpm)
                             # Отправка сообщения
-                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ФОРМАТ*\n\nВ каком формате скинуть финальный бит?\n\n*.wav* - оригинальное качество, используется профессионалами для записи. (Не воспроизводится на iphone)\n\n*.mp3* - более низкое качество, значительно меньше весит, не подходит для профессиональной записи.\n\n✅ - {user_chosen_style}\n✅ - {user_chosen_bpm}\n*⏺ - Формат*\n\nПосле выбора формата начнётся генерация битов', reply_markup=keyboards.extensions_keyboard, parse_mode='Markdown')       
+                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ЛАД*\n\n*major* - больше подходит для энергичных треков с более весёлым звучанием (Heroinwater, Big Baby Tape, MORGENSHTERN, Lil Tecca)\n\n*minor* - отлично подойдёт для лиричных треков (Большинство битов: OG BUDA, Гуф, THRILL PILL, Juice WRLD, XXXTENTACION)\n\n✅ - {user_chosen_style}\n✅ - {user_chosen_bpm}\n*⏺ - Лад*\n⏺ - Формат', reply_markup=keyboards.keys_keyboard, parse_mode='Markdown')       
                         else:
                             # Отправка оповещения
                             await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь выбрать этот bpm для этого стиля, выбери из вышеприведённых', show_alert=True)
+                        
+                        # Удалить processing для пользователя
+                        db_handler.del_processing(chat_id)
+                    else:
+                        # Отправка сообщения
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.mesмsage_id, text=f'⚠️ Не удалось выбрать bpm, пожалуйста выбери стиль ещё раз', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
+            else:
+                # Отправка оповещения
+                await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', show_alert=True)
+
+    except Exception as e:
+        print(repr(e))
+        # Удалить processing для пользователя
+        db_handler.set_processing(c.message.chat.id)
+
+@dp.callback_query_handler(lambda c: c.data in keyboards.KEY_BUTTONS)
+async def show_extensions(c: types.CallbackQuery):
+    try:
+        
+        chat_id = c.message.chat.id
+        user_chosen_bpm = db_handler.get_chosen_bpm(chat_id)
+        user_chosen_harmony = c.data
+
+        if await get_user(chat_id):     
+            # Проверить, не находится ли пользователь в beats_generating
+            if db_handler.get_beats_generating(chat_id) == 0:
+                # Проверить, не находится ли пользователь в processing
+                if db_handler.get_processing(chat_id) == 0:
+                    user_chosen_style = db_handler.get_chosen_style(chat_id)
+                    # Проверить, есть ли в базе выбранный пользователем стиль
+                    if  user_chosen_style != '':
+                        # Установить processing для пользователя
+                        db_handler.set_processing(chat_id)
+
+                        db_handler.set_chosen_harmony(chat_id, user_chosen_harmony)
+                        # Отправка сообщения
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ФОРМАТ*\n\nВ каком формате скинуть финальный бит?\n\n*.wav* - оригинальное качество, используется профессионалами для записи. (Не воспроизводится на iphone)\n\n*.mp3* - более низкое качество, значительно меньше весит, не подходит для профессиональной записи.\n\n✅ - {user_chosen_style}\n✅ - {user_chosen_bpm}\n✅ - {user_chosen_harmony}\n*⏺ - Формат*\n\nПосле выбора формата начнётся генерация битов', reply_markup=keyboards.extensions_keyboard, parse_mode='Markdown')       
+                        
                         # Удалить processing для пользователя
                         db_handler.del_processing(chat_id)
                     else:
@@ -423,6 +461,7 @@ async def show_extensions(c: types.CallbackQuery):
         print(repr(e))
         # Удалить processing для пользователя
         db_handler.set_processing(c.message.chat.id)
+
 
 # Сообщение для редактирования
 message_to_edit = {}
@@ -480,7 +519,7 @@ async def make_query(c: types.CallbackQuery):
                                 remove(file)
                                                         
                             # Добавить в очередь 
-                            db_handler.set_query(chat_id, db_handler.get_chosen_style(chat_id), db_handler.get_chosen_bpm(chat_id), db_handler.get_chosen_extension(chat_id).split('.')[-1])
+                            db_handler.set_query(chat_id, db_handler.get_chosen_style(chat_id), db_handler.get_chosen_bpm(chat_id), db_handler.get_chosen_extension(chat_id).split('.')[-1], db_handler.get_chosen_harmony(chat_id))
                             
                             if await check_response(chat_id, message_to_edit[chat_id]):
                                 files_list = sorted(glob(f'output_beats/{chat_id}_[1-{beats}]_short.*'))

@@ -50,6 +50,10 @@ BPM_BUTTONS = {'Jersey Club': ['140bpm', '150bpm', '160bpm'],
                'Plug':        ['140bpm', '150bpm', '160bpm'],
                'Old School':  ['155bpm', '170bpm', '185bpm']}
 
+# Кнопки ладов
+KEY_BUTTONS = ['minor',
+               'major']
+
 # Клавиатура меню
 btn_balance = InlineKeyboardButton(BUTTON_BALANCE, callback_data=BUTTON_BALANCE)
 btn_about = InlineKeyboardButton(BUTTON_ABOUT, callback_data=BUTTON_ABOUT)
@@ -85,6 +89,11 @@ styles_keyboard = InlineKeyboardMarkup(row_width=2).add(btn_jc, btn_trap, btn_dr
 # Клавиатура bpm
 
 ## *Создаётся непосредственно в боте*
+
+# Клавиатура ладов 
+btn_major = InlineKeyboardButton(f'🌕 {KEY_BUTTONS[1]}', callback_data=KEY_BUTTONS[1])
+btn_minor = InlineKeyboardButton(f'🌑 {KEY_BUTTONS[0]}', callback_data=KEY_BUTTONS[0])
+keys_keyboard = InlineKeyboardMarkup(row_width=2).add(btn_major, btn_minor, btn_to_styles)
 
 # Клавиатура расширений 
 btn_wav = InlineKeyboardButton(EXTENSIONS_BUTTONS[0], callback_data=EXTENSIONS_BUTTONS[0])
