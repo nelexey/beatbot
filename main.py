@@ -70,7 +70,7 @@ async def send_hello(message: types.Message):
 async def menu(message: types.Message):
     # Отправка сообщения
 
-    await bot.send_message(message.chat.id, text="🎶 Это меню заказа битов 🎶\n\nОсновное предназначение бота - писать качественные биты за доступную цену, отправь эту команду в чат, чтобы получить примеры битов, созданных ботом 👉\n/example_beats.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=keyboards.menu_keyboard)
+    await bot.send_message(message.chat.id, text=f"🔣 <b>МЕНЮ</b>\n\nОсновное предназначение бота - писать качественные биты за доступную цену, отправь эту команду в чат, чтобы получить примеры битов, созданных ботом 👉\n/example_beats.\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", parse_mode='html', reply_markup=keyboards.menu_keyboard)
     # Добавление в БД
     # Имя и фамилия пользователя
     user_initials = f'{message.from_user.first_name} {message.from_user.last_name}'
@@ -78,27 +78,28 @@ async def menu(message: types.Message):
     db_handler.add_user(message.chat.username, message.chat.id, user_initials, start_balance)
 
 # Обработка команды /example_beats
-got_example_beats = {}
-@dp.message_handler(commands=['example_beats'])
-async def menu(message: types.Message):
+## ЗАМЕНЕНО ОТДЕЛЬНЫМИ ПРИМЕРАМИ В КАЖДОМ СТИЛЕ ##
+# got_example_beats = {}
+# @dp.message_handler(commands=['example_beats'])
+# async def menu(message: types.Message):
     
-    if db_handler.get_beats_generating(message.chat.id) == 0:
-        if got_example_beats.get(message.chat.id) is None:
-            # Отправка сообщения
-            await bot.send_message(message.chat.id, "Конечно! Такие биты генерирует наш бот 👉")
-            for file_path in glob('example_beats/*.wav'):
-                example_beat = open(file_path, 'rb')
-                # Отправка аудио
-                await bot.send_audio(message.chat.id, example_beat)
-                example_beat.close()
-            got_example_beats[message.chat.id] = True
-        else:
-            # Отправка сообщения
-            beat_keyboard = InlineKeyboardMarkup().add(keyboards.btn_generate_beat)
-            await bot.send_message(message.chat.id, "Тебе уже отправлены примеры битов 😵‍💫\n\nЕсли хочешь ещё, бот может сгенерировать тебе собственный бит 😉", reply_markup=beat_keyboard)
-    else:
-        # Отправка оповещения
-        pass
+#     if db_handler.get_beats_generating(message.chat.id) == 0:
+#         if got_example_beats.get(message.chat.id) is None:
+#             # Отправка сообщения
+#             await bot.send_message(message.chat.id, "Конечно! Такие биты генерирует наш бот 👉")
+#             for file_path in glob('example_beats/*.wav'):
+#                 example_beat = open(file_path, 'rb')
+#                 # Отправка аудио
+#                 await bot.send_audio(message.chat.id, example_beat)
+#                 example_beat.close()
+#             got_example_beats[message.chat.id] = True
+#         else:
+#             # Отправка сообщения
+#             beat_keyboard = InlineKeyboardMarkup().add(keyboards.btn_generate_beat)
+#             await bot.send_message(message.chat.id, "Тебе уже отправлены примеры битов 😵‍💫\n\nЕсли хочешь ещё, бот может сгенерировать тебе собственный бит 😉", reply_markup=beat_keyboard)
+#     else:
+#         # Отправка оповещения
+#         pass
 
 ## Обработка текста
 
@@ -152,7 +153,7 @@ async def return_to_menu(c: types.CallbackQuery):
         # Обнулить выбранные пользователем параметры бита
         await reset_chosen_params(chat_id)
         # Отправка сообщения
-        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text="🎶 Это меню заказа битов 🎶\n\nОсновное предназначение бота - писать качественные биты за доступную цену, отправь эту команду в чат, чтобы получить примеры битов, созданных ботом 👉\n/example_beats.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=keyboards.menu_keyboard)
+        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text="🔣 <b>МЕНЮ</b>\n\nОсновное предназначение бота - писать качественные биты за доступную цену, отправь эту команду в чат, чтобы получить примеры битов, созданных ботом 👉\n/example_beats.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=keyboards.menu_keyboard, parse_mode='html')
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.MENU_BUTTONS)
 async def show_menu(c: types.CallbackQuery):
@@ -185,11 +186,11 @@ async def show_menu(c: types.CallbackQuery):
                 # Запрос баланса пользователя в таблице users
                 balance = db_handler.get_balance(chat_id)
                 # Отправка сообщения
-                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'💰 Баланс\n\nНа твоем балансе: *{balance}₽*\n\n👉 Выбери сумму для пополнения:', reply_markup=keyboards.balance_keyboard, parse_mode='Markdown')
+                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'*💰 БАЛАНС*\n\nНа твоем балансе: *{balance}₽*\n\n👉 Выбери сумму для пополнения:', reply_markup=keyboards.balance_keyboard, parse_mode='Markdown')
 
             elif pressed_button == keyboards.BUTTON_ABOUT:
                 # Отправка сообщения
-                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'🏡 О нас\n\n📌 Услугу предоставляет:\n\n👤 ИНН: 910821614530\n\n✉️ Почта для связи:\ntech.beatbot@mail.ru\n\n🌐 Официальный сайт:\nhttps://beatmaker.site', reply_markup=keyboards.undo_keyboard)
+                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'*🏡 О НАС*\n\n📌 Услугу предоставляет:\n\n👤 ИНН: 910821614530\n\n✉️ Почта для связи:\ntech.beatbot@mail.ru\n\n🌐 Официальный сайт:\nhttps://beatmaker.site', reply_markup=keyboards.undo_keyboard, parse_mode='Markdown')
             
     except Exception as e:
         print(repr(e))
@@ -329,10 +330,11 @@ async def show_bpm(c: types.CallbackQuery):
                         btn_bpm1 = InlineKeyboardButton(keyboards.BPM_BUTTONS[user_chosen_style][0], callback_data=keyboards.BPM_BUTTONS[user_chosen_style][0])
                         btn_bpm2 = InlineKeyboardButton(keyboards.BPM_BUTTONS[user_chosen_style][1], callback_data=keyboards.BPM_BUTTONS[user_chosen_style][1])
                         btn_bpm3 = InlineKeyboardButton(keyboards.BPM_BUTTONS[user_chosen_style][2], callback_data=keyboards.BPM_BUTTONS[user_chosen_style][2])
+                        btn_send_example = InlineKeyboardButton('📝 Пример бита', callback_data=keyboards.GET_EXAMPLE_BEAT)
                         btn_to_styles = keyboards.btn_to_styles
-                        bpm_keyboard = InlineKeyboardMarkup(row_width=3).add(btn_bpm1, btn_bpm2, btn_bpm3, btn_to_styles)
+                        bpm_keyboard = InlineKeyboardMarkup(row_width=3).add(btn_bpm1, btn_bpm2, btn_bpm3, btn_send_example, btn_to_styles)
                         
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ТЕМП*\n\nТеперь выбери темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Формат', reply_markup=bpm_keyboard, parse_mode='Markdown') 
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ТЕМП*\n\nТеперь выбери темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Формат\n\nПосмотри *примеры* сгенерированных битов в этом стиле', reply_markup=bpm_keyboard, parse_mode='Markdown') 
                         
                         # Удалить processing для пользователя
                         db_handler.del_processing(chat_id)
@@ -343,6 +345,40 @@ async def show_bpm(c: types.CallbackQuery):
                 # Отправка оповещения
                 await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', show_alert=True)
 
+    except Exception as e:
+        print(repr(e))
+        # Удалить processing для пользователя
+        db_handler.set_processing(c.message.chat.id)
+
+@dp.callback_query_handler(lambda c: c.data == keyboards.GET_EXAMPLE_BEAT)
+async def show_extensions(c: types.CallbackQuery):
+    try:
+        chat_id = c.message.chat.id
+        user_chosen_style = db_handler.get_chosen_style
+
+        if await get_user(chat_id):     
+            # Проверить, не находится ли пользователь в beats_generating
+            if db_handler.get_beats_generating(chat_id) == 0:
+                # Проверить, не находится ли пользователь в processing
+                if db_handler.get_processing(chat_id) == 0:
+                    if user_chosen_style is not None:
+                        # Установить processing для пользователя
+                        db_handler.set_processing(chat_id)
+
+                        files_list = sorted(glob(f'example_beats/style_{keyboards.aliases[db_handler.get_chosen_style(chat_id)]}/*'))
+                        print(files_list)
+                        for file_path in files_list:
+                            with open(file_path, 'rb') as trimmed_sound:
+                                await bot.send_audio(c.message.chat.id, trimmed_sound)   
+
+                        # Удалить processing для пользователя
+                        db_handler.del_processing(chat_id)
+                    else:
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Произошла ошибка, пожалуйста, выберите стиль ещё раз', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
+
+            else:
+                # Отправка оповещения
+                await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Я не могу скинуть тебе примеры во время генерации бита.', show_alert=True)
     except Exception as e:
         print(repr(e))
         # Удалить processing для пользователя

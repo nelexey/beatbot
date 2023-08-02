@@ -73,6 +73,7 @@ try:
                 return False
             else:
                 return True
+    
     def get_balance(chat_id):
         connect()
         with connection.cursor() as cursor:
@@ -89,6 +90,7 @@ try:
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE bot_users SET balance = balance - {payment} WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
             print(f'A fee of {payment} sizes has been withdrawn from the *{chat_id}* balance')
+    
     def get_beat(chat_id):
         connect()
         with connection.cursor() as cursor:
@@ -132,7 +134,7 @@ try:
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT beats_generating FROM bot_users WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
             print(f'[INFO] Getting beats_generating for *{chat_id}* was completed successfully')
-            return cursor.fetchone()[0]     
+            return cursor.fetchone()[0]      
     
     def set_beats_versions_messages_ids(chat_id, messages_ids):
         connect()

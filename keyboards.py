@@ -40,6 +40,8 @@ STYLES_BUTTONS = [key for key in aliases.keys()]
 # Кнопки битов
 BEATS_BUTTONS = [str(i) for i in range(1, beats+1)]
 
+GET_EXAMPLE_BEAT = 'Пример бита'
+
 # Кнопки темпов
 # Для каждого стиля свои кнопки bpm
 BPM_BUTTONS = {'Jersey Club': ['140bpm', '150bpm', '160bpm'],
