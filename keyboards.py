@@ -40,7 +40,7 @@ STYLES_BUTTONS = [key for key in aliases.keys()]
 # Кнопки битов
 BEATS_BUTTONS = [str(i) for i in range(1, beats+1)]
 
-GET_EXAMPLE_BEAT = 'Пример бита'
+GET_EXAMPLE_BEAT = '📝 Пример бита'
 
 # Кнопки темпов
 # Для каждого стиля свои кнопки bpm
@@ -49,6 +49,11 @@ BPM_BUTTONS = {'Jersey Club': ['140bpm', '150bpm', '160bpm'],
                'Drill':       ['110bpm', '130bpm', '145bpm'],
                'Plug':        ['140bpm', '150bpm', '160bpm'],
                'Old School':  ['155bpm', '170bpm', '185bpm']}
+
+BPM_BUTTONS_CONTROLLER = {'up': ['+1', '+5', '+10'],
+                          'down': ['-1', '-5', '-10']}
+
+BPM_CONFIRM = 'BPM_CONFIRM'
 
 # Кнопки ладов
 KEY_BUTTONS = ['minor',
@@ -89,6 +94,20 @@ styles_keyboard = InlineKeyboardMarkup(row_width=2).add(btn_jc, btn_trap, btn_dr
 # Клавиатура bpm
 
 ## *Создаётся непосредственно в боте*
+
+btn_confirm_bpm = InlineKeyboardButton('Подтвердить', callback_data=BPM_CONFIRM)
+btn_down_10 = InlineKeyboardButton(BPM_BUTTONS_CONTROLLER['down'][2], callback_data=BPM_BUTTONS_CONTROLLER['down'][2])
+btn_down_5 = InlineKeyboardButton(BPM_BUTTONS_CONTROLLER['down'][1], callback_data=BPM_BUTTONS_CONTROLLER['down'][1])
+btn_down_1 = InlineKeyboardButton(BPM_BUTTONS_CONTROLLER['down'][0], callback_data=BPM_BUTTONS_CONTROLLER['down'][0])
+btn_up_1 = InlineKeyboardButton(BPM_BUTTONS_CONTROLLER['up'][0], callback_data=BPM_BUTTONS_CONTROLLER['up'][0])
+btn_up_5 = InlineKeyboardButton(BPM_BUTTONS_CONTROLLER['up'][1], callback_data=BPM_BUTTONS_CONTROLLER['up'][1])
+btn_up_10 = InlineKeyboardButton(BPM_BUTTONS_CONTROLLER['up'][2], callback_data=BPM_BUTTONS_CONTROLLER['up'][2])
+btn_example_beat = InlineKeyboardButton(GET_EXAMPLE_BEAT, callback_data=GET_EXAMPLE_BEAT)
+
+bpm_keyboard = InlineKeyboardMarkup(row_width=2)
+bpm_keyboard.add(btn_confirm_bpm)
+bpm_keyboard.row(btn_down_10, btn_down_5, btn_down_1, btn_up_1, btn_up_5, btn_up_10)
+bpm_keyboard.row(btn_example_beat, btn_to_styles)
 
 # Клавиатура ладов 
 btn_major = InlineKeyboardButton(f'🌕 {KEY_BUTTONS[1]}', callback_data=KEY_BUTTONS[1])
