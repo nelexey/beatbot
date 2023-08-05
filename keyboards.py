@@ -35,6 +35,18 @@ aliases = {
     'Old School': 'OldSchool'
 }
 
+options = {
+    'Speed UP':   'speed_up',
+    'Slowed+RVB': 'slow_down'
+}
+
+
+# Бесплатные опции
+BUTTON_CATEGORY_FREE_OPTIONS = '🆓 Бесплатные опции'
+CATEGORIES_BUTTONS = [BUTTON_CATEGORY_FREE_OPTIONS]
+
+OPTIONS_BUTTONS = [key for key in options.keys()]
+
 STYLES_BUTTONS = [key for key in aliases.keys()]
 
 # Кнопки битов
@@ -50,7 +62,7 @@ BPM_BUTTONS = {'Jersey Club': ['140bpm', '150bpm', '160bpm'],
                'Plug':        ['140bpm', '150bpm', '160bpm'],
                'Old School':  ['155bpm', '170bpm', '185bpm']}
 
-BPM_BUTTONS_CONTROLLER = {'up': ['+1', '+5', '+10'],
+BPM_BUTTONS_CONTROLLER = {'up':   ['+1', '+5', '+10'],
                           'down': ['-1', '-5', '-10']}
 
 BPM_CONFIRM = 'BPM_CONFIRM'
@@ -63,7 +75,11 @@ KEY_BUTTONS = ['minor',
 btn_balance = InlineKeyboardButton(BUTTON_BALANCE, callback_data=BUTTON_BALANCE)
 btn_about = InlineKeyboardButton(BUTTON_ABOUT, callback_data=BUTTON_ABOUT)
 btn_generate_beat = InlineKeyboardButton(BUTTON_GENERATE_BEAT, callback_data=BUTTON_GENERATE_BEAT)
-menu_keyboard = InlineKeyboardMarkup(row_width=2).add(btn_balance, btn_about, btn_generate_beat)
+btn_free_options = InlineKeyboardButton(CATEGORIES_BUTTONS[0], callback_data=CATEGORIES_BUTTONS[0])
+menu_keyboard = InlineKeyboardMarkup(row_width=2)
+menu_keyboard.add(btn_balance, btn_about)
+menu_keyboard.row(btn_generate_beat)
+menu_keyboard.row(btn_free_options)
 
 # Клавиатура "назад"
 btn_undo = InlineKeyboardButton(UNDO_BUTTON, callback_data=UNDO_BUTTON)
@@ -76,6 +92,12 @@ to_menu_keyboard = InlineKeyboardMarkup().add(btn_menu)
 # Клавиатура "к стилям"
 btn_to_styles = InlineKeyboardButton(STYLES_BUTTON, callback_data=STYLES_BUTTON)
 to_styles_keyboard = InlineKeyboardMarkup().add(btn_to_styles)
+
+# Клавиатура "Бесплатные опции"
+# Клавиатура стилей
+btn_speed_up = InlineKeyboardButton(OPTIONS_BUTTONS[0], callback_data=OPTIONS_BUTTONS[0])
+btn_slow_down = InlineKeyboardButton(OPTIONS_BUTTONS[1], callback_data=OPTIONS_BUTTONS[1])
+free_keyboard = InlineKeyboardMarkup(row_width=2).add(btn_speed_up, btn_slow_down, btn_undo)
 
 # Клавиатура баланса
 btn_pay1 = InlineKeyboardButton(BALANCE_BUTTONS[0], callback_data=BALANCE_BUTTONS[0])

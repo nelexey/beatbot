@@ -37,7 +37,8 @@ try:
                             chosen_style VARCHAR(50) DEFAULT NULL,
                             chosen_bpm VARCHAR(50) DEFAULT NULL,
                             chosen_extension VARCHAR(50) DEFAULT NULL,
-                            chosen_harmony VARCHAR(50) DEFAULT NULL
+                            chosen_harmony VARCHAR(50) DEFAULT NULL,
+                            beats_ready INTEGER DEFAULT 0
                             );''')
             print('[INFO] Table "orders" works succesfuly')
 
@@ -239,6 +240,23 @@ try:
             cursor.execute(f'''UPDATE orders SET chosen_harmony = '' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
             print(f'[INFO] Deleting *{chat_id}* chosen_harmony was successfully')
 
+    def set_beats_ready(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE orders SET beats_ready = 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] Setting beats_ready for *{chat_id}* was successfully')
+    def del_beats_ready(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE orders SET beats_ready = 0 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] *{chat_id}* reset to 0 in beats_ready successfully') 
+    def get_beats_ready(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT beats_ready FROM orders WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
+            print(f'[INFO] Getting beats_ready for *{chat_id}* was completed successfully')
+            return cursor.fetchone()[0]      
+    
     # запросы к таблице query
     def set_query(chat_id, chosen_beat, chosen_bpm, chosen_format, chosen_harmony):
         connect()

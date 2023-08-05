@@ -46,7 +46,7 @@ start_balance = config.start_balance # RUB
 beats = config.beats
 
 # Константы сообщений
-MENU_MESSAGE_TEXT = "🔣 <b>МЕНЮ</b>\n\n👉 Выбери опцию которая тебе нужна."
+MENU_MESSAGE_TEXT = "🔣 <b>МЕНЮ</b>\n\nТы находишься в лучшем и единственном боте который может сгенерировать для тебя:\n\n— 🎙️<b>Бит под голос</b>🎙️\n— ⏩ Сделать <b>speed up</b>\n— ⏪ Сделать <b>slowed + reverb</b>\n\nНаш телеграм-канал: @beatbotnews"
 STYLES_MESSAGE_TEXT = '🪩 *СТИЛИ*\n\nЯ могу генерировать в разных стилях, каждый из них имеет свои особенности. Такие биты подойдут под запись голоса.\n\n*⏺ - Стиль*\n⏺ - Темп\n⏺ - Лад\n⏺ - Формат'
 
 # Безопасный запуск
@@ -332,7 +332,12 @@ async def show_bpm(c: types.CallbackQuery):
                         # Установить processing для пользователя
                         db_handler.set_processing(chat_id)
 
-                        db_handler.set_chosen_style(chat_id, user_chosen_style)   
+                        db_handler.set_chosen_style(chat_id, user_chosen_style)  
+
+                        if user_chosen_bpm_style.get(chat_id) is None: 
+                            current_bpm = keyboards.BPM_BUTTONS[user_chosen_style][1]
+                            
+                            user_chosen_bpm_style[chat_id] = [current_bpm, user_chosen_style] 
 
                         await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ТЕМП*\n\nТеперь отрегулируй темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\nРегулируй желаемый bpm кнопками на клавиатуре. *Подтверди* выбранный темп: *{keyboards.BPM_BUTTONS[user_chosen_style][1]}*\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Лад\n⏺ - Формат\n\n', reply_markup=keyboards.bpm_keyboard, parse_mode='Markdown') 
                         
@@ -350,6 +355,37 @@ async def show_bpm(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.set_processing(c.message.chat.id)
 
+@dp.callback_query_handler(lambda c: c.data in keyboards.CATEGORIES_BUTTONS)
+async def show_bpm(c: types.CallbackQuery):
+    chat_id = c.message.chat.id
+    pressed_button = c.data
+    try:
+        if await get_user(chat_id):
+            if pressed_button == keyboards.BUTTON_CATEGORY_FREE_OPTIONS:
+                # Проверить, не находится ли пользователь в beats_generating
+                if db_handler.get_beats_generating(chat_id) == 0:
+                    # Проверить, не находится ли пользователь в processing
+                    if db_handler.get_processing(chat_id) == 0:
+                        # Установить processing для пользователя
+                        db_handler.set_processing(chat_id)
+
+                        # Обнулить выбранные пользователем параметры бита
+                        await reset_chosen_params(c.message.chat.id)
+
+                        # Отправка сообщения
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *БЕСПЛАТНЫЕ ОПЦИИ*\n\nМы предоставляем некоторые бесплатные опции для обработки вашего звука.\n\nОбработчик поддерживает *.mp3* формат.', reply_markup=keyboards.free_keyboard, parse_mode='Markdown')
+                        
+                        # Удалить processing для пользователя
+                        db_handler.del_processing(chat_id)
+                else:
+                    # Отправка оповещения
+                    await bot.answer_callback_query(callback_query_id=c.id, text='Ты не можешь воспользоваться беслпатными опциями во время генерации бита', show_alert=True)
+            
+    except Exception as e:
+        print(repr(e))
+        # Удалить processing для пользователя
+        db_handler.set_processing(c.message.chat.id)
+
 # Сохраняет выбранный пользователем bpm и style во время редактирования сообщения ботом. chat_id: ['bpm', 'style']
 user_chosen_bpm_style = {}
 
@@ -357,11 +393,6 @@ user_chosen_bpm_style = {}
 async def show_bpm(c: types.CallbackQuery):
     try:
         chat_id = c.message.chat.id
-
-        if user_chosen_bpm_style.get(chat_id) is None: 
-            user_chosen_style = db_handler.get_chosen_style(chat_id)
-        else:
-            user_chosen_style = user_chosen_bpm_style[chat_id][1]
 
         if await get_user(chat_id):     
             # Проверить, не находится ли пользователь в beats_generating
@@ -373,30 +404,20 @@ async def show_bpm(c: types.CallbackQuery):
                     db_handler.set_processing(chat_id)
 
                     user_chosen_style = db_handler.get_chosen_style(chat_id)
+                    
+                    calculate_bpm = int(user_chosen_bpm_style[chat_id][0].split('b')[0]) + int(c.data)
 
-                    if user_chosen_bpm_style.get(chat_id) is None: 
+                    if calculate_bpm > int(keyboards.BPM_BUTTONS[user_chosen_style][2].split('b')[0]):
+                        await bot.answer_callback_query(callback_query_id=c.id, text='⚠️MAX достигнут максимальный bpm для этого стиля', show_alert=True)
 
-                        calculate_bpm = int(keyboards.BPM_BUTTONS[user_chosen_style][1].split('b')[0]) + int(c.data)
+                    elif calculate_bpm < int(keyboards.BPM_BUTTONS[user_chosen_style][0].split('b')[0]):
+                        await bot.answer_callback_query(callback_query_id=c.id, text='⚠️MIN достигнут минимальный bpm для этого стиля', show_alert=True)
+
+                    else:
                         current_bpm = str(calculate_bpm) + 'bpm'
                         user_chosen_bpm_style[chat_id] = [current_bpm, user_chosen_style]
-
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ТЕМП*\n\nТеперь отрегулируй темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\nРегулируй желаемый *bpm* кнопками на клавиатуре. *Подтверди* выбранный темп: *{current_bpm}*\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Лад\n⏺ - Формат', reply_markup=keyboards.bpm_keyboard, parse_mode='Markdown') 
-                    else:
-
-                        calculate_bpm = int(user_chosen_bpm_style[chat_id][0].split('b')[0]) + int(c.data)
-
-                        if calculate_bpm > int(keyboards.BPM_BUTTONS[user_chosen_style][2].split('b')[0]):
-                            await bot.answer_callback_query(callback_query_id=c.id, text='⚠️MAX достигнут максимальный bpm для этого стиля', show_alert=True)
-
-                        elif calculate_bpm < int(keyboards.BPM_BUTTONS[user_chosen_style][0].split('b')[0]):
-                            await bot.answer_callback_query(callback_query_id=c.id, text='⚠️MIN достигнут минимальный bpm для этого стиля', show_alert=True)
-
-                        else:
-                            current_bpm = str(calculate_bpm) + 'bpm'
-                            user_chosen_bpm_style[chat_id] = [current_bpm, user_chosen_style]
-                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ТЕМП*\n\nТеперь отрегулируй темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\nРегулируй желаемый *bpm* кнопками на клавиатуре. *Подтверди* выбранный темп: *{current_bpm}*\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Лад\n⏺ - Формат', reply_markup=keyboards.bpm_keyboard, parse_mode='Markdown')                  
-                    print(current_bpm)
-                    print(c.data)
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ТЕМП*\n\nТеперь отрегулируй темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\nРегулируй желаемый *bpm* кнопками на клавиатуре. *Подтверди* выбранный темп: *{current_bpm}*\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Лад\n⏺ - Формат', reply_markup=keyboards.bpm_keyboard, parse_mode='Markdown')                  
+                    
                     # Удалить processing для пользователя
                     db_handler.del_processing(chat_id)
 
@@ -448,6 +469,7 @@ async def show_extensions(c: types.CallbackQuery):
     try:
 
         chat_id = c.message.chat.id
+        print(user_chosen_bpm_style)
         user_chosen_bpm = user_chosen_bpm_style[chat_id][0]
 
         if await get_user(chat_id):     
@@ -457,6 +479,9 @@ async def show_extensions(c: types.CallbackQuery):
                 if db_handler.get_processing(chat_id) == 0:
                     user_chosen_style = user_chosen_bpm_style[chat_id][1]
                     db_handler.set_chosen_style(chat_id, user_chosen_style)
+
+                    if user_chosen_bpm_style.get(chat_id) is not None:
+                        del user_chosen_bpm_style[chat_id]
                     # Проверить, есть ли в базе выбранный пользователем стиль
                     if  user_chosen_style != '':
                         # Установить processing для пользователя
@@ -525,11 +550,9 @@ async def check_response(chat_id, message_id):
     order_number = 0
 
     while True:
-        beats_files = sorted(glob(f'output_beats/{chat_id}_[1-{beats}].*'))
-        beats_shorts_files = sorted(glob(f'output_beats/{chat_id}_[1-{beats}]_short.*'))
         
-        print(beats_shorts_files)
-        if len(beats_files)==beats and len(beats_shorts_files)==beats:
+        if db_handler.get_beats_ready(chat_id) == 1:
+            db_handler.del_beats_ready(chat_id)
             return True
         
         new_order_number = db_handler.get_query_by_chat_id(chat_id)
@@ -604,7 +627,7 @@ async def make_query(c: types.CallbackQuery):
                                 db_handler.del_processing(chat_id)
                         else:
                             # Отправка сообщения
-                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Не удалось выбрать расширение, попробуй ещё раз. Выбрать параметры бита нужно строго в предлагаемом ботом порядке и в одном окне', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
+                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Не удалось выбрать расширение, попробуй ещё раз. Выбрать параметры бита нужно строго в предлагаемом ботом порядке и в одном сообщении', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
                     else:
                         balance_keyboard = InlineKeyboardMarkup().add(keyboards.btn_balance)
                         await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Сперва тебе нужно пополнить баланс', reply_markup=balance_keyboard, parse_mode='Markdown')
