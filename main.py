@@ -45,6 +45,10 @@ start_balance = config.start_balance # RUB
 # Количество битов для создания
 beats = config.beats
 
+# Константы сообщений
+MENU_MESSAGE_TEXT = "🔣 <b>МЕНЮ</b>\n\n👉 Выбери опцию которая тебе нужна."
+STYLES_MESSAGE_TEXT = '🪩 *СТИЛИ*\n\nЯ могу генерировать в разных стилях, каждый из них имеет свои особенности. Такие биты подойдут под запись голоса.\n\n*⏺ - Стиль*\n⏺ - Темп\n⏺ - Лад\n⏺ - Формат'
+
 # Безопасный запуск
 async def safe_launch():
     if launch.mailing_list is not None:
@@ -70,7 +74,7 @@ async def send_hello(message: types.Message):
 async def menu(message: types.Message):
     # Отправка сообщения
 
-    await bot.send_message(message.chat.id, text=f"🔣 <b>МЕНЮ</b>\n\nОсновное предназначение бота - писать качественные биты за доступную цену, отправь эту команду в чат, чтобы получить примеры битов, созданных ботом 👉\n/example_beats.\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", parse_mode='html', reply_markup=keyboards.menu_keyboard)
+    await bot.send_message(message.chat.id, text=MENU_MESSAGE_TEXT, parse_mode='html', reply_markup=keyboards.menu_keyboard)
     # Добавление в БД
     # Имя и фамилия пользователя
     user_initials = f'{message.from_user.first_name} {message.from_user.last_name}'
@@ -141,7 +145,7 @@ async def return_to_styles(c: types.CallbackQuery):
                     del user_chosen_bpm_style[chat_id]
                 
                 # Отправка сообщения
-                await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🪩 *СТИЛИ*\n\nЯ могу генерировать в разных стилях, каждый из них имеет свои особенности. Такие биты подойдут под запись голоса.\n\n*⏺ - Стиль*\n⏺ - Темп\n⏺ - Лад\n⏺ - Формат', reply_markup=keyboards.styles_keyboard, parse_mode='Markdown')
+                await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=STYLES_MESSAGE_TEXT, reply_markup=keyboards.styles_keyboard, parse_mode='Markdown')
                 
                 # Удалить processing для пользователя
                 db_handler.del_processing(chat_id)
@@ -156,7 +160,7 @@ async def return_to_menu(c: types.CallbackQuery):
         # Обнулить выбранные пользователем параметры бита
         await reset_chosen_params(chat_id)
         # Отправка сообщения
-        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text="🔣 <b>МЕНЮ</b>\n\nОсновное предназначение бота - писать качественные биты за доступную цену, отправь эту команду в чат, чтобы получить примеры битов, созданных ботом 👉\n/example_beats.\n\n🎵 Нажми на кнопку 'Заказать бит' и выбери стиль\n\n👉 Чтобы начать, нажми на одну из кнопок ниже:", reply_markup=keyboards.menu_keyboard, parse_mode='html')
+        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=MENU_MESSAGE_TEXT, reply_markup=keyboards.menu_keyboard, parse_mode='html')
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.MENU_BUTTONS)
 async def show_menu(c: types.CallbackQuery):
@@ -177,7 +181,7 @@ async def show_menu(c: types.CallbackQuery):
                         await reset_chosen_params(c.message.chat.id)
 
                         # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🪩 *СТИЛИ*\n\nЯ могу генерировать в разных стилях, каждый из них имеет свои особенности. Такие биты подойдут под запись голоса.\n\n*⏺ - Стиль*\n⏺ - Темп\n⏺ - Лад\n⏺ - Формат', reply_markup=keyboards.styles_keyboard, parse_mode='Markdown')
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=STYLES_MESSAGE_TEXT, reply_markup=keyboards.styles_keyboard, parse_mode='Markdown')
                         
                         # Удалить processing для пользователя
                         db_handler.del_processing(chat_id)
@@ -234,7 +238,7 @@ users_payment_transactions = {}
 async def check_payment(payment_id, c):
     payment = json.loads((Payment.find_one(payment_id)).json())
     
-    db_handler.set_payment_checking(c.message.chat.id)
+    # db_handler.set_payment_checking(c.message.chat.id)
 
     # Удаление пары ключ значение user: value.
     def del_user_payment_transactions(chat_id, value):
@@ -250,7 +254,7 @@ async def check_payment(payment_id, c):
         
         await bot.send_message(c.message.chat.id, f'💵 Твой баланс пополнен на {c.data}', reply_markup=keyboards.to_menu_keyboard)
         # Удалить payment_checking для пользователя
-        db_handler.del_payment_checking(c.message.chat.id)
+        # db_handler.del_payment_checking(c.message.chat.id)
 
         del_user_payment_transactions(c.message.chat.id, c.data)
         return True
@@ -258,7 +262,7 @@ async def check_payment(payment_id, c):
         print("BAD RETURN")
         # await bot.send_message(c.message.chat.id, 'Время ожидания на оплату по ссылке истекло.')
         # Удалить payment_checking для пользователя
-        db_handler.del_payment_checking(c.message.chat.id)
+        # db_handler.del_payment_checking(c.message.chat.id)
 
         del_user_payment_transactions(c.message.chat.id, c.data)
         return False
