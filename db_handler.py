@@ -26,6 +26,7 @@ try:
                             chat_id	TEXT UNIQUE NOT NULL,
                             balance	INTEGER,
                             received_beats INTEGER,
+                            received_free_options INTEGER,
                             beats_vers_messages TEXT DEFAULT '',
                             processing INTEGER DEFAULT 0,
                             beats_generating INTEGER DEFAULT 0);''')
@@ -38,7 +39,8 @@ try:
                             chosen_bpm VARCHAR(50) DEFAULT NULL,
                             chosen_extension VARCHAR(50) DEFAULT NULL,
                             chosen_harmony VARCHAR(50) DEFAULT NULL,
-                            beats_ready INTEGER DEFAULT 0
+                            beats_ready INTEGER DEFAULT 0,
+                            wait_for_file INTEGER DEFAULT 0
                             );''')
             print('[INFO] Table "orders" works succesfuly')
 
@@ -256,6 +258,23 @@ try:
             cursor.execute(f'''SELECT beats_ready FROM orders WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
             print(f'[INFO] Getting beats_ready for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]      
+        
+    def set_wait_for_file(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE orders SET wait_for_file = 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] Setting beats_ready for *{chat_id}* was successfully')
+    def del_wait_for_file(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE orders SET wait_for_file = 0 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] *{chat_id}* reset to 0 in beats_ready successfully') 
+    def get_wait_for_file(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT wait_for_file FROM orders WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
+            print(f'[INFO] Getting beats_ready for *{chat_id}* was completed successfully')
+            return cursor.fetchone()[0]     
     
     # запросы к таблице query
     def set_query(chat_id, chosen_beat, chosen_bpm, chosen_format, chosen_harmony):

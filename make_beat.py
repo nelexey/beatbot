@@ -50,6 +50,8 @@ def generate_some_beats(aliases, num, style, chat_id, bpm, extension, harmony, k
     else:
         return False
 
+# Функции стилей
+
 def jersey_club(chat_id, bpm, file_corr=0, sample_preset=0, extension='wav'):
     bass = choice([AudioSegment.from_wav(file) for file in glob("style_JC/bass/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_JC/hi-hat/*.wav")])

@@ -2,9 +2,8 @@ import logging
 import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.types import CallbackQuery
-from aiogram.utils.callback_data import CallbackData
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ContentType
+
 
 # Инструмент для выборки путей к файлам
 from glob import glob
@@ -22,8 +21,9 @@ import keyboards
 from yookassa import Configuration,Payment 
 
 import itertools
-from os import remove
+from os import remove, walk, path, makedirs, rename
 import json
+from pydub import AudioSegment
 
 # Установка уровня логирования
 logging.basicConfig(level=logging.INFO)
@@ -69,6 +69,7 @@ async def safe_launch():
 async def send_hello(message: types.Message):
     # Отправка сообщения
     await bot.send_message(message.chat.id, text='Привет! 👋\n\nЯ телеграм-бот, который может генерировать биты в разных стилях.\n\nМоя главная особенность - доступная 💰 цена и большой выбор стилей. Ты можешь выбрать любой стиль, который тебе нравится, и я создам для тебя уникальный бит.\n\nНе упусти возможность создать свой собственный звук и выделиться на фоне других исполнителей! 🎶\n\nЧтобы начать, используй команду */menu*', parse_mode='Markdown')
+
 # Обработка команды /menu
 @dp.message_handler(commands=['menu'])
 async def menu(message: types.Message):
@@ -111,6 +112,94 @@ async def menu(message: types.Message):
 async def echo(message: types.Message):
     await bot.send_message(message.chat.id, 'Я не воспринимаю текстовые команды\n\nВызвать меню можно по команде /menu или нажав на кнопку в нижнем левом углу экрана.')
 
+## Обработка аудио файлов.
+
+# Функция для проверки размера директории users_sounds
+def get_directory_size(directory):
+    total_size = 0
+    for dirpath, _, filenames in walk(directory):
+        for f in filenames:
+            fp = path.join(dirpath, f)
+            total_size += path.getsize(fp)
+    return total_size
+
+# Обработчик для аудиофайлов в формате mp3
+
+@dp.message_handler(content_types=ContentType.AUDIO)
+async def handle_audio_file(message: types.Message):
+    chat_id = message.chat.id
+    audio = message.audio
+
+    # Проверяем размер директории users_sounds
+    total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
+    if total_size_mb > 500:
+        await message.reply("Извините, бот перегружен. Пожалуйста, попробуйте позже.")
+        return
+
+    # Проверяем размер загруженного файла
+    if audio.file_size > 10 * 1024:
+        await message.reply("Файл слишком большой. Пожалуйста, загрузите файл размером до 10 кБ.")
+        return
+
+    if db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[0]]:
+        # Получаем информацию о файле
+        
+        file_id = audio.file_id
+
+        # Путь к директории для сохранения файла
+        user_dir = f"users_sounds/{chat_id}"
+
+        # Создаем директорию пользователя, если она не существует
+        makedirs(user_dir, exist_ok=True)
+
+        # Скачиваем файл на сервер
+        await audio.download(destination_file=f'{user_dir}/sound.mp3')
+
+        # Ускоряем аудио
+        audio = AudioSegment.from_mp3(f'{user_dir}/sound.mp3')
+        octaves = 0.3
+        new_sample_rate = int(audio.frame_rate * (2.0 ** octaves))
+        speed_up_audio = audio._spawn(audio.raw_data, overrides={'frame_rate': new_sample_rate})
+
+        speed_up_audio.export(f'{user_dir}/sound.mp3', format="mp3")
+
+        # Отправляем обратно пользователю обработанный файл
+        with open(f'{user_dir}/sound.mp3', 'rb') as f:
+            await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - speed up')
+
+        # Удаляем временный файл
+        remove(f'{user_dir}/sound.mp3')
+
+    elif db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[1]]:
+        # Получаем информацию о файле
+        file_id = audio.file_id
+
+        # Путь к директории для сохранения файла
+        user_dir = f"users_sounds/{chat_id}"
+
+        # Создаем директорию пользователя, если она не существует
+        makedirs(user_dir, exist_ok=True)
+
+        # Скачиваем файл на сервер
+        await audio.download(destination_file=f'{user_dir}/sound.mp3')
+
+        # Ускоряем аудио
+        audio = AudioSegment.from_mp3(f'{user_dir}/sound.mp3')
+        octaves = -0.3
+        new_sample_rate = int(audio.frame_rate * (2.0 ** octaves))
+        speed_up_audio = audio._spawn(audio.raw_data, overrides={'frame_rate': new_sample_rate})
+
+        speed_up_audio.export(f'{user_dir}/sound.mp3', format="mp3")
+
+        # Отправляем обратно пользователю обработанный файл
+        with open(f'{user_dir}/sound.mp3', 'rb') as f:
+            await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - slowed + rvb')
+
+        # Удаляем временный файл
+        remove(f'{user_dir}/sound.mp3')
+    else:
+        await bot.send_message(chat_id, 'Похоже, вы начали генерацию бита. Если вы хотите воспользоваться бесплатными функциями: выберите нужную в разделе с бесплатными функциями.')
+        
 
 ## Обработка кнопок
 
@@ -228,7 +317,6 @@ async def payment(value,description):
 @dp.pre_checkout_query_handler()
 async def process_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery):
     await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
-
 
 # Перед запуском асинхронной функции создается пара ключ значение user: value.
 # Это сделано для того, чтобы не создавать лишние ссылки и не запускать лишние асинхронные функции, для экономии ресурсов
@@ -374,13 +462,73 @@ async def show_bpm(c: types.CallbackQuery):
 
                         # Отправка сообщения
                         await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *БЕСПЛАТНЫЕ ОПЦИИ*\n\nМы предоставляем некоторые бесплатные опции для обработки вашего звука.\n\nОбработчик поддерживает *.mp3* формат.', reply_markup=keyboards.free_keyboard, parse_mode='Markdown')
-                        
+
                         # Удалить processing для пользователя
                         db_handler.del_processing(chat_id)
                 else:
                     # Отправка оповещения
                     await bot.answer_callback_query(callback_query_id=c.id, text='Ты не можешь воспользоваться беслпатными опциями во время генерации бита', show_alert=True)
-            
+
+    except Exception as e:
+        print(repr(e))
+        # Удалить processing для пользователя
+        db_handler.set_processing(c.message.chat.id)
+
+
+@dp.callback_query_handler(lambda c: c.data in keyboards.OPTIONS_BUTTONS)
+async def show_bpm(c: types.CallbackQuery):
+    chat_id = c.message.chat.id
+    pressed_button = c.data
+    try:
+        if await get_user(chat_id):
+            if db_handler.get_beats_generating(chat_id) == 0:
+                if pressed_button == keyboards.OPTIONS_BUTTONS[0]:
+                    # Проверить, не находится ли пользователь в beats_generating
+                    
+                    if db_handler.get_processing(chat_id) == 0:
+                        # Установить processing для пользователя
+                        db_handler.set_processing(chat_id)
+
+                        # Обнулить выбранные пользователем параметры бита
+                        await reset_chosen_params(c.message.chat.id)
+
+                        user_chosen_option = 'speed_up'
+
+                        db_handler.set_chosen_style(chat_id, user_chosen_option)  
+
+                        db_handler.set_wait_for_file(chat_id)
+
+                        # Отправка сообщения
+                        await bot.send_message(chat_id, text='🆓 *SPEED UP*\n\nup звука\n\nСкинь сюда свой звук в формате *.mp3*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
+
+                        # Удалить processing для пользователя
+                        db_handler.del_processing(chat_id)
+                elif pressed_button == keyboards.OPTIONS_BUTTONS[1]:
+                    # Проверить, не находится ли пользователь в beats_generating
+                    
+                    # Проверить, не находится ли пользователь в processing
+                    if db_handler.get_processing(chat_id) == 0:
+                        # Установить processing для пользователя
+                        db_handler.set_processing(chat_id)
+
+                        # Обнулить выбранные пользователем параметры бита
+                        await reset_chosen_params(c.message.chat.id)
+
+                        user_chosen_option = 'slow_down'
+
+                        db_handler.set_chosen_style(chat_id, user_chosen_option)  
+
+                        db_handler.set_wait_for_file(chat_id)
+
+                        # Отправка сообщения
+                        await bot.send_message(chat_id, text='🆓 *SLOWED + REVERB*\n\nslow звука\n\nСкинь сюда свой звук в формате *.mp3*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
+
+                        # Удалить processing для пользователя
+                        db_handler.del_processing(chat_id)
+            else:
+                # Отправка оповещения
+                await bot.answer_callback_query(callback_query_id=c.id, text='Ты не можешь воспользоваться бесплатными опциями во время генерации бита', show_alert=True)
+
     except Exception as e:
         print(repr(e))
         # Удалить processing для пользователя
@@ -417,7 +565,7 @@ async def show_bpm(c: types.CallbackQuery):
                         current_bpm = str(calculate_bpm) + 'bpm'
                         user_chosen_bpm_style[chat_id] = [current_bpm, user_chosen_style]
                         await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ТЕМП*\n\nТеперь отрегулируй темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\nРегулируй желаемый *bpm* кнопками на клавиатуре. *Подтверди* выбранный темп: *{current_bpm}*\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Лад\n⏺ - Формат', reply_markup=keyboards.bpm_keyboard, parse_mode='Markdown')                  
-                    
+
                     # Удалить processing для пользователя
                     db_handler.del_processing(chat_id)
 
@@ -490,7 +638,7 @@ async def show_extensions(c: types.CallbackQuery):
                         db_handler.set_chosen_bpm(chat_id, user_chosen_bpm)
                         # Отправка сообщения
                         await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ЛАД*\n\n*major* - больше подходит для энергичных треков с более весёлым звучанием (Heroinwater, Big Baby Tape, MORGENSHTERN, Lil Tecca)\n\n*minor* - отлично подойдёт для лиричных треков (Большинство битов: OG BUDA, Гуф, THRILL PILL, Juice WRLD, XXXTENTACION)\n\n✅ - {user_chosen_style}\n✅ - {user_chosen_bpm}\n*⏺ - Лад*\n⏺ - Формат', reply_markup=keyboards.keys_keyboard, parse_mode='Markdown')       
-                        
+
                         # Удалить processing для пользователя
                         db_handler.del_processing(chat_id)
                     else:
@@ -550,11 +698,11 @@ async def check_response(chat_id, message_id):
     order_number = 0
 
     while True:
-        
+
         if db_handler.get_beats_ready(chat_id) == 1:
             db_handler.del_beats_ready(chat_id)
             return True
-        
+
         new_order_number = db_handler.get_query_by_chat_id(chat_id)
         if new_order_number != order_number:
             order_number = new_order_number
@@ -657,7 +805,7 @@ async def send_beat(c: types.CallbackQuery):
         pressed_button = c.data
 
         if await get_user(chat_id):
-            
+
             # Проверить, не находится ли пользователь в processing
             if db_handler.get_processing(chat_id) == 0:
                 # Установить processing для пользователя
@@ -678,15 +826,15 @@ async def send_beat(c: types.CallbackQuery):
 
                 # Скинуть файл
                 await bot.send_audio(chat_id, beat)
-                
+
                 # Закрыть файл
                 beat.close()
-        
+
                 # Отправка сообщения
                 message = await bot.edit_message_text(chat_id=chat_id, message_id=message_to_edit[chat_id], text='🔽 Держи 🔽')
                 message_to_edit[chat_id] = message.message_id
                 await bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\nНадеюсь, тебе понравится бит 😉', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')                        
-                
+
                 # Удалить файлы
                 for file in glob(f'output_beats/{chat_id}_[1-{beats}]*.*'):
                     remove(file)
@@ -696,7 +844,7 @@ async def send_beat(c: types.CallbackQuery):
 
                 # Увеличеть количество купленых битов на аккаунте
                 db_handler.get_beat(chat_id)
-                                
+             
                 # Обнулить выбранные пользователем параметры бита
                 await reset_chosen_params(chat_id)
                 # Удалить processing для пользователя
@@ -717,7 +865,7 @@ async def send_beat(c: types.CallbackQuery):
         # Удалить файлы
         for file in glob(f'output_beats/{c.message.chat.id}_[1-{beats}].*'):
             remove(file)
-            
+
         await bot.send_message(c.message.chat.id, '⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.', reply_markup=keyboards.undo_keyboard)
 
 # Запуск бота
