@@ -41,8 +41,8 @@ class Handler():
                     filled_keys = []
 
                     for key in keys:
-                        leads_list = sorted(glob(f'style_{style}/lead/{harmony}/{key}/lead*.wav'))
-                        bass_list = sorted(glob(f'style_{style}/bass/{harmony}/{key}/bass*.wav'))
+                        leads_list = sorted(glob(f'style_{style}/lead/{harmony}/{key}/*.wav'))
+                        bass_list = sorted(glob(f'style_{style}/bass/{harmony}/{key}/*.wav'))
                         if len(leads_list) >= 3 and len(bass_list) >= 3 :
                             filled_keys.append(key)
 

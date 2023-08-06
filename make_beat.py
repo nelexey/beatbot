@@ -1,7 +1,8 @@
 from glob import glob
 from pydub import AudioSegment
 from random import choice, randint, sample
-import re
+from os import path
+from re import search
 
 def speed_change(sound, speed=1.0):
     # Manually override the frame_rate. This tells the computer how many
@@ -19,15 +20,21 @@ def generate_some_beats(aliases, num, style, chat_id, bpm, extension, harmony, k
     # Выбрать случайные неповторяющиеся лиды 
 
     if key is not None:
-        get_leads = sample(glob(f"style_{aliases[style]}/lead/{harmony}/{key}/lead*.wav"), 3)
+        get_leads = sample(glob(f"style_{aliases[style]}/lead/{harmony}/{key}/*.wav"), 3)
+
+        sample_presets = []
+        for file in get_leads:
+            filename = path.basename(file)
+            sample_presets.append(filename)
     else:
         get_leads = sample(glob(f"style_{aliases[style]}/lead/*.wav"), 3)
+
+        sample_presets = []
+        for file in get_leads:
+            match = search(r'\d+', file)
+            if match:
+                sample_presets.append(int(match.group())) 
     
-    sample_presets = []
-    for file in get_leads:
-        match = re.search(r'\d+', file)
-        if match:
-            sample_presets.append(int(match.group())) 
 
     print(sample_presets)
 
@@ -526,7 +533,7 @@ def plug(chat_id, bpm, file_corr=0, sample_preset=0, extension='wav'):
 
     return True
 
-def trap(harmony, key, chat_id, bpm, file_corr=0, sample_preset=0, extension='wav'):
+def trap(harmony, key, chat_id, bpm, file_corr=0, sample_preset=None, extension='wav'):
     clap = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/clap/*.wav")])
     kick = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/kick/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/hi-hat/*.wav")])
@@ -534,14 +541,12 @@ def trap(harmony, key, chat_id, bpm, file_corr=0, sample_preset=0, extension='wa
     bass = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/bass/{harmony}/{key}/bass*.wav")])
 
     ## sync leads and help_leads ON
-    if sample_preset==0: 
-
-        leads_sync = randint(1, len(glob(f"style_Trap/lead/{harmony}/{key}//*.wav"))+1)
-
+    if sample_preset is None: 
+        lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/lead/{harmony}/{key}/*.wav")])
     else:
-        leads_sync = sample_preset
+        lead = AudioSegment.from_wav(f"style_Trap/lead/{harmony}/{key}/{sample_preset}")
 
-    lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/lead/{harmony}/{key}/lead{leads_sync}.wav")])
+    
     # help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/helplead/helplead{leads_sync}.wav")])
 
     ## sync leads and help_leads OFF

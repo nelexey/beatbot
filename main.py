@@ -137,8 +137,8 @@ async def handle_audio_file(message: types.Message):
         return
 
     # Проверяем размер загруженного файла
-    if audio.file_size > 10 * 1024:
-        await message.reply("Файл слишком большой. Пожалуйста, загрузите файл размером до 10 кБ.")
+    if audio.file_size > 2500 * 1024:
+        await message.reply("🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 2.5мб.")
         return
 
     if db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[0]]:
@@ -760,7 +760,7 @@ async def make_query(c: types.CallbackQuery):
                                 for file_path in files_list:
                                     with open(file_path, 'rb') as trimmed_sound:
                                         if files_list.index(file_path) == len(files_list)-1:
-                                            message = await bot.send_audio(c.message.chat.id, trimmed_sound, reply_markup=keyboards.beats_keyboard)
+                                            message = await bot.send_audio(c.message.chat.id, trimmed_sound, title='demo - @NeuralBeatBot gen.', reply_markup=keyboards.beats_keyboard)
                                             messages_ids.append(message.message_id)
                                             db_handler.set_beats_versions_messages_ids(c.message.chat.id, ', '.join(str(messages_id) for messages_id in messages_ids))
                                             trimmed_sound.close()
@@ -769,7 +769,7 @@ async def make_query(c: types.CallbackQuery):
                                             del messages_ids
                                             
                                         else:
-                                            message = await bot.send_audio(c.message.chat.id, trimmed_sound)
+                                            message = await bot.send_audio(c.message.chat.id, trimmed_sound, title='demo - @NeuralBeatBot gen.')
                                             messages_ids.append(message.message_id)
                                 # Удалить processing для пользователя
                                 db_handler.del_processing(chat_id)
@@ -825,7 +825,7 @@ async def send_beat(c: types.CallbackQuery):
                 beat = open(f'output_beats/{chat_id}_{pressed_button}.{db_handler.get_chosen_extension(chat_id).split(".")[-1]}', 'rb')
 
                 # Скинуть файл
-                await bot.send_audio(chat_id, beat)
+                await bot.send_audio(chat_id, beat, title='BEAT - tg: @NeuralBeatBot')
 
                 # Закрыть файл
                 beat.close()
