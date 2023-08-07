@@ -167,6 +167,9 @@ async def handle_audio_file(message: types.Message):
         with open(f'{user_dir}/sound.mp3', 'rb') as f:
             await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - speed up')
 
+        # Прибавляем к количеству исопльзуемых опции
+        db_handler.get_free_option(chat_id)
+
         # Удаляем временный файл
         remove(f'{user_dir}/sound.mp3')
 
@@ -194,6 +197,9 @@ async def handle_audio_file(message: types.Message):
         # Отправляем обратно пользователю обработанный файл
         with open(f'{user_dir}/sound.mp3', 'rb') as f:
             await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - slowed + rvb')
+
+        # Прибавляем к количеству исопльзуемых опции
+        db_handler.get_free_option(chat_id)
 
         # Удаляем временный файл
         remove(f'{user_dir}/sound.mp3')
@@ -444,7 +450,7 @@ async def show_bpm(c: types.CallbackQuery):
         db_handler.set_processing(c.message.chat.id)
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.CATEGORIES_BUTTONS)
-async def show_bpm(c: types.CallbackQuery):
+async def free_options(c: types.CallbackQuery):
     chat_id = c.message.chat.id
     pressed_button = c.data
     try:
@@ -476,7 +482,7 @@ async def show_bpm(c: types.CallbackQuery):
 
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.OPTIONS_BUTTONS)
-async def show_bpm(c: types.CallbackQuery):
+async def process_the_sound(c: types.CallbackQuery):
     chat_id = c.message.chat.id
     pressed_button = c.data
     try:
@@ -579,7 +585,7 @@ async def show_bpm(c: types.CallbackQuery):
         db_handler.del_processing(c.message.chat.id)
 
 @dp.callback_query_handler(lambda c: c.data == keyboards.GET_EXAMPLE_BEAT)
-async def show_extensions(c: types.CallbackQuery):
+async def send_example_beat(c: types.CallbackQuery):
     try:
         chat_id = c.message.chat.id
         user_chosen_style = db_handler.get_chosen_style
@@ -613,7 +619,7 @@ async def show_extensions(c: types.CallbackQuery):
         db_handler.set_processing(c.message.chat.id)
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.BPM_CONFIRM)
-async def show_extensions(c: types.CallbackQuery):
+async def configure_bpm(c: types.CallbackQuery):
     try:
 
         chat_id = c.message.chat.id

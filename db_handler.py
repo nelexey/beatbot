@@ -102,6 +102,12 @@ try:
             cursor.execute(f'''UPDATE bot_users SET received_beats = received_beats + 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
             print(f'[INFO] One received beat added to *{chat_id}* received beats')
 
+    def get_free_option(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE bot_users SET received_free_options = received_free_options + 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] One free option added to *{chat_id}* received beats')
+
     def set_processing(chat_id):
         connect()
         with connection.cursor() as cursor:
