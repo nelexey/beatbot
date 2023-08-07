@@ -94,7 +94,6 @@ btn_to_styles = InlineKeyboardButton(STYLES_BUTTON, callback_data=STYLES_BUTTON)
 to_styles_keyboard = InlineKeyboardMarkup().add(btn_to_styles)
 
 # Клавиатура "Бесплатные опции"
-# Клавиатура стилей
 btn_speed_up = InlineKeyboardButton(OPTIONS_BUTTONS[0], callback_data=OPTIONS_BUTTONS[0])
 btn_slow_down = InlineKeyboardButton(OPTIONS_BUTTONS[1], callback_data=OPTIONS_BUTTONS[1])
 free_keyboard = InlineKeyboardMarkup(row_width=2).add(btn_speed_up, btn_slow_down, btn_undo)
