@@ -37,7 +37,8 @@ aliases = {
 
 options = {
     'Speed UP':   'speed_up',
-    'Slowed+RVB': 'slow_down'
+    'Slowed+RVB': 'slow_down',
+    'Remove Vocal': 'remove_vocal'
 }
 
 
@@ -96,7 +97,8 @@ to_styles_keyboard = InlineKeyboardMarkup().add(btn_to_styles)
 # Клавиатура "Бесплатные опции"
 btn_speed_up = InlineKeyboardButton(OPTIONS_BUTTONS[0], callback_data=OPTIONS_BUTTONS[0])
 btn_slow_down = InlineKeyboardButton(OPTIONS_BUTTONS[1], callback_data=OPTIONS_BUTTONS[1])
-free_keyboard = InlineKeyboardMarkup(row_width=2).add(btn_speed_up, btn_slow_down, btn_undo)
+btn_remove_vocal = InlineKeyboardButton(OPTIONS_BUTTONS[2], callback_data=OPTIONS_BUTTONS[2])
+free_keyboard = InlineKeyboardMarkup(row_width=2).add(btn_speed_up, btn_slow_down, btn_remove_vocal, btn_undo)
 
 # Клавиатура баланса
 btn_pay1 = InlineKeyboardButton(BALANCE_BUTTONS[0], callback_data=BALANCE_BUTTONS[0])
