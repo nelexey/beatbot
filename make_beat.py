@@ -16,6 +16,11 @@ def speed_change(sound, speed=1.0):
     # know how to play audio at standard frame rate (like 44.1k)
     return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
 
+# Применение клиппера к оверлею
+def apply_clipper(audio_segment, max_amplitude):
+    clipped_segment = audio_segment.apply_gain(max_amplitude - audio_segment.max_dBFS)
+    return clipped_segment
+
 def generate_some_beats(aliases, num, style, chat_id, bpm, extension, harmony, key):
     # Выбрать случайные неповторяющиеся лиды 
 
@@ -537,6 +542,7 @@ def trap(harmony, key, chat_id, bpm, file_corr=0, sample_preset=None, extension=
     clap = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/clap/*.wav")])
     kick = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/kick/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/hi-hat/*.wav")])
+    voicetag = AudioSegment.from_wav('voicetags/beatbot_voicetag_130bpm.wav')
 
     bass = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/bass/{harmony}/{key}/bass*.wav")])
 
@@ -546,37 +552,25 @@ def trap(harmony, key, chat_id, bpm, file_corr=0, sample_preset=None, extension=
     else:
         lead = AudioSegment.from_wav(f"style_Trap/lead/{harmony}/{key}/{sample_preset}")
 
-    
-    # help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/helplead/helplead{leads_sync}.wav")])
-
-    ## sync leads and help_leads OFF
-    # lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/lead/*.wav")])
-    # help_lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/helplead/*.wav")])
-
     ##### ТАКТЫ #####
 
     # 14 sec 76 milisec
 
-    #150bpm 4sandwich 51sec 20milisec
-    #130bpm 4sandwich 59sec 07milisec
-
     ## 1 ##
     sandwich1 = lead
     # sandwich1 = sandwich1.overlay(help_lead, position=0)
-    sandwich1 = sandwich1.overlay(clap, position=0)
-    sandwich1 = sandwich1.overlay(hi_hat, position=0)
-    sandwich1 = sandwich1.overlay(kick, position=0)
-    sandwich1 = sandwich1.overlay(bass, position=0)
-
-    sandwich1 = sandwich1[:7380]
-    octaves = -1
-    new_sample_rate = int(sandwich1.frame_rate * (2.0 ** octaves))
-    sandwich1 = sandwich1._spawn(sandwich1.raw_data, overrides={'frame_rate': new_sample_rate})
+    sandwich1 = sandwich1.overlay(voicetag, position=0)
+    sandwich1 = sandwich1.overlay(hi_hat[:-1840], position=-1840)
+    sandwich1 = sandwich1.overlay(clap[:-1840], position=-1840)
 
     overlay = sandwich1
 
     ## 2 ##
     sandwich2 = lead
+    sandwich2 = sandwich2.overlay(bass, position=0)
+    sandwich2 = sandwich2.overlay(clap, position=0)
+    sandwich2 = sandwich2.overlay(hi_hat[:-460], position=0)
+    sandwich2 = sandwich2.overlay(kick[920:], position=920)
 
     overlay = overlay.append(sandwich2, crossfade=0)
 
@@ -585,7 +579,8 @@ def trap(harmony, key, chat_id, bpm, file_corr=0, sample_preset=None, extension=
     # sandwich3 = sandwich3.overlay(help_lead, position=0)
     sandwich3 = sandwich3.overlay(clap, position=0)
     sandwich3 = sandwich3.overlay(hi_hat, position=0)
-
+    sandwich3 = sandwich3.overlay(kick, position=0)
+    sandwich3 = sandwich3.overlay(bass, position=0)
 
     overlay = overlay.append(sandwich3, crossfade=0)
 
@@ -594,7 +589,7 @@ def trap(harmony, key, chat_id, bpm, file_corr=0, sample_preset=None, extension=
     # sandwich4 = sandwich4.overlay(help_lead, position=0)
     sandwich4 = sandwich4.overlay(clap, position=0)
     sandwich4 = sandwich4.overlay(hi_hat, position=0)
-    sandwich4 = sandwich4.overlay(kick, position=0)
+    sandwich4 = sandwich4.overlay(kick[:-920], position=-920)
     sandwich4 = sandwich4.overlay(bass, position=0)
     
     overlay = overlay.append(sandwich4, crossfade=0)
@@ -620,19 +615,36 @@ def trap(harmony, key, chat_id, bpm, file_corr=0, sample_preset=None, extension=
 
     ## 7 ##
     sandwich7 = lead
-    # sandwich7 = sandwich7.overlay(help_lead, position=0)
     sandwich7 = sandwich7.overlay(clap, position=0)
-    sandwich7 = sandwich7.overlay(hi_hat, position=0)
-    sandwich7 = sandwich7.overlay(kick, position=0)
+    sandwich7 = sandwich7.overlay(hi_hat[:-460], position=0)
+    sandwich7 = sandwich7.overlay(kick[:-460], position=0)
     sandwich7 = sandwich7.overlay(bass, position=0)
 
     overlay = overlay.append(sandwich7, crossfade=0)
 
     ## 8 ##
     sandwich8 = lead
-    # sandwich8 = sandwich8.overlay(help_lead, position=0)
-    
+    sandwich8 = sandwich8.overlay(bass[2300:], position=2300)
+    sandwich8 = sandwich8.overlay(hi_hat, position=0)
+    sandwich8 = sandwich8.overlay(clap, position=0)
+    sandwich8 = sandwich8.overlay(kick, position=0)
+
     overlay = overlay.append(sandwich8, crossfade=0)
+
+    ## 9 ##
+    sandwich9 = lead
+    sandwich9 = sandwich9.overlay(bass, position=0)
+    sandwich9 = sandwich9.overlay(hi_hat[:-460], position=0)
+    sandwich9 = sandwich9.overlay(clap[:-460], position=0)
+    sandwich9 = sandwich9.overlay(kick[:-460], position=0)
+
+    overlay = overlay.append(sandwich9, crossfade=0)
+
+    ## 10 ##
+    sandwich10 = lead
+    sandwich10 = sandwich10.overlay(voicetag, position=0)
+
+    overlay = overlay.append(sandwich10, crossfade=0)
 
     bpm = int(bpm.split('b')[0])
 
@@ -640,6 +652,13 @@ def trap(harmony, key, chat_id, bpm, file_corr=0, sample_preset=None, extension=
         pass       
     else:
         overlay = speed_change(overlay, bpm/130)
+
+    # Максимальная амплитуда для клиппера (в децибелах)
+    max_amplitude = -3  # Здесь можно настроить желаемую амплитуду
+
+    # Применение клиппера ко всему оверлею
+    overlay = apply_clipper(overlay, max_amplitude)
+
     
     if file_corr!=0:
         file_handle = overlay.export(f"output_beats/{chat_id}_{str(file_corr)}.{extension}", format=f"{extension}")

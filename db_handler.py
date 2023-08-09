@@ -61,8 +61,8 @@ try:
     def add_user(username, chat_id, user_initials='', balance=0):
         connect()
         with connection.cursor() as cursor:
-            cursor.execute(f'''INSERT INTO bot_users (username, user_initials, chat_id, balance, received_beats)
-            VALUES ('{username}', '{user_initials}', {chat_id}, {balance}, {0}) ON CONFLICT DO NOTHING;''')
+            cursor.execute(f'''INSERT INTO bot_users (username, user_initials, chat_id, balance, received_beats, received_free_options)
+            VALUES ('{username}', '{user_initials}', {chat_id}, {balance}, {0}, {0}) ON CONFLICT DO NOTHING;''')
 
             cursor.execute(f'''INSERT INTO orders (chat_id)
             VALUES ('{chat_id}') ON CONFLICT DO NOTHING;''')
