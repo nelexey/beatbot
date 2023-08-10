@@ -54,6 +54,17 @@ try:
                             order_number INTEGER
                             );''')
             print('[INFO] Table "query" works succesfuly')
+
+            cursor.execute('''CREATE TABLE IF NOT EXISTS user_limits(
+                            id SERIAL PRIMARY KEY,
+                            chat_id TEXT UNIQUE NOT NULL,
+                            free_options_use_limit INTEGER DEFAULT 0,
+                            free_removes_use_limit INTEGER DEFAULT 0,
+                            has_subscription BOOLEAN DEFAULT FALSE,
+                            subscription_expiry_date DATE DEFAULT NULL,
+                            last_updated DATE
+                            );''')
+            print('[INFO] Table "user_limits" works succesfuly')
             
         return True
     
@@ -66,14 +77,23 @@ try:
 
             cursor.execute(f'''INSERT INTO orders (chat_id)
             VALUES ('{chat_id}') ON CONFLICT DO NOTHING;''')
+
+            cursor.execute(f'''INSERT INTO user_limits (chat_id, free_options_use_limit, free_removes_use_limit, last_updated)
+            VALUES ({chat_id}, {10}, {3}, NOW()) ON CONFLICT DO NOTHING;''')
             
             print(f'[INFO] Values for *{username}* succesfuly added')
+    
     def get_user(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''INSERT INTO orders (chat_id)
             VALUES ('{chat_id}') ON CONFLICT DO NOTHING;''')
+            
+            cursor.execute(f'''INSERT INTO user_limits (chat_id, free_options_use_limit, free_removes_use_limit, last_updated)
+            VALUES ({chat_id}, {10}, {3}, NOW()) ON CONFLICT DO NOTHING;''')
+            
             cursor.execute(f'''SELECT chat_id FROM bot_users WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
+            
             if cursor.fetchone() is None:
                 return False
             else:
@@ -315,6 +335,51 @@ try:
         with connection.cursor() as cursor:
             cursor.execute(f'''DELETE FROM query WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
             print(f'[INFO] Deleted query for {chat_id}')
+
+    # запросы к таблице user_limits
+    def get_free_options_limit(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT free_options_use_limit FROM user_limits WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] Getting free_options_use_limit for *{chat_id}* was completed successfully')
+            return cursor.fetchone()[0]        
+    def draw_free_options_limit(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE user_limits SET free_options_use_limit = free_options_use_limit - 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] *{chat_id}* free_options_use_limit - 1')
+    
+    def get_removes_limit(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT free_removes_use_limit FROM user_limits WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] Getting free_removes_use_limit for *{chat_id}* was completed successfully')
+            return cursor.fetchone()[0]   
+    def draw_removes_limit(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE user_limits SET free_removes_use_limit = free_removes_use_limit - 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] *{chat_id}* free_removes_use_limit - 1')
+
+    def refill_limits(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE user_limits SET free_removes_use_limit = 3, free_options_use_limit = 10, last_updated = NOW() WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] *{chat_id}* limits refilled')
+
+    def get_last_updated_limits(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT last_updated FROM user_limits WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] Getting last_updated_limits for *{chat_id}* was completed successfully')
+            return cursor.fetchone()[0]
+
+    def get_has_subscription(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT has_subscription FROM user_limits WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] Getting has_subscription for *{chat_id}* was completed successfully')
+            return cursor.fetchone()[0]
 
 except Exception as _ex:
     print('[INFO] Error while working with PostgreSQL', _ex)

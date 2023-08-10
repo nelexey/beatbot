@@ -22,7 +22,7 @@ from yookassa import Configuration,Payment
 import itertools
 from os import remove, walk, path, makedirs, rename
 import json
-from pydub import AudioSegment
+from datetime import date, timedelta
 
 # Установка уровня логирования
 logging.basicConfig(level=logging.INFO)
@@ -132,6 +132,17 @@ async def check_subscription(user_id, channel_username):
     except Exception as e:
         print(repr(e))
         return False
+    
+# Функция для восстановления лимитов на опции
+async def refill_limits(chat_id):
+
+    date1 = date.today()
+    date2 = db_handler.get_last_updated_limits(chat_id)
+ 
+    time_difference = abs(date2 - date1)
+
+    if time_difference > timedelta(hours=24):
+        db_handler.refill_limits(chat_id)
 
 ## Обработчик для аудиофайлов в формате mp3
 
@@ -139,7 +150,6 @@ async def check_subscription(user_id, channel_username):
 async def handle_audio_file(message: types.Message):
     try:
         chat_id = message.chat.id
-
         if await get_user(chat_id):
             # Проверить, не находится ли пользователь в processing
             if db_handler.get_processing(chat_id) == 0:
@@ -147,121 +157,132 @@ async def handle_audio_file(message: types.Message):
                 is_subscribed = await check_subscription(user.id, '@beatbotnews')
                 if is_subscribed:
                     if db_handler.get_wait_for_file(chat_id) == 1:
+                        
+                        db_handler.del_wait_for_file(chat_id)
+
                         audio = message.audio
                         chosen_style = db_handler.get_chosen_style(chat_id)
-                        
-                        if audio.file_name.split('.')[-1] == 'mp3' and chosen_style in [keyboards.options[keyboards.OPTIONS_BUTTONS[1]], keyboards.options[keyboards.OPTIONS_BUTTONS[0]]]:
 
-                            # Установить processing для пользователя
-                            db_handler.set_processing(chat_id)
+                        # Восстановить лимиты если прошло время
+                        await refill_limits(chat_id)
 
-                            chat_id = message.chat.id
-                            
-                            # Проверяем размер директории users_sounds
-                            total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
-                            
-                            if total_size_mb > 500:
-                                await message.reply("Извините, бот перегружен. Пожалуйста, попробуйте позже.")
-                                
-                                # Удалить processing для пользователя
-                                db_handler.del_processing(chat_id)
-                                
-                                return
+                        if chosen_style in [keyboards.options[keyboards.OPTIONS_BUTTONS[1]], keyboards.options[keyboards.OPTIONS_BUTTONS[0]], keyboards.options[keyboards.OPTIONS_BUTTONS[2]]]:
+                            if audio.file_name.split('.')[-1] == 'mp3' and chosen_style in [keyboards.options[keyboards.OPTIONS_BUTTONS[1]], keyboards.options[keyboards.OPTIONS_BUTTONS[0]]]:
+                                if db_handler.get_free_options_limit(chat_id) > 0:
+                                    # Установить processing для пользователя
+                                    db_handler.set_processing(chat_id)
 
-                            # Проверяем размер загруженного файла
-                            if audio.file_size > 15360 * 1024:
-                                await message.reply("🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 15мб.")
-                                
-                                # Удалить processing для пользователя
-                                db_handler.del_processing(chat_id)
-                                
-                                return
+                                    chat_id = message.chat.id
+                                    
+                                    # Проверяем размер директории users_sounds
+                                    total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
+                                    
+                                    if total_size_mb > 500:
+                                        await message.reply("Извините, бот перегружен. Пожалуйста, попробуйте позже.")
+                                        
+                                        # Удалить processing для пользователя
+                                        db_handler.del_processing(chat_id)
+                                        
+                                        return
 
-                            # Путь к директории для сохранения файла
-                            user_dir = f"users_sounds/{chat_id}"
+                                    # Проверяем размер загруженного файла
+                                    if audio.file_size > 15360 * 1024:
+                                        await message.reply("🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 15мб.")
+                                        
+                                        # Удалить processing для пользователя
+                                        db_handler.del_processing(chat_id)
+                                        
+                                        return
 
-                            # Создаем директорию пользователя, если она не существует
-                            makedirs(user_dir, exist_ok=True)
+                                    # Путь к директории для сохранения файла
+                                    user_dir = f"users_sounds/{chat_id}"
 
-                            # Скачиваем файл на сервер
-                            await audio.download(destination_file=f'{user_dir}/sound.mp3')
+                                    # Создаем директорию пользователя, если она не существует
+                                    makedirs(user_dir, exist_ok=True)
 
-                            if db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[0]]:
-                                # УСКОРИТЬ ЗВУК
-                                sound_options.speed_up(audio, user_dir)
+                                    # Скачиваем файл на сервер
+                                    await audio.download(destination_file=f'{user_dir}/sound.mp3')
 
-                                # Отправляем обратно пользователю обработанный файл
-                                with open(f'{user_dir}/sound.mp3', 'rb') as f:
-                                    await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - speed up')
+                                    if db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[0]]:
+                                        # УСКОРИТЬ ЗВУК
+                                        sound_options.speed_up(audio, user_dir)
 
-                                # Прибавляем к количеству исопльзуемых опции
-                                db_handler.get_free_option(chat_id)
+                                        # Отправляем обратно пользователю обработанный файл
+                                        with open(f'{user_dir}/sound.mp3', 'rb') as f:
+                                            await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - speed up')
 
-                                # Удаляем временный файл
-                                remove(f'{user_dir}/sound.mp3')
+                                        # Прибавляем к количеству исопльзуемых опции
+                                        db_handler.get_free_option(chat_id)
 
-                                db_handler.del_wait_for_file(chat_id)
+                                        # Удаляем временный файл
+                                        remove(f'{user_dir}/sound.mp3')
 
-                            elif db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[1]]:
-                                # ЗАМЕДЛИТЬ ЗВУК
-                                sound_options.slow_down(audio, user_dir)
+                                        
 
-                                # Отправляем обратно пользователю обработанный файл
-                                with open(f'{user_dir}/sound.mp3', 'rb') as f:
-                                    await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - slowed + rvb')
+                                    elif db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[1]]:
+                                        # ЗАМЕДЛИТЬ ЗВУК
+                                        sound_options.slow_down(audio, user_dir)
 
-                                # Прибавляем к количеству исопльзуемых опции
-                                db_handler.get_free_option(chat_id)
+                                        # Отправляем обратно пользователю обработанный файл
+                                        with open(f'{user_dir}/sound.mp3', 'rb') as f:
+                                            await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - slowed + rvb')
 
-                                # Удаляем временный файл
-                                remove(f'{user_dir}/sound.mp3')
+                                        # Прибавляем к количеству исопльзуемых опции
+                                        db_handler.get_free_option(chat_id)
 
-                                db_handler.del_wait_for_file(chat_id)
+                                        # Удаляем временный файл
+                                        remove(f'{user_dir}/sound.mp3')
 
+                                        db_handler.draw_free_options_limit(chat_id)
+
+                                else:
+                                    await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
+
+                            elif audio.file_name.split('.')[-1] in ['mp3', 'wav'] and db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[2]]:
+                                if db_handler.get_removes_limit(chat_id) > 0:
+
+                                    # Путь к директории для сохранения файла
+                                    user_dir = f"users_sounds/{chat_id}"
+
+                                    # Создаем директорию пользователя, если она не существует
+                                    makedirs(user_dir, exist_ok=True)
+
+                                    file = f'sound.{audio.file_name.split(".")[-1]}'
+
+                                    await bot.send_message(chat_id, '🔀 Происходит разделение трека\n\nЭтот процесс может занять до минуты, на это время бот не будет отвечать.\n\nРезультаты появятся тут:')
+
+                                    # Скачиваем файл на сервер
+                                    await audio.download(destination_file=f'{user_dir}/{file}')
+
+                                    # РАЗДЕЛИТЬ НА ВОКАЛ И МИНУС
+                                    sound_options.remove_vocal(user_dir, file)
+
+                                    # Отправляем обратно пользователю обработанныt файлы
+                                    with open(f'{user_dir}/sound_Instruments.wav', 'rb') as f:
+                                        await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Instruments')
+
+                                    with open(f'{user_dir}/sound_Vocals.wav', 'rb') as f:
+                                        await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Vocals')
+                                    
+                                    # Прибавляем к количеству исопльзуемых опции
+                                    db_handler.get_free_option(chat_id)
+
+                                    # Удаляем временный файл и файлы после обработки
+                                    remove(f'{user_dir}/sound.{audio.file_name.split(".")[-1]}')
+                                    remove(f'{user_dir}/sound_Vocals.wav')
+                                    remove(f'{user_dir}/sound_Instruments.wav')
+
+                                    db_handler.draw_removes_limit(chat_id)
+
+                                else:
+                                    await bot.send_message(chat_id, 'Ваш лимит по бесплатным ремувам на сегодня исчерпан.')
                             else:
-                                await bot.send_message(chat_id, '🔀 Похоже, вы начали генерацию бита. Если вы хотите воспользоваться бесплатными функциями: выберите нужную в разделе с бесплатными функциями.')
+                                await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
 
-                        elif audio.file_name.split('.')[-1] in ['mp3', 'wav'] and db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[2]]:
-                            
-                            # Путь к директории для сохранения файла
-                            user_dir = f"users_sounds/{chat_id}"
-
-                            # Создаем директорию пользователя, если она не существует
-                            makedirs(user_dir, exist_ok=True)
-
-                            file = f'sound.{audio.file_name.split(".")[-1]}'
-
-                            await bot.send_message(chat_id, '🔀 Происходит разделение трека')
-
-                            # Скачиваем файл на сервер
-                            await audio.download(destination_file=f'{user_dir}/{file}')
-
-                            # РАЗДЕЛИТЬ НА ВОКАЛ И МИНУС
-                            sound_options.remove_vocal(user_dir, file)
-
-                            # Отправляем обратно пользователю обработанныt файлы
-                            with open(f'{user_dir}/sound_Instruments.wav', 'rb') as f:
-                                await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Instruments')
-
-                            with open(f'{user_dir}/sound_Vocals.wav', 'rb') as f:
-                                await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Vocals')
-                            
-                            # Прибавляем к количеству исопльзуемых опции
-                            db_handler.get_free_option(chat_id)
-
-                            # Удаляем временный файл и файлы после обработки
-                            remove(f'{user_dir}/sound.mp3')
-                            remove(f'{user_dir}/sound_Vocals.wav')
-                            remove(f'{user_dir}/sound_Instruments.wav')
-
-                            db_handler.del_wait_for_file(chat_id)
-                     
+                            # Удалить processing для пользователя
+                            db_handler.del_processing(chat_id)
                         else:
-                            await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
-
-                        # Удалить processing для пользователя
-                        db_handler.del_processing(chat_id)
-
+                            await bot.send_message(chat_id, '🔀 Похоже, вы начали генерацию бита. Если вы хотите воспользоваться бесплатными функциями: выберите нужную в разделе с бесплатными функциями.')
                     else:
                         await bot.send_message(chat_id, 'Сначала выбери бесплатную опцию', reply_markup=keyboards.free_keyboard)
                 else:
@@ -269,7 +290,7 @@ async def handle_audio_file(message: types.Message):
     except Exception as e:
         print(repr(e))
         # Удалить processing для пользователя
-        db_handler.del_processing(message.chat.id)        
+        db_handler.del_processing(message.chat.id)   
 
 ## Обработка кнопок
 
@@ -553,62 +574,62 @@ async def process_the_sound(c: types.CallbackQuery):
             if db_handler.get_beats_generating(chat_id) == 0:
                 # Проверить, не находится ли пользователь в processing
                 if db_handler.get_processing(chat_id) == 0:
-                        
-                            if pressed_button == keyboards.OPTIONS_BUTTONS[0]:
-                                # Установить processing для пользователя
-                                db_handler.set_processing(chat_id)
+                     
+                    if pressed_button == keyboards.OPTIONS_BUTTONS[0]:
+                        # Установить processing для пользователя
+                        db_handler.set_processing(chat_id)
 
-                                # Обнулить выбранные пользователем параметры бита
-                                await reset_chosen_params(c.message.chat.id)
+                        # Обнулить выбранные пользователем параметры бита
+                        await reset_chosen_params(c.message.chat.id)
 
-                                user_chosen_option = 'speed_up'
+                        user_chosen_option = 'speed_up'
 
-                                db_handler.set_chosen_style(chat_id, user_chosen_option)  
+                        db_handler.set_chosen_style(chat_id, user_chosen_option)  
 
-                                db_handler.set_wait_for_file(chat_id)
+                        db_handler.set_wait_for_file(chat_id)
 
-                                # Отправка сообщения
-                                await bot.send_message(chat_id, text='🆓 *SPEED UP*\n\nУвеличить темп аудио\n\nСкинь сюда свой звук в формате *.mp3*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
+                        # Отправка сообщения
+                        await bot.send_message(chat_id, text='🆓 *SPEED UP*\n\nУвеличить темп аудио\n\nСкинь сюда свой звук в формате *.mp3*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
 
-                                # Удалить processing для пользователя
-                                db_handler.del_processing(chat_id)
-                            elif pressed_button == keyboards.OPTIONS_BUTTONS[1]:
+                        # Удалить processing для пользователя
+                        db_handler.del_processing(chat_id)
+                    elif pressed_button == keyboards.OPTIONS_BUTTONS[1]:
 
-                                # Установить processing для пользователя
-                                db_handler.set_processing(chat_id)
+                        # Установить processing для пользователя
+                        db_handler.set_processing(chat_id)
 
-                                # Обнулить выбранные пользователем параметры бита
-                                await reset_chosen_params(c.message.chat.id)
+                        # Обнулить выбранные пользователем параметры бита
+                        await reset_chosen_params(c.message.chat.id)
 
-                                user_chosen_option = 'slow_down'
+                        user_chosen_option = 'slow_down'
 
-                                db_handler.set_chosen_style(chat_id, user_chosen_option)  
+                        db_handler.set_chosen_style(chat_id, user_chosen_option)  
 
-                                db_handler.set_wait_for_file(chat_id)
+                        db_handler.set_wait_for_file(chat_id)
 
-                                # Отправка сообщения
-                                await bot.send_message(chat_id, text='🆓 *SLOWED + REVERB*\n\nЗамедлить звук\n\nСкинь сюда свой звук в формате *.mp3*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
+                        # Отправка сообщения
+                        await bot.send_message(chat_id, text='🆓 *SLOWED + REVERB*\n\nЗамедлить звук\n\nСкинь сюда свой звук в формате *.mp3*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
 
-                                # Удалить processing для пользователя
-                                db_handler.del_processing(chat_id)
-                            elif pressed_button == keyboards.OPTIONS_BUTTONS[2]:
-                                # Установить processing для пользователя
-                                db_handler.set_processing(chat_id)
+                        # Удалить processing для пользователя
+                        db_handler.del_processing(chat_id)
+                    elif pressed_button == keyboards.OPTIONS_BUTTONS[2]:
+                        # Установить processing для пользователя
+                        db_handler.set_processing(chat_id)
 
-                                # Обнулить выбранные пользователем параметры бита
-                                await reset_chosen_params(c.message.chat.id)
+                        # Обнулить выбранные пользователем параметры бита
+                        await reset_chosen_params(c.message.chat.id)
 
-                                user_chosen_option = 'remove_vocal'
+                        user_chosen_option = 'remove_vocal'
 
-                                db_handler.set_chosen_style(chat_id, user_chosen_option)  
+                        db_handler.set_chosen_style(chat_id, user_chosen_option)  
 
-                                db_handler.set_wait_for_file(chat_id)
+                        db_handler.set_wait_for_file(chat_id)
 
-                                # Отправка сообщения
-                                await bot.send_message(chat_id, text='🆓 *REMOVE VOCAL*\n\nРазделить трек на бит и голос\n\nСкинь сюда свой звук в формате *.mp3* или *.wav*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
+                        # Отправка сообщения
+                        await bot.send_message(chat_id, text='🆓 *REMOVE VOCAL*\n\nРазделить трек на бит и голос\n\nСкинь сюда свой звук в формате *.mp3* или *.wav*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
 
-                                # Удалить processing для пользователя
-                                db_handler.del_processing(chat_id)
+                        # Удалить processing для пользователя
+                        db_handler.del_processing(chat_id)
             else:
                 # Отправка оповещения
                 await bot.answer_callback_query(callback_query_id=c.id, text='Ты не можешь воспользоваться бесплатными опциями во время генерации бита', show_alert=True)
