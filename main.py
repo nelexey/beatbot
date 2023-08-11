@@ -217,6 +217,8 @@ async def handle_audio_file(message: types.Message):
                                         # Удаляем временный файл
                                         remove(f'{user_dir}/sound.mp3')
 
+                                        db_handler.draw_free_options_limit(chat_id)
+
                                         
 
                                     elif db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[1]]:
