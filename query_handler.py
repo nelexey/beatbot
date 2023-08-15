@@ -25,7 +25,7 @@ keys = [
 
 class Handler():
 
-    def cheking():
+    def checking():
         while True:
             query = db_handler.get_query()
             if query is not None:
@@ -76,4 +76,4 @@ class Handler():
 
             time.sleep(3)
 
-Handler.cheking()
+Handler.checking()

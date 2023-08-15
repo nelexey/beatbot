@@ -1,5 +1,6 @@
 __pycache__
 config.py
+env/
 /style*/
 /output_beats/
 /example_beats/

@@ -40,6 +40,7 @@ try:
                             chosen_extension VARCHAR(50) DEFAULT NULL,
                             chosen_harmony VARCHAR(50) DEFAULT NULL,
                             beats_ready INTEGER DEFAULT 0,
+                            removes_ready INTEGER DEFAULT 0,
                             wait_for_file INTEGER DEFAULT 0
                             );''')
             print('[INFO] Table "orders" works succesfuly')
@@ -54,6 +55,14 @@ try:
                             order_number INTEGER
                             );''')
             print('[INFO] Table "query" works succesfuly')
+
+            cursor.execute('''CREATE TABLE IF NOT EXISTS options_query(
+                            id SERIAL PRIMARY KEY,
+                            chat_id TEXT UNIQUE NOT NULL,
+                            chosen_format VARCHAR(50) DEFAULT NULL,
+                            order_number INTEGER
+                            );''')
+            print('[INFO] Table "options_query" works succesfuly')
 
             cursor.execute('''CREATE TABLE IF NOT EXISTS user_limits(
                             id SERIAL PRIMARY KEY,
@@ -283,7 +292,24 @@ try:
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT beats_ready FROM orders WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
             print(f'[INFO] Getting beats_ready for *{chat_id}* was completed successfully')
-            return cursor.fetchone()[0]      
+            return cursor.fetchone()[0]
+
+    def set_removes_ready(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE orders SET removes_ready = 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] Setting removes_ready for *{chat_id}* was successfully')
+    def del_removes_ready(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE orders SET removes_ready = 0 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] *{chat_id}* reset to 0 in removes_ready successfully') 
+    def get_removes_ready(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT removes_ready FROM orders WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
+            print(f'[INFO] Getting removes_ready for *{chat_id}* was completed successfully')
+            return cursor.fetchone()[0]     
         
     def set_wait_for_file(chat_id):
         connect()
@@ -336,6 +362,47 @@ try:
             cursor.execute(f'''DELETE FROM query WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
             print(f'[INFO] Deleted query for {chat_id}')
 
+    # запросы к таблице options_query
+    def set_options_query(chat_id, chosen_format):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''INSERT INTO options_query (chat_id, chosen_format, order_number) VALUES ('{chat_id}', '{chosen_format}', (SELECT COALESCE(MAX(order_number), 0) + 1 FROM options_query));''')
+            print(f'[INFO] Options query for {chat_id} added') 
+    def get_option_query():
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT chat_id, chosen_format, order_number FROM options_query WHERE order_number = (SELECT MIN(order_number) FROM options_query);''')
+            print(f'[INFO] Getting options_query')
+            return cursor.fetchone()   
+    def get_options_query_by_chat_id(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT COUNT(*) AS position FROM options_query WHERE order_number <= (SELECT order_number FROM options_query WHERE CAST(chat_id AS BIGINT) = {chat_id});''')
+            print(f'[INFO] Getting options_query for {chat_id}')
+            return cursor.fetchone()[0]
+    def get_options_query_chat_ids():
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT chat_id FROM options_query;''')
+            print(f'[INFO] Deleted options_query')
+            result = cursor.fetchall()
+            return [row[0] for row in result] 
+    def del_options_query():
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''DELETE FROM options_query WHERE order_number = (SELECT MIN(order_number) FROM options_query);''')
+            print(f'[INFO] Deleted options_query')       
+    def del_all_options_queries():
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''DELETE FROM options_query;''')
+            print(f'[INFO] Deleted all queries')
+    def del_options_query_by_chat_id(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''DELETE FROM options_query WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
+            print(f'[INFO] Deleted options_query for {chat_id}')
+    
     # запросы к таблице user_limits
     def get_free_options_limit(chat_id):
         connect()
