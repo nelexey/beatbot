@@ -23,6 +23,7 @@ removes_mailing_list = []
 
 for chat_id in db_handler.get_options_query_chat_ids():
     removes_mailing_list.append(chat_id)
+    db_handler.del_removes_ready(chat_id)
 
 for file in (glob(f'users_sounds/*/*.*')) + glob(f'users_sounds/*/fragments/*.*') + glob(f'users_sounds/*/output_fragments/*.*'):
     remove(file)

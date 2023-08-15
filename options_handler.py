@@ -24,6 +24,7 @@ class Handler():
                     temp_audio = AudioSegment.from_file(sound_path)
                     sound_path = sound_path.replace('.mp3', '.wav')
                     temp_audio.export(sound_path, format="wav")
+                    remove(f'{sound_path.split(".")[0]}.mp3')
 
                 audio = AudioSegment.from_file(sound_path)
 
@@ -55,6 +56,7 @@ class Handler():
                 # Склеивание файлов _vocals и _accompaniment
                 all_vocals = glob(path.join(output_folder_final, '*_vocals.*'))
                 all_accompaniment = glob(path.join(output_folder_final, '*_accompaniment.*'))
+                all_fragments = glob(f'{output_folder}/*')
 
                 combined_vocals = AudioSegment.silent(duration=0)
                 combined_accompaniment = AudioSegment.silent(duration=0)
@@ -68,16 +70,14 @@ class Handler():
 
                 combined_vocals.export(final_vocals_path, format=chosen_format)
                 combined_accompaniment.export(final_accompaniment_path, format=chosen_format)
-
-                all_fragments = glob(f'{output_folder}/*')
                 
                 # Удаление временных файлов
-                for file in all_vocals + all_accompaniment:
+                for file in all_vocals + all_accompaniment + all_fragments:
                     remove(file)
 
-                db_handler.del_options_query()
-
                 db_handler.set_removes_ready(chat_id)
+
+                db_handler.del_options_query()
 
             time.sleep(3)
 

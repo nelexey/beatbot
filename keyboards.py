@@ -6,8 +6,9 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 BUTTON_GENERATE_BEAT = f'🎙️ Бит под запись 🎙️'
 BUTTON_BALANCE = '💰 Баланс'
 BUTTON_ABOUT = '🏡 О нас'
+BUTTON_TUTORIAL = '🎥 Что умеет Битбот?'
 
-MENU_BUTTONS = [BUTTON_BALANCE, BUTTON_ABOUT, BUTTON_GENERATE_BEAT]
+MENU_BUTTONS = [BUTTON_BALANCE, BUTTON_ABOUT, BUTTON_GENERATE_BEAT, BUTTON_TUTORIAL]
 
 # Кнопки баланса
 
@@ -32,7 +33,9 @@ aliases = {
     'Trap':       'Trap',
     'Drill':      'Drill',
     'Plug':       'Plug',
-    'Old School': 'OldSchool'
+    'Old School': 'OldSchool',
+    'Opium':      'Opium',
+    'NewJazz':    'NewJazz'
 }
 
 options = {
@@ -61,7 +64,9 @@ BPM_BUTTONS = {'Jersey Club': ['140bpm', '150bpm', '160bpm'],
                'Trap':        ['110bpm', '130bpm', '145bpm'],
                'Drill':       ['110bpm', '130bpm', '145bpm'],
                'Plug':        ['140bpm', '150bpm', '160bpm'],
-               'Old School':  ['155bpm', '170bpm', '185bpm']}
+               'Old School':  ['155bpm', '170bpm', '185bpm'],
+               'Opium':       ['140bpm', '150bpm', '160bpm'],
+               'NewJazz':     ['110bpm', '130bpm', '145bpm']}
 
 BPM_BUTTONS_CONTROLLER = {'up':   ['+1', '+5', '+10'],
                           'down': ['-1', '-5', '-10']}
@@ -77,10 +82,12 @@ btn_balance = InlineKeyboardButton(BUTTON_BALANCE, callback_data=BUTTON_BALANCE)
 btn_about = InlineKeyboardButton(BUTTON_ABOUT, callback_data=BUTTON_ABOUT)
 btn_generate_beat = InlineKeyboardButton(BUTTON_GENERATE_BEAT, callback_data=BUTTON_GENERATE_BEAT)
 btn_free_options = InlineKeyboardButton(CATEGORIES_BUTTONS[0], callback_data=CATEGORIES_BUTTONS[0])
+btn_tutorial =  InlineKeyboardButton(BUTTON_TUTORIAL, callback_data=BUTTON_TUTORIAL)
 menu_keyboard = InlineKeyboardMarkup(row_width=2)
 menu_keyboard.add(btn_balance, btn_about)
 menu_keyboard.row(btn_generate_beat)
 menu_keyboard.row(btn_free_options)
+menu_keyboard.row(btn_tutorial)
 
 # Клавиатура "назад"
 btn_undo = InlineKeyboardButton(UNDO_BUTTON, callback_data=UNDO_BUTTON)
@@ -112,7 +119,9 @@ btn_trap = InlineKeyboardButton(STYLES_BUTTONS[1], callback_data=STYLES_BUTTONS[
 btn_drill= InlineKeyboardButton(STYLES_BUTTONS[2], callback_data=STYLES_BUTTONS[2])
 btn_plug = InlineKeyboardButton(STYLES_BUTTONS[3], callback_data=STYLES_BUTTONS[3])
 btn_oldshcool = InlineKeyboardButton(STYLES_BUTTONS[4], callback_data=STYLES_BUTTONS[4])
-styles_keyboard = InlineKeyboardMarkup(row_width=2).add(btn_jc, btn_trap, btn_drill, btn_plug, btn_oldshcool, btn_undo)
+btn_opium = InlineKeyboardButton(STYLES_BUTTONS[5], callback_data=STYLES_BUTTONS[5])
+btn_newjazz = InlineKeyboardButton(STYLES_BUTTONS[6], callback_data=STYLES_BUTTONS[6])
+styles_keyboard = InlineKeyboardMarkup(row_width=2).add(btn_jc, btn_trap, btn_drill, btn_plug, btn_oldshcool, btn_opium, btn_newjazz, btn_undo)
 
 # Клавиатура bpm
 

@@ -60,12 +60,15 @@ async def safe_launch():
                 for mes_id in messages_ids:
                     await bot.delete_message(chat_id, mes_id)
                 db_handler.del_beats_versions_messages_ids(chat_id)
+        except Exception as e:
+            print(e)
+    elif launch.removes_mailing_list is not None:
+        try:
             for chat_id in launch.removes_mailing_list:
-                beat_keyboard = InlineKeyboardMarkup().add(keyboards.btn_generate_beat)
+                beat_keyboard = InlineKeyboardMarkup().add(keyboards.btn_free_options)
                 await bot.send_message(chat_id, 'Сожалею, но во время разделения трека бот перезапустился 🔄\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Деньги за транзакцию не сняты.\n\nТы можешь заказать бит еще раз 👉', reply_markup=beat_keyboard)          
-
-        except:
-            db_handler.del_beats_versions_messages_ids(chat_id)
+        except Exception as e:
+            print(e)
 
 # Обработка команды /start
 @dp.message_handler(commands=['start'])
@@ -144,8 +147,7 @@ async def check_removes_response(chat_id, message_id):
             if db_handler.get_removes_ready(chat_id) == 1:
                 db_handler.del_removes_ready(chat_id)
                 edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'🔄 Отправляю вокал и минус...', parse_mode='Markdown')  
-                # Удалить processing для пользователя
-                db_handler.set_processing(chat_id)
+
                 return True
 
             new_order_number = db_handler.get_options_query_by_chat_id(chat_id)
@@ -296,6 +298,8 @@ async def handle_audio_file(message: types.Message):
                                     db_handler.set_options_query(chat_id, audio_extension)
 
                                     await asyncio.sleep(1)
+
+                                    db_handler.del_removes_ready(chat_id)
                                     
                                     if await check_removes_response(chat_id, edit_message.message_id):
 
@@ -334,6 +338,7 @@ async def handle_audio_file(message: types.Message):
         await bot.send_message(chat_id, '⚠️ Произошла ошибка на сервере, попробуйте ещё раз, и если она повторится обратитесь в поддержку.', reply_markup=keyboards.free_keyboard)
         # Удалить processing для пользователя
         db_handler.del_processing(message.chat.id)   
+        db_handler.del_options_query_by_chat_id(chat_id)
 
 ## Обработка кнопок
 
@@ -422,10 +427,15 @@ async def show_menu(c: types.CallbackQuery):
                 # Отправка сообщения
                 await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'*🏡 О НАС*\n\n📌 Услугу предоставляет:\n\n👤 ИНН: 910821614530\n\n✉️ Почта для связи:\ntech.beatbot@mail.ru\n\n🌐 Официальный сайт:\nhttps://beatmaker.site', reply_markup=keyboards.undo_keyboard, parse_mode='Markdown')
             
+            elif pressed_button == keyboards.BUTTON_TUTORIAL:          
+                # Отправка сообщения
+                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'https://t.me/beatbotnews/31', reply_markup=keyboards.undo_keyboard, parse_mode='Markdown')
+
     except Exception as e:
         print(repr(e))
         # Удалить processing для пользователя
-        db_handler.set_processing(c.message.chat.id)
+        db_handler.del_processing(c.message.chat.id)
+
 
 # Создает платёж
 async def payment(value,description):
@@ -732,8 +742,8 @@ async def show_bpm(c: types.CallbackQuery):
 @dp.callback_query_handler(lambda c: c.data == keyboards.GET_EXAMPLE_BEAT)
 async def send_example_beat(c: types.CallbackQuery):
     try:
-        chat_id = c.message.chat.id
-        user_chosen_style = db_handler.get_chosen_style
+        chat_id = c.message.chat.idd
+        user_chosen_style = db_handler.get_chosen_style(chat_id)
 
         if await get_user(chat_id):     
             # Проверить, не находится ли пользователь в beats_generating
