@@ -384,14 +384,14 @@ try:
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT chat_id FROM options_query;''')
-            print(f'[INFO] Deleted options_query')
+            print(f'[INFO] Getting all chat_ids from options_query')
             result = cursor.fetchall()
             return [row[0] for row in result] 
     def del_options_query():
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''DELETE FROM options_query WHERE order_number = (SELECT MIN(order_number) FROM options_query);''')
-            print(f'[INFO] Deleted options_query')       
+            print(f'[INFO] Deleted first options_query')       
     def del_all_options_queries():
         connect()
         with connection.cursor() as cursor:

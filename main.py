@@ -20,7 +20,7 @@ import keyboards
 from yookassa import Configuration,Payment
 
 import itertools
-from os import remove, walk, path, makedirs, rename
+from os import remove, walk, path, makedirs, stat
 import json
 from datetime import date, timedelta
 
@@ -54,7 +54,7 @@ async def safe_launch():
         try:
             for chat_id in launch.mailing_list:
                 beat_keyboard = InlineKeyboardMarkup().add(keyboards.btn_generate_beat)
-                await bot.send_message(chat_id, 'Сожалею, но во время создания твоих битов бот перезапустился 🔄\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Деньги за транзакцию не сняты.\n\nТы можешь заказать бит еще раз 👉', reply_markup=beat_keyboard)          
+                await bot.send_message(chat_id, '⚙️ Сожалею, но во время создания твоих битов бот перезапустился\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Деньги за транзакцию не сняты.\n\nТы можешь заказать бит ещё раз 👉', reply_markup=beat_keyboard)          
             for chat_id in launch.chat_ids_by_messages_to_del_ids:
                 messages_ids = db_handler.get_beats_versions_messages_ids(chat_id).split(', ')
                 for mes_id in messages_ids:
@@ -62,11 +62,11 @@ async def safe_launch():
                 db_handler.del_beats_versions_messages_ids(chat_id)
         except Exception as e:
             print(e)
-    elif launch.removes_mailing_list is not None:
+    if launch.removes_mailing_list:
         try:
             for chat_id in launch.removes_mailing_list:
                 beat_keyboard = InlineKeyboardMarkup().add(keyboards.btn_free_options)
-                await bot.send_message(chat_id, 'Сожалею, но во время разделения трека бот перезапустился 🔄\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Деньги за транзакцию не сняты.\n\nТы можешь заказать бит еще раз 👉', reply_markup=beat_keyboard)          
+                await bot.send_message(chat_id, '⚙️ Сожалею, но во время разделения трека бот перезапустился\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Твоё количество использований бесплатных опций не уменьшилось.\n\nТы можешь использовать опцию ещё раз 👉', reply_markup=beat_keyboard)          
         except Exception as e:
             print(e)
 
@@ -195,7 +195,7 @@ async def handle_audio_file(message: types.Message):
                                     total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
                                     
                                     if total_size_mb > 500:
-                                        await message.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
+                                        await bot.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
                                         
                                         # Удалить processing для пользователя
                                         db_handler.del_processing(chat_id)
@@ -204,7 +204,7 @@ async def handle_audio_file(message: types.Message):
 
                                     # Проверяем размер загруженного файла
                                     if audio.file_size > 15360 * 1024:
-                                        await message.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 15мб.")
+                                        await bot.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 15мб.")
                                         
                                         # Удалить processing для пользователя
                                         db_handler.del_processing(chat_id)
@@ -263,7 +263,7 @@ async def handle_audio_file(message: types.Message):
                                     total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
                                     
                                     if total_size_mb > 300:
-                                        await message.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
+                                        await bot.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
                                         
                                         # Удалить processing для пользователя
                                         db_handler.del_processing(chat_id)
@@ -272,11 +272,20 @@ async def handle_audio_file(message: types.Message):
 
                                     # Проверяем размер загруженного файла
                                     if audio.file_size > 80000 * 1024:
-                                        await message.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 80мб.")
+                                        await bot.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 80мб.")
                                         
                                         # Удалить processing для пользователя
                                         db_handler.del_processing(chat_id)
                                         
+                                        return
+                                    
+                                    # Проверяем длительность аудио
+                                    max_duration_seconds = 4 * 60  # 4 минуты в секундах
+                                    print(audio.duration)
+                                    if audio.duration > max_duration_seconds:  # Преобразуем в миллисекунды
+                                        await bot.send_message(chat_id, "🔊 Аудио слишком длинное. Пожалуйста, загрузите аудио длительностью до 4 минут.")
+                                        # Удалить processing для пользователя
+                                        db_handler.del_processing(chat_id)
                                         return
 
                                     # Путь к директории для сохранения файла
@@ -288,7 +297,7 @@ async def handle_audio_file(message: types.Message):
                                     file = f'sound.{audio.file_name.split(".")[-1]}'
 
                                     edit_message = await bot.send_message(chat_id, '🔄 Подготавливаю ремувер...')
-      
+
                                     # Скачиваем файл на сервер
                                     await audio.download(destination_file=f'{user_dir}/{file}')
 
@@ -605,7 +614,7 @@ async def free_options(c: types.CallbackQuery):
                         await reset_chosen_params(c.message.chat.id)
 
                         # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *БЕСПЛАТНЫЕ ОПЦИИ*\n\nМы предоставляем некоторые бесплатные опции для обработки вашего звука.\n\nОбработчик поддерживает *.mp3* формат. Бесплатные опции доступны только подписчикам нашего официального канала: *@beatbotnews*', reply_markup=keyboards.free_keyboard, parse_mode='Markdown')
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *БЕСПЛАТНЫЕ ОПЦИИ*\n\nМы предоставляем некоторые бесплатные опции для обработки вашего звука.\n\nЕжесуточные лимиты:\n*3* использования Remove Vocal\n*10* использований всех остальных опций\n\nОбработчик поддерживает *.mp3* формат для всех опций, а также *.wav* для вокал-ремувера.\n*️⃣ Бесплатные опции доступны только подписчикам нашего официального канала: *@beatbotnews*', reply_markup=keyboards.free_keyboard, parse_mode='Markdown')
                         
                         # Удалить processing для пользователя
                         db_handler.del_processing(chat_id)
@@ -742,7 +751,7 @@ async def show_bpm(c: types.CallbackQuery):
 @dp.callback_query_handler(lambda c: c.data == keyboards.GET_EXAMPLE_BEAT)
 async def send_example_beat(c: types.CallbackQuery):
     try:
-        chat_id = c.message.chat.idd
+        chat_id = c.message.chat.id
         user_chosen_style = db_handler.get_chosen_style(chat_id)
 
         if await get_user(chat_id):     
