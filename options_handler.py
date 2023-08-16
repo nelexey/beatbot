@@ -28,7 +28,7 @@ class Handler():
 
                 audio = AudioSegment.from_file(sound_path)
 
-                fragment_length = 30000
+                fragment_length = 30000  # В миллисекундах
 
                 num_fragments = len(audio) // fragment_length
                 last_fragment_duration = len(audio) % fragment_length
@@ -52,31 +52,43 @@ class Handler():
 
                     cmd = f'spleeter separate {last_fragment_filename} -p spleeter:2stems -o {output_folder_final} --filename_format "{num_fragments + 1}_{{instrument}}.{{codec}}"'
                     run(cmd, shell=True)
+                else:
+                    # Если последний фрагмент меньше 10 секунд, объединяем его с предпоследним
+                    if num_fragments > 0:
+                        last_fragment = audio[-last_fragment_duration:]
+                        prev_fragment_filename = path.join(output_folder, f"{num_fragments}.wav")
+                        prev_fragment = AudioSegment.from_file(prev_fragment_filename)
+
+                        combined_last = prev_fragment + last_fragment
+                        combined_last_filename = path.join(output_folder, f"{num_fragments}.wav")
+                        combined_last.export(combined_last_filename, format="wav")
+
+                        cmd = f'spleeter separate {combined_last_filename} -p spleeter:2stems -o {output_folder_final} --filename_format "{num_fragments}_{{instrument}}.{{codec}}"'
+                        run(cmd, shell=True)
 
                 # Склеивание файлов _vocals и _accompaniment
                 all_vocals = glob(path.join(output_folder_final, '*_vocals.*'))
                 all_accompaniment = glob(path.join(output_folder_final, '*_accompaniment.*'))
                 all_fragments = glob(f'{output_folder}/*')
 
-                combined_vocals = AudioSegment.silent(duration=0)
-                combined_accompaniment = AudioSegment.silent(duration=0)
+                combined_vocals = AudioSegment.empty()
+                combined_accompaniment = AudioSegment.empty()
 
                 for vocals_file, accompaniment_file in zip(all_vocals, all_accompaniment):
-                    combined_vocals += AudioSegment.from_file(vocals_file)
-                    combined_accompaniment += AudioSegment.from_file(accompaniment_file)
+                    combined_vocals = combined_vocals.append(AudioSegment.from_file(vocals_file), crossfade=0)
+                    combined_accompaniment = combined_accompaniment.append(AudioSegment.from_file(accompaniment_file), crossfade=0)
 
                 final_vocals_path = f'users_sounds/{chat_id}/final_vocals.{chosen_format}'
                 final_accompaniment_path = f'users_sounds/{chat_id}/final_accompaniment.{chosen_format}'
 
                 combined_vocals.export(final_vocals_path, format=chosen_format)
                 combined_accompaniment.export(final_accompaniment_path, format=chosen_format)
-                
+
                 # Удаление временных файлов
                 for file in all_vocals + all_accompaniment + all_fragments:
                     remove(file)
 
                 db_handler.set_removes_ready(chat_id)
-
                 db_handler.del_options_query()
 
             time.sleep(3)
