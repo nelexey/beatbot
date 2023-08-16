@@ -69,14 +69,30 @@ class Handler():
                 # Склеивание файлов _vocals и _accompaniment
                 all_vocals = glob(path.join(output_folder_final, '*_vocals.*'))
                 all_accompaniment = glob(path.join(output_folder_final, '*_accompaniment.*'))
-                all_fragments = glob(f'{output_folder}/*')
+
+                # Создаем словарь, где ключ - индекс фрагмента, значение - путь к файлу
+                vocals_dict = {}
+                accompaniment_dict = {}
+
+                for vocals_file in all_vocals:
+                    index = int(path.basename(vocals_file).split('_')[0])
+                    vocals_dict[index] = vocals_file
+
+                for accompaniment_file in all_accompaniment:
+                    index = int(path.basename(accompaniment_file).split('_')[0])
+                    accompaniment_dict[index] = accompaniment_file
+
+                # Получаем индексы в правильной последовательности
+                sorted_indices = sorted(set(vocals_dict.keys()) | set(accompaniment_dict.keys()))
 
                 combined_vocals = AudioSegment.empty()
                 combined_accompaniment = AudioSegment.empty()
 
-                for vocals_file, accompaniment_file in zip(all_vocals, all_accompaniment):
-                    combined_vocals = combined_vocals.append(AudioSegment.from_file(vocals_file), crossfade=0)
-                    combined_accompaniment = combined_accompaniment.append(AudioSegment.from_file(accompaniment_file), crossfade=0)
+                for index in sorted_indices:
+                    if index in vocals_dict:
+                        combined_vocals = combined_vocals.append(AudioSegment.from_file(vocals_dict[index]), crossfade=0)
+                    if index in accompaniment_dict:
+                        combined_accompaniment = combined_accompaniment.append(AudioSegment.from_file(accompaniment_dict[index]), crossfade=0)
 
                 final_vocals_path = f'users_sounds/{chat_id}/final_vocals.{chosen_format}'
                 final_accompaniment_path = f'users_sounds/{chat_id}/final_accompaniment.{chosen_format}'
@@ -85,7 +101,7 @@ class Handler():
                 combined_accompaniment.export(final_accompaniment_path, format=chosen_format)
 
                 # Удаление временных файлов
-                for file in all_vocals + all_accompaniment + all_fragments:
+                for file in all_vocals + all_accompaniment:
                     remove(file)
 
                 db_handler.set_removes_ready(chat_id)
