@@ -447,6 +447,26 @@ try:
             cursor.execute(f'''SELECT has_subscription FROM user_limits WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
             print(f'[INFO] Getting has_subscription for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]
+        
+    def get_subscription_expiry_date(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT subscription_expiry_date FROM user_limits WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] Getting has_subscription for *{chat_id}* was completed successfully')
+            return cursor.fetchone()[0]  
+
+    def set_subscription(chat_id, date):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE user_limits SET free_removes_use_limit = 3, free_options_use_limit = 10, last_updated = NOW(), has_subscription=true, subscription_expiry_date = '{date}' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] *{chat_id}* subscription updated')
+
+    def del_subscription(chat_id):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''UPDATE user_limits SET has_subscription=false WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            print(f'[INFO] *{chat_id}* subscription deleted')
+
 
 except Exception as _ex:
     print('[INFO] Error while working with PostgreSQL', _ex)

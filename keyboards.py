@@ -12,6 +12,7 @@ MENU_BUTTONS = [BUTTON_BALANCE, BUTTON_ABOUT, BUTTON_GENERATE_BEAT, BUTTON_TUTOR
 
 # Кнопки баланса
 
+PREMIUM_BUTTON = 'Безлимит на месяц - 50₽'
 BALANCE_BUTTONS = ['180₽', '360₽', '540₽']
 
 # Кнопки расширения
@@ -111,7 +112,11 @@ free_keyboard = InlineKeyboardMarkup(row_width=2).add(btn_speed_up, btn_slow_dow
 btn_pay1 = InlineKeyboardButton(BALANCE_BUTTONS[0], callback_data=BALANCE_BUTTONS[0])
 btn_pay2 = InlineKeyboardButton(BALANCE_BUTTONS[1], callback_data=BALANCE_BUTTONS[1])
 btn_pay3 = InlineKeyboardButton(BALANCE_BUTTONS[2], callback_data=BALANCE_BUTTONS[2])
-balance_keyboard = InlineKeyboardMarkup(row_width=3).add(btn_pay1, btn_pay2, btn_pay3, btn_undo)
+btn_pay4 = InlineKeyboardButton(PREMIUM_BUTTON, callback_data=PREMIUM_BUTTON)
+balance_keyboard = InlineKeyboardMarkup(row_width=3)
+balance_keyboard.add(btn_pay1, btn_pay2, btn_pay3)
+balance_keyboard.row(btn_pay4)
+balance_keyboard.row(btn_undo)
 
 # Клавиатура стилей
 btn_jc = InlineKeyboardButton(STYLES_BUTTONS[0], callback_data=STYLES_BUTTONS[0])

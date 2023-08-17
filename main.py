@@ -2,7 +2,7 @@ import logging
 import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ContentType, ChatMemberStatus
+from aiogram.types import InlineKeyboardMarkup, ContentType
 
 # Инструмент для выборки путей к файлам
 from glob import glob
@@ -20,9 +20,9 @@ import keyboards
 from yookassa import Configuration,Payment
 
 import itertools
-from os import remove, walk, path, makedirs, stat
+from os import remove, walk, path, makedirs
 import json
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 # Установка уровня логирования
 logging.basicConfig(level=logging.INFO)
@@ -234,10 +234,16 @@ async def handle_audio_file(message: types.Message):
                                         # Удаляем временный файл
                                         remove(f'{user_dir}/sound.mp3')
 
-                                        db_handler.draw_free_options_limit(chat_id)
-
+                                        # Если нет премиум подписки, отнять от дневного лимита
+                                        if db_handler.get_has_subscription(chat_id):
+                                            # Если подписка устарела
+                                            if db_handler.get_subscription_expiry_date(chat_id) < datetime.now().date():        
+                                                db_handler.del_subscription(chat_id)
+                                                db_handler.draw_free_options_limit(chat_id)
+                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")
+                                        else:  
+                                            db_handler.draw_free_options_limit(chat_id)
                                         
-
                                     elif db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[1]]:
                                         # ЗАМЕДЛИТЬ ЗВУК
                                         sound_options.slow_down(audio, user_dir)
@@ -252,7 +258,15 @@ async def handle_audio_file(message: types.Message):
                                         # Удаляем временный файл
                                         remove(f'{user_dir}/sound.mp3')
 
-                                        db_handler.draw_free_options_limit(chat_id)
+                                        # Если нет премиум подписки, отнять от дневного лимита
+                                        if db_handler.get_has_subscription(chat_id):
+                                            # Если подписка устарела
+                                            if db_handler.get_subscription_expiry_date(chat_id) < datetime.now().date():        
+                                                db_handler.del_subscription(chat_id)
+                                                db_handler.draw_free_options_limit(chat_id)
+                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")    
+                                        else:  
+                                            db_handler.draw_free_options_limit(chat_id)
 
                                 else:
                                     await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
@@ -323,8 +337,17 @@ async def handle_audio_file(message: types.Message):
 
                                         # Прибавляем к количеству исопльзуемых опции
                                         db_handler.get_free_option(chat_id)
-
-                                        db_handler.draw_removes_limit(chat_id)
+                                        
+                                        # Если нет премиум подписки, отнять от дневного лимита
+                                        if db_handler.get_has_subscription(chat_id):
+                                            # Если подписка устарела
+                                            if db_handler.get_subscription_expiry_date(chat_id) < datetime.now().date():        
+                                                db_handler.del_subscription(chat_id)
+                                                db_handler.draw_removes_limit(chat_id)
+                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")    
+                                        else:  
+                                            db_handler.draw_free_options_limit(chat_id)
+                                        
                                     
                                     for file in glob(f'{user_dir}/*.*'):
                                         remove(file)
@@ -476,7 +499,7 @@ async def process_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery)
 users_payment_transactions = {}
 
 # Асинхронная функция проверки статуса платежа
-async def check_payment(payment_id, c):
+async def check_payment(payment_id, c, type=''):
     payment = json.loads((Payment.find_one(payment_id)).json())
     
     # db_handler.set_payment_checking(c.message.chat.id)
@@ -491,14 +514,36 @@ async def check_payment(payment_id, c):
 
     if payment['status']=='succeeded':
         print("SUCCSESS RETURN")
-        db_handler.top_balance(c.message.chat.id, c.data.split('₽')[0])
-        
-        await bot.send_message(c.message.chat.id, f'💵 Твой баланс пополнен на {c.data}', reply_markup=keyboards.to_menu_keyboard)
-        # Удалить payment_checking для пользователя
-        # db_handler.del_payment_checking(c.message.chat.id)
+        if type == 'balance':
+            # Обновить баланс в БД
+            db_handler.top_balance(c.message.chat.id, c.data.split('₽')[0])
+            
+            await bot.send_message(c.message.chat.id, f'💵 Твой баланс пополнен на {c.data}', reply_markup=keyboards.to_menu_keyboard)
+            # Удалить payment_checking для пользователя
+            # db_handler.del_payment_checking(c.message.chat.id)
 
-        del_user_payment_transactions(c.message.chat.id, c.data)
-        return True
+            del_user_payment_transactions(c.message.chat.id, c.data)
+            
+            return True
+        
+        elif type == 'subscription':
+            # Получаем текущую дату
+            current_date = datetime.now().date()
+
+            # Добавляем 30 дней к текущей дате
+            end_date = current_date + timedelta(days=30)
+
+            # Преобразуем дату в строку в нужном формате (дд.мм.гггг)
+            end_date_str = end_date.strftime('%d.%m.%Y')
+
+            # Ваш код для отправки сообщения
+            await bot.send_message(c.message.chat.id, f'⚡️ Твоя премиум подписка активна до *{end_date_str}*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
+
+            db_handler.set_subscription(c.message.chat.id, end_date_str)
+            
+            del_user_payment_transactions(c.message.chat.id, c.data)
+            
+            return True
     else:
         print("BAD RETURN")
         # await bot.send_message(c.message.chat.id, 'Время ожидания на оплату по ссылке истекло.')
@@ -508,7 +553,7 @@ async def check_payment(payment_id, c):
         del_user_payment_transactions(c.message.chat.id, c.data)
         return False
 
-@dp.callback_query_handler(lambda c: c.data in keyboards.BALANCE_BUTTONS)
+@dp.callback_query_handler(lambda c: c.data in keyboards.BALANCE_BUTTONS or c.data == keyboards.PREMIUM_BUTTON)
 async def prepare_payment(c: types.CallbackQuery):
     try:
 
@@ -519,13 +564,9 @@ async def prepare_payment(c: types.CallbackQuery):
             if db_handler.get_beats_generating(chat_id) == 0:
                 # Проверить, не находится ли пользователь в processing
                 if db_handler.get_processing(chat_id) == 0:
+                    
                     # Установить processing для пользователя
                     db_handler.set_processing(chat_id)
-
-                    # Получение цены из callback_data
-                    price = int(c.data.split('₽')[0])
-
-                    print(users_payment_transactions)
 
                     if users_payment_transactions.get(chat_id) is not None and c.data in users_payment_transactions[chat_id]:
                         # Удалить processing для пользователя
@@ -537,26 +578,72 @@ async def prepare_payment(c: types.CallbackQuery):
                         users_payment_transactions[chat_id] = []
                     users_payment_transactions[chat_id].append(c.data)
 
-                    # Отправка счета пользователю
-                    payment_data = await payment(price, f'Пополнение баланса на {price}₽')
-                    payment_id = payment_data['id']
-                    confirmation_url = payment_data['confirmation']['confirmation_url'] 
-                    # Создаем объект кнопки
-                    btn = types.InlineKeyboardButton(f'Оплатить {price}₽', url=confirmation_url)
-                    # Создаем объект клавиатуры и добавляем на нее кнопку
-                    keyboard = types.InlineKeyboardMarkup()
-                    keyboard.add(btn)
-                    await bot.send_message(c.message.chat.id, f'💳 Нажмите на ссылку под сообщением, оплатите удобным вам способом.\n\n💾 Идентификатор чата - *{c.message.chat.id}*\nУслугу предоставляет: ИНН: 910821614530\n\n🎟️ Заказывая услугу, вы соглашаетесь с договором оферты: https://beatmaker.site/offer\n\n✉️ Техническая поддержка: *tech.beatbot@mail.ru*', reply_markup=keyboard, parse_mode='Markdown')
-                    # Удалить processing для пользователя
-                    db_handler.del_processing(chat_id)
-                    await check_payment(payment_id, c)
+                    if c.data == keyboards.PREMIUM_BUTTON:
+
+                        # Если нет премиум подписки, отнять от дневного лимита
+                        if db_handler.get_has_subscription(chat_id):
+                            # Если подписка устарела
+                            if db_handler.get_subscription_expiry_date(chat_id) < datetime.now().date():        
+                                pass
+                            else:
+                                await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='⚡️ У вас уже активна премиум подписка', reply_markup=keyboards.to_menu_keyboard, parse_mode='html')
+                                
+                                # Удалить processing для пользователя
+                                db_handler.del_processing(chat_id)
+                        else:  
+                        
+                            # Получение цены из callback_data
+                            price = 50
+
+                            print(users_payment_transactions)
+                            
+                            # Отправка счета пользователю
+                            payment_data = await payment(price, f'Оплата премиум подписки на месяц: {price}₽')
+                            payment_id = payment_data['id']
+                            confirmation_url = payment_data['confirmation']['confirmation_url'] 
+                            # Создаем объект кнопки
+                            btn = types.InlineKeyboardButton(f'Оплатить {price}₽', url=confirmation_url)
+                            # Создаем объект клавиатуры и добавляем на нее кнопку
+                            keyboard = types.InlineKeyboardMarkup()
+                            keyboard.add(btn)
+                            await bot.send_message(c.message.chat.id, f'💳 Нажмите на ссылку под сообщением, оплатите удобным вам способом.\n\n💾 Идентификатор чата - *{c.message.chat.id}*\nУслугу предоставляет: ИНН: 910821614530\n\n🎟️ Заказывая услугу, вы соглашаетесь с договором оферты: https://beatmaker.site/offer\n\n✉️ Техническая поддержка: *tech.beatbot@mail.ru*\n\nПосле оплаты автоматически будет активирована премиум подписка на месяц.', reply_markup=keyboard, parse_mode='Markdown')
+                            
+                            # Удалить processing для пользователя
+                            db_handler.del_processing(chat_id)
+                            
+                            await check_payment(payment_id, c, 'subscription')
+                    
+                    else:
+
+                        # Получение цены из callback_data
+                        price = int(c.data.split('₽')[0])
+
+                        print(users_payment_transactions)
+                        
+                        # Отправка счета пользователю
+                        payment_data = await payment(price, f'Пополнение баланса на {price}₽')
+                        payment_id = payment_data['id']
+                        confirmation_url = payment_data['confirmation']['confirmation_url'] 
+                        # Создаем объект кнопки
+                        btn = types.InlineKeyboardButton(f'Оплатить {price}₽', url=confirmation_url)
+                        # Создаем объект клавиатуры и добавляем на нее кнопку
+                        keyboard = types.InlineKeyboardMarkup()
+                        keyboard.add(btn)
+                        await bot.send_message(c.message.chat.id, f'💳 Нажмите на ссылку под сообщением, оплатите удобным вам способом.\n\n💾 Идентификатор чата - *{c.message.chat.id}*\nУслугу предоставляет: ИНН: 910821614530\n\n🎟️ Заказывая услугу, вы соглашаетесь с договором оферты: https://beatmaker.site/offer\n\n✉️ Техническая поддержка: *tech.beatbot@mail.ru*', reply_markup=keyboard, parse_mode='Markdown')
+                        
+                        # Удалить processing для пользователя
+                        db_handler.del_processing(chat_id)
+                        
+                        await check_payment(payment_id, c, 'balance')
+                    
+                    
             else:
                 # Отправка оповещения
                 await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь пополнить баланс во время генерации бита.', show_alert=True)
     except Exception as e:   
         print(repr(e))
         # Удалить processing для пользователя
-        db_handler.set_processing(c.message.chat.id) 
+        db_handler.del_processing(c.message.chat.id) 
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.STYLES_BUTTONS)
 async def show_bpm(c: types.CallbackQuery):
@@ -594,7 +681,7 @@ async def show_bpm(c: types.CallbackQuery):
     except Exception as e:
         print(repr(e))
         # Удалить processing для пользователя
-        db_handler.set_processing(c.message.chat.id)
+        db_handler.del_processing(c.message.chat.id)
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.CATEGORIES_BUTTONS)
 async def free_options(c: types.CallbackQuery):
@@ -625,7 +712,7 @@ async def free_options(c: types.CallbackQuery):
     except Exception as e:
         print(repr(e))
         # Удалить processing для пользователя
-        db_handler.set_processing(c.message.chat.id)
+        db_handler.del_processing(c.message.chat.id)
     
 @dp.callback_query_handler(lambda c: c.data in keyboards.OPTIONS_BUTTONS)
 async def process_the_sound(c: types.CallbackQuery):
