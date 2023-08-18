@@ -12,7 +12,7 @@ MENU_BUTTONS = [BUTTON_BALANCE, BUTTON_ABOUT, BUTTON_GENERATE_BEAT, BUTTON_TUTOR
 
 # Кнопки баланса
 
-PREMIUM_BUTTON = 'Безлимит на месяц - 50₽'
+PREMIUM_BUTTON = 'Безлимит на месяц - 49₽'
 BALANCE_BUTTONS = ['180₽', '360₽', '540₽']
 
 # Кнопки расширения
