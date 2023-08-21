@@ -346,7 +346,7 @@ async def handle_audio_file(message: types.Message):
                                                 db_handler.draw_removes_limit(chat_id)
                                                 await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")    
                                         else:  
-                                            db_handler.draw_free_options_limit(chat_id)
+                                            db_handler.draw_removes_limit(chat_id)
                                         
                                     
                                     for file in glob(f'{user_dir}/*.*'):
