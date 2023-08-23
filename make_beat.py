@@ -544,7 +544,7 @@ def trap(harmony, key, chat_id, bpm, file_corr=0, sample_preset=None, extension=
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/hi-hat/*.wav")])
     voicetag = AudioSegment.from_wav('voicetags/beatbot_voicetag_130bpm.wav')
 
-    bass = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/bass/{harmony}/{key}/bass*.wav")])
+    bass = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/bass/{harmony}/{key}/*.wav")])
 
     ## sync leads and help_leads ON
     if sample_preset is None: 

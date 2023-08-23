@@ -24,6 +24,7 @@ from os import remove, walk, path, makedirs
 import json
 from datetime import date, timedelta, datetime
 from librosa import get_duration
+import ffmpeg
 
 # Установка уровня логирования
 logging.basicConfig(level=logging.INFO)
@@ -1141,20 +1142,36 @@ async def send_beat(c: types.CallbackQuery):
                     for mes_id in messages_to_delete_ids.split(', '):
                         await bot.delete_message(chat_id, mes_id)
                 db_handler.del_beats_versions_messages_ids(chat_id)
+                
+                # Проверяем размер файла
+                file_path = f'output_beats/{chat_id}_{pressed_button}.{db_handler.get_chosen_extension(chat_id).split(".")[-1]}'
+                file_size = path.getsize(file_path)  # Размер файла в байтах
+                print(file_size)
+                if file_size >= 50 * 1000 * 1000:  # Проверяем, больше ли файл 50 МБ
+                    # Создаем временный файл в формате FLAC
+                    temp_flac_path = f'output_beats/{chat_id}_{pressed_button}.flac'
+                    ffmpeg.input(file_path).output(temp_flac_path, acodec='flac').run()
+                    
+                    # Отправляем файл в формате FLAC
+                    with open(temp_flac_path, 'rb') as flac_file:
+                        await bot.send_audio(chat_id, flac_file, title='BEAT - tg: @NeuralBeatBot')
 
-                # Открыть файл
-                beat = open(f'output_beats/{chat_id}_{pressed_button}.{db_handler.get_chosen_extension(chat_id).split(".")[-1]}', 'rb')
+                    await bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\nБит слишком большой, поэтому форматирован во *FLAC*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')                        
 
-                # Скинуть файл
-                await bot.send_audio(chat_id, beat, title='BEAT - tg: @NeuralBeatBot')
+                    print(path.getsize(f'output_beats/{chat_id}_{pressed_button}.flac'))
 
-                # Закрыть файл
-                beat.close()
+                    # Удаляем временный файл FLAC
+                    remove(temp_flac_path)
+                else:
+                    # Просто отправляем файл без архивирования
+                    with open(file_path, 'rb') as beat:
+                        await bot.send_audio(chat_id, beat, title='BEAT - tg: @NeuralBeatBot')
+                    
+                        await bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\nНадеюсь, тебе понравится бит 😉', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')                        
 
                 # Отправка сообщения
                 message = await bot.edit_message_text(chat_id=chat_id, message_id=message_to_edit[chat_id], text='🔽 Держи 🔽')
                 message_to_edit[chat_id] = message.message_id
-                await bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\nНадеюсь, тебе понравится бит 😉', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')                        
 
                 # Удалить файлы
                 for file in glob(f'output_beats/{chat_id}_[1-{beats}]*.*'):
@@ -1183,12 +1200,13 @@ async def send_beat(c: types.CallbackQuery):
         db_handler.del_processing(c.message.chat.id)
         # Удалить beats_generating для пользователя
         db_handler.del_beats_generating(c.message.chat.id)
-        # Удалить файлы
-        for file in glob(f'output_beats/{c.message.chat.id}_[1-{beats}].*'):
-            remove(file)
 
         await bot.send_message(c.message.chat.id, '⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.', reply_markup=keyboards.undo_keyboard)
 
+        # Удалить файлы
+        for file in glob(f'output_beats/{c.message.chat.id}_[1-{beats}].*'):
+            
+            remove(file)
 # Запуск бота
 if __name__ == '__main__':
     executor.start(dp, safe_launch())
