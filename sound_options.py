@@ -24,13 +24,10 @@ class sound_options:
 
     @staticmethod
     def normalize_sound(file, user_dir):
-        # Замедляем аудио
+        # Нормализуем аудио
         audio = AudioSegment.from_file(f'{user_dir}/{file}')
   
-        # Вычисление коэффициента громкости для нормализации
-        target_dBFS = -5  # Желаемый уровень громкости в децибелах FS
-        change_in_dBFS = target_dBFS - audio.dBFS
-        normalized_sound = audio.apply_gain(change_in_dBFS)
+        normalized_sound = audio.apply_gain(0)
 
         # Сохранение результата
-        normalized_sound.export(f'{user_dir}/{file}', format="wav")
+        normalized_sound.export(f'{user_dir}/sound.wav', format="wav")

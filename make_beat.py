@@ -183,7 +183,8 @@ def old_school(chat_id, bpm, file_corr=0, sample_preset=0, extension='wav'):
     bass = choice([AudioSegment.from_wav(file) for file in glob("style_OldSchool/bass/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_OldSchool/hi-hat/*.wav")])
     kick = choice([AudioSegment.from_wav(file) for file in glob("style_OldSchool/kick/*.wav")])
-   
+    voicetag = AudioSegment.from_wav('voicetags/beatbot_voicetag_170bpm.wav')
+
     ## sync leads and help_leads ON
     if sample_preset is None: 
         lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_OldSchool/lead/*.wav")])
@@ -201,6 +202,7 @@ def old_school(chat_id, bpm, file_corr=0, sample_preset=0, extension='wav'):
 
     ## 2 ##
     sandwich2 = lead
+    sandwich1 = sandwich1.overlay(voicetag, position=0)
     sandwich2 = sandwich2.overlay(hi_hat, position=0)
     sandwich2 = sandwich2.overlay(kick, position=0)
 

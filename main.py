@@ -110,7 +110,7 @@ def get_directory_size(directory):
 # Функция для проверки подписки на канал
 async def check_subscription(user_id, channel_username, status=None):
     chat_member = await bot.get_chat_member(chat_id=channel_username, user_id=user_id)
-    print(chat_member)
+
     try:
         if status is None:
             if chat_member['status']!='left':
@@ -294,14 +294,16 @@ async def handle_audio_file(message: types.Message):
                                         sound_options.normalize_sound(file, user_dir)
 
                                         # Отправляем обратно пользователю обработанный файл
-                                        with open(f'{user_dir}/{file}', 'rb') as f:
+                                        with open(f'{user_dir}/sound.wav', 'rb') as f:
                                             await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - normalized')
 
                                         # Прибавляем к количеству исопльзуемых опции
                                         db_handler.get_free_option(chat_id)
 
                                         # Удаляем временный файл
-                                        remove(f'{user_dir}/{file}')
+                                        remove(f'{user_dir}/sound.wav')
+                                        if path.exists(f'{user_dir}/sound.mp3'):
+                                            remove(f'{user_dir}/sound.mp3')
 
                                         # Если нет премиум подписки, отнять от дневного лимита
                                         if db_handler.get_has_subscription(chat_id):
@@ -331,14 +333,13 @@ async def handle_audio_file(message: types.Message):
                                         return
 
                                     # Проверяем размер загруженного файла
-                                    if audio.file_size > 80000 * 1024:
-                                        await bot.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 80мб.")
+                                    if audio.file_size > 20000 * 1024:
+                                        await bot.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 20мб.")
                                         
                                         # Удалить processing для пользователя
                                         db_handler.del_processing(chat_id)
                                         
                                         return
-                                    
 
                                     # Путь к директории для сохранения файла
                                     user_dir = f"users_sounds/{chat_id}"
