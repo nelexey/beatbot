@@ -82,6 +82,9 @@ class Tonal_Fragment(object):
         print("likely key: ", max(self.key_dict, key=self.key_dict.get), ", correlation: ", self.bestcorr, sep='')
         if self.altkey is not None:
                 print("also possible: ", self.altkey, ", correlation: ", self.altbestcorr, sep='')
+
+    def print_key_str(self):
+        return max(self.key_dict, key=self.key_dict.get), self.bestcorr, self.altkey, self.altbestcorr
  
     # custom function that returns key and harmony
     def print_key_simple(self):

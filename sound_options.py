@@ -1,4 +1,6 @@
 from pydub import AudioSegment
+from keyfinder import Tonal_Fragment
+import librosa
 
 class sound_options:
 
@@ -31,3 +33,16 @@ class sound_options:
 
         # Сохранение результата
         normalized_sound.export(f'{user_dir}/sound.wav', format="wav")
+
+    def analyze_key(path_to_file):
+        try:
+            y, sr = librosa.load(path_to_file)
+            y_harmonic, y_percussive = librosa.effects.hpss(y)
+
+            unebarque_fsharp_maj = Tonal_Fragment(y_harmonic, sr, tend=22)
+
+            return unebarque_fsharp_maj.print_key_str()
+        
+        except Exception as e:
+            print(e)
+            return None, None, None, None
