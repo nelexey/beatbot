@@ -47,7 +47,7 @@ start_balance = config.start_balance # RUB
 beats = config.beats
 
 # Константы сообщений
-MENU_MESSAGE_TEXT = "🔣 <b>МЕНЮ</b>\n\nТы находишься в лучшем и единственном боте который может сгенерировать для тебя:\n\n— 🎙️<b>Бит под голос</b>🎙️\n— ⏩ Сделать <b>speed up</b>\n— ⏪ Сделать <b>slowed + reverb</b>\n— 🔀️ <b>Vocal Remover</b>\n— ⭐ <b>Улучшение звука</b>\n\nНаш телеграм-канал: @beatbotnews"
+MENU_MESSAGE_TEXT = "🔣 <b>МЕНЮ</b>\n\nТы находишься в лучшем и единственном боте который может сгенерировать для тебя:\n\n— 🎙️<b>Бит под голос</b>🎙️\n— ⏩ Сделать <b>speed up</b>\n— ⏪ Сделать <b>slowed + reverb</b>\n— 🔀️ <b>Vocal Remover</b>\n— 📶 <b>Улучшение</b> звука\n— ⭐ <b>Определитель тональности</b>\n\nНаш телеграм-канал: @beatbotnews"
 STYLES_MESSAGE_TEXT = '🪩 *СТИЛИ*\n\nЯ могу генерировать в разных стилях, каждый из них имеет свои особенности. Такие биты подойдут под запись голоса.\n\n*⏺ - Стиль*\n⏺ - Темп\n⏺ - Лад\n⏺ - Формат'
 
 # Безопасный запуск
@@ -659,7 +659,7 @@ async def prepare_payment(c: types.CallbackQuery):
                         # Удалить processing для пользователя
                         db_handler.del_processing(chat_id)
                         return await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Вам уже сгенерирована ссылка на эту сумму для оплаты, пожалуйста оплатите по ней.', show_alert=True)
-                                
+         
                     # Добавление транзакции оплаты пользователя
                     if users_payment_transactions.get(chat_id) is None:
                         users_payment_transactions[chat_id] = []
@@ -678,13 +678,13 @@ async def prepare_payment(c: types.CallbackQuery):
                                 # Удалить processing для пользователя
                                 db_handler.del_processing(chat_id)
                         else:  
-                        
+
                             price = 49
 
                             print(users_payment_transactions)
-                            
+
                             # Отправка счета пользователю
-                            payment_data = await payment(price, f'Оплата премиум подписки на месяц: {price}₽')
+                            payment_data = await payment(price, f'Оплата премиум подписки на месяц: {price}₽.\nchat_id: {chat_id}')
                             payment_id = payment_data['id']
                             confirmation_url = payment_data['confirmation']['confirmation_url'] 
                             # Создаем объект кнопки
@@ -693,12 +693,12 @@ async def prepare_payment(c: types.CallbackQuery):
                             keyboard = types.InlineKeyboardMarkup()
                             keyboard.add(btn)
                             await bot.send_message(c.message.chat.id, f'💳 Нажмите на ссылку под сообщением, оплатите удобным вам способом.\n\n💾 Идентификатор чата - *{c.message.chat.id}*\nУслугу предоставляет: ИНН: 910821614530\n\n🎟️ Заказывая услугу, вы соглашаетесь с договором оферты: https://beatmaker.site/offer\n\n✉️ Техническая поддержка: *tech.beatbot@mail.ru*\n\nПосле оплаты автоматически будет активирована премиум подписка на месяц.', reply_markup=keyboard, parse_mode='Markdown')
-                            
+
                             # Удалить processing для пользователя
                             db_handler.del_processing(chat_id)
-                            
+
                             await check_payment(payment_id, c, 'subscription')
-                    
+
                     else:
 
                         # Получение цены из callback_data
@@ -707,7 +707,7 @@ async def prepare_payment(c: types.CallbackQuery):
                         print(users_payment_transactions)
                         
                         # Отправка счета пользователю
-                        payment_data = await payment(price, f'Пополнение баланса на {price}₽')
+                        payment_data = await payment(price, f'Пополнение баланса на {price}₽.\nchat_id: {chat_id}')
                         payment_id = payment_data['id']
                         confirmation_url = payment_data['confirmation']['confirmation_url'] 
                         # Создаем объект кнопки
@@ -903,7 +903,7 @@ async def process_the_sound(c: types.CallbackQuery):
                         db_handler.set_wait_for_file(chat_id)
 
                         # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *KEY FINDER*\n\nОпределить тональность\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*, *.ogg*, *.flac*.\nМожно скидывать несколько звуков, бот определит тональность у каждого.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *KEY FINDER*\n\nОпределить тональность\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*, *.ogg*, *.flac*.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
 
                         # Удалить processing для пользователя
                         db_handler.del_processing(chat_id)
