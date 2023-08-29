@@ -57,6 +57,7 @@ async def safe_launch():
             for chat_id in launch.mailing_list:
                 beat_keyboard = InlineKeyboardMarkup().add(keyboards.btn_generate_beat)
                 await bot.send_message(chat_id, '⚙️ Сожалею, но во время создания твоих битов бот перезапустился\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Деньги за транзакцию не сняты.\n\nТы можешь заказать бит ещё раз 👉', reply_markup=beat_keyboard)          
+                db_handler.logger(chat_id, '[RELOAD]', 'Перезапуск во время beats_generating')
             for chat_id in launch.chat_ids_by_messages_to_del_ids:
                 messages_ids = db_handler.get_beats_versions_messages_ids(chat_id).split(', ')
                 for mes_id in messages_ids:
@@ -64,13 +65,16 @@ async def safe_launch():
                 db_handler.del_beats_versions_messages_ids(chat_id)
         except Exception as e:
             print(e)
+            db_handler.logger('UNCOLLECTED', '[RELOAD][BAD]', '')
     if launch.removes_mailing_list:
         try:
             for chat_id in launch.removes_mailing_list:
                 beat_keyboard = InlineKeyboardMarkup().add(keyboards.btn_free_options)
                 await bot.send_message(chat_id, '⚙️ Сожалею, но во время разделения трека бот перезапустился\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Твоё количество использований бесплатных опций не уменьшилось.\n\nТы можешь использовать опцию ещё раз 👉', reply_markup=beat_keyboard)          
+                db_handler.logger(chat_id, '[RELOAD]', 'Перезапуск во время содзания remove_vocal')
         except Exception as e:
             print(e)
+            db_handler.logger('UNCOLLECTED', '[RELOAD][BAD]', '')
 
 # Обработка команды /start
 @dp.message_handler(commands=['start'])
@@ -160,6 +164,7 @@ async def check_removes_response(chat_id, message_id):
             await asyncio.sleep(2*order_number)
     except Exception as e:
         print(e)
+        db_handler.logger(chat_id, '[BAD]', f'func check_removes_response |')
         return False
 
 ## Обработчик для файлов в формате mp3, wav
@@ -458,6 +463,7 @@ async def handle_audio_file(message: types.Message):
         # Удалить processing для пользователя
         db_handler.del_processing(message.chat.id)   
         db_handler.del_options_query_by_chat_id(chat_id)
+        db_handler.logger(chat_id, '[BAD]', f'handle_audio_file |')
 
 ## Обработка кнопок
 
@@ -611,6 +617,8 @@ async def check_payment(payment_id, c, type=''):
 
             del_user_payment_transactions(c.message.chat.id, c.data)
             
+            db_handler.logger(c.message.chat.id, '[PAY]', f'Fill balance | amount: {c.data}')
+            
             return True
         
         elif type == 'subscription':
@@ -629,6 +637,8 @@ async def check_payment(payment_id, c, type=''):
             db_handler.set_subscription(c.message.chat.id, end_date_str)
             
             del_user_payment_transactions(c.message.chat.id, c.data)
+
+            db_handler.logger(c.message.chat.id, '[PAY]', f'Enable subscription')
             
             return True
     else:
@@ -638,6 +648,9 @@ async def check_payment(payment_id, c, type=''):
         # db_handler.del_payment_checking(c.message.chat.id)
 
         del_user_payment_transactions(c.message.chat.id, c.data)
+
+        db_handler.logger(c.message.chat.id, '[PAY][ENDED]', f'Payment checking ended')
+
         return False
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.BALANCE_BUTTONS or c.data == keyboards.PREMIUM_BUTTON)
@@ -731,6 +744,8 @@ async def prepare_payment(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id) 
 
+        db_handler.logger(c.message.chat.id, '[BAD]', f'prepare_payment |')
+
 @dp.callback_query_handler(lambda c: c.data in keyboards.STYLES_BUTTONS)
 async def show_bpm(c: types.CallbackQuery):
     try:
@@ -769,6 +784,8 @@ async def show_bpm(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
 
+        db_handler.logger(c.message.chat.id, '[BAD]', f'show_bpm |')
+
 @dp.callback_query_handler(lambda c: c.data in keyboards.CATEGORIES_BUTTONS)
 async def free_options(c: types.CallbackQuery):
     chat_id = c.message.chat.id
@@ -799,6 +816,8 @@ async def free_options(c: types.CallbackQuery):
         print(repr(e))
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
+
+        db_handler.logger(c.message.chat.id, '[BAD]', f'free_options |')
     
 @dp.callback_query_handler(lambda c: c.data in keyboards.OPTIONS_BUTTONS)
 async def process_the_sound(c: types.CallbackQuery):
@@ -916,6 +935,8 @@ async def process_the_sound(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
 
+        db_handler.logger(c.message.chat.id, '[BAD]', f'process_the_sound |')
+
 # Сохраняет выбранный пользователем bpm и style во время редактирования сообщения ботом. chat_id: ['bpm', 'style']
 user_chosen_bpm_style = {}
 
@@ -960,6 +981,8 @@ async def show_bpm(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
 
+        db_handler.logger(c.message.chat.id, '[BAD]', f'show_bpm |')
+
 @dp.callback_query_handler(lambda c: c.data == keyboards.GET_EXAMPLE_BEAT)
 async def send_example_beat(c: types.CallbackQuery):
     try:
@@ -993,6 +1016,8 @@ async def send_example_beat(c: types.CallbackQuery):
         print(repr(e))
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
+
+        db_handler.logger(c.message.chat.id, '[BAD]', f'send_example_beat |')
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.BPM_CONFIRM)
 async def configure_bpm(c: types.CallbackQuery):
@@ -1035,6 +1060,8 @@ async def configure_bpm(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
 
+        db_handler.logger(c.message.chat.id, '[BAD]', f'configure_bpm |')
+
 @dp.callback_query_handler(lambda c: c.data in keyboards.KEY_BUTTONS)
 async def show_extensions(c: types.CallbackQuery):
     try:
@@ -1071,6 +1098,8 @@ async def show_extensions(c: types.CallbackQuery):
         print(repr(e))
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
+
+        db_handler.logger(c.message.chat.id, '[BAD]', f'show_extensions |')
 
 # Сообщение для редактирования
 message_to_edit = {}
@@ -1179,6 +1208,8 @@ async def make_query(c: types.CallbackQuery):
             
         await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.', reply_markup=keyboards.undo_keyboard)
 
+        db_handler.logger(c.message.chat.id, '[BAD]', f'Error while checking for beats generation or sending beats versions |')
+
 @dp.callback_query_handler(lambda c: c.data in keyboards.BEATS_BUTTONS)
 async def send_beat(c: types.CallbackQuery):
     try:  
@@ -1251,6 +1282,8 @@ async def send_beat(c: types.CallbackQuery):
                 # Удалить chosen_extension для пользователя
                 db_handler.del_chosen_extension(chat_id)
 
+                db_handler.logger(chat_id, '[BEAT][OK]', 'Бит отправлен')
+
     except Exception as e:
         print(repr(e))
         # Обнулить выбранные пользователем параметры бита
@@ -1261,11 +1294,12 @@ async def send_beat(c: types.CallbackQuery):
         db_handler.del_beats_generating(c.message.chat.id)
 
         await bot.send_message(c.message.chat.id, '⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.', reply_markup=keyboards.undo_keyboard)
-
+        
         # Удалить файлы
         for file in glob(f'output_beats/{c.message.chat.id}_[1-{beats}].*'):
-            
             remove(file)
+
+        db_handler.logger(c.message.chat.id, '[BAD]', f'send_beat (error while sending beat) |')
 # Запуск бота
 if __name__ == '__main__':
     executor.start(dp, safe_launch())

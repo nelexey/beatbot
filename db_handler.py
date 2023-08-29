@@ -74,6 +74,15 @@ try:
                             last_updated DATE
                             );''')
             print('[INFO] Table "user_limits" works succesfuly')
+
+            cursor.execute('''CREATE TABLE IF NOT EXISTS logger(
+                            id SERIAL PRIMARY KEY,
+                            chat_id TEXT NOT NULL,
+                            short_error TEXT DEFAULT NULL,
+                            description TEXT DEFAULT NULL,
+                            catched_at TIMESTAMP
+                            );''')
+            print('[INFO] Table "logger" works succesfuly')
             
         return True
     
@@ -467,6 +476,12 @@ try:
             cursor.execute(f'''UPDATE user_limits SET has_subscription=false WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
             print(f'[INFO] *{chat_id}* subscription deleted')
 
+    # запросы к таблице logger
+    def logger(chat_id, short_error, description):
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''INSERT INTO logger (chat_id, short_error, description, catched_at)
+            VALUES ('{chat_id}', '{short_error}', '{description}', NOW());''')
 
 except Exception as _ex:
     print('[INFO] Error while working with PostgreSQL', _ex)
