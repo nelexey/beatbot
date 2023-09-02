@@ -46,3 +46,11 @@ class sound_options:
         except Exception as e:
             print(e)
             return None, None, None, None
+    
+    def analyze_bpm(path_to_file):
+        y, sr = librosa.load(path_to_file)
+
+        # Определение BPM
+        tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+
+        return tempo

@@ -198,11 +198,12 @@ async def handle_audio_file(message: types.Message):
                                             keyboards.options[keyboards.OPTIONS_BUTTONS[0]],
                                             keyboards.options[keyboards.OPTIONS_BUTTONS[2]],
                                             keyboards.options[keyboards.OPTIONS_BUTTONS[3]],
-                                            keyboards.options[keyboards.OPTIONS_BUTTONS[4]]]:   
+                                            keyboards.options[keyboards.OPTIONS_BUTTONS[4]],
+                                            keyboards.options[keyboards.OPTIONS_BUTTONS[5]]]:   
                             # Установить processing для пользователя
                             db_handler.set_processing(chat_id)
                             
-                            if chosen_style in [keyboards.options[keyboards.OPTIONS_BUTTONS[1]], keyboards.options[keyboards.OPTIONS_BUTTONS[0]], keyboards.options[keyboards.OPTIONS_BUTTONS[3]], keyboards.options[keyboards.OPTIONS_BUTTONS[4]]]:
+                            if chosen_style in [keyboards.options[keyboards.OPTIONS_BUTTONS[1]], keyboards.options[keyboards.OPTIONS_BUTTONS[0]], keyboards.options[keyboards.OPTIONS_BUTTONS[3]], keyboards.options[keyboards.OPTIONS_BUTTONS[4]], keyboards.options[keyboards.OPTIONS_BUTTONS[5]]]:
                                 if db_handler.get_free_options_limit(chat_id) > 0:
                                     
                                     # Проверяем размер директории users_sounds
@@ -331,13 +332,11 @@ async def handle_audio_file(message: types.Message):
                                         current_time = datetime.now()
                                         formatted_time = current_time.strftime("%Y%m%d_%H%M%S%f")
                                         unicue_file = f'sound_{formatted_time}.{audio.file_name.split(".")[-1]}'
-                                        print('скачиваю')
                                         # Скачиваем файл на сервер
                                         await audio.download(destination_file=f'{user_dir}/{unicue_file}')
                                         
                                         # Определить тональность
                                         key, corr, altkey, altcorr =sound_options.analyze_key(f'{user_dir}/{unicue_file}')
-                                        print('скидываю')
                                         await message.reply(f"<i>{audio.file_name}</i>\n<b>{key}</b>", parse_mode='html')
 
                                         # Удаляем временный файл 
@@ -353,7 +352,38 @@ async def handle_audio_file(message: types.Message):
                                             if db_handler.get_subscription_expiry_date(chat_id) < datetime.now().date():        
                                                 db_handler.del_subscription(chat_id)
                                                 db_handler.draw_free_options_limit(chat_id)
-                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")       
+                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")  
+
+                                    elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[5]]:
+
+                                        db_handler.del_wait_for_file(chat_id)
+
+                                        file = f'sound.{audio.file_name.split(".")[-1]}'
+
+                                        # Скачиваем файл на сервер
+                                        await audio.download(destination_file=f'{user_dir}/{file}')
+                                        
+                                        # Определить bpm
+                                        bpm = sound_options.analyze_bpm(f'{user_dir}/{file}')
+                                        
+                                        rounded_bpm = "{:.2f}".format(bpm)
+
+                                        await message.reply(f"<b>{rounded_bpm}bpm</b>", parse_mode='html')
+
+                                        # Удаляем временный файл 
+                                        if path.exists(f'{user_dir}/{file}'):
+                                            remove(f'{user_dir}/{file}')
+                                        
+                                        # Прибавляем к количеству исопльзуемых опции
+                                        db_handler.get_free_option(chat_id)
+
+                                        # Если нет премиум подписки, отнять от дневного лимита
+                                        if db_handler.get_has_subscription(chat_id):
+                                            # Если подписка устарела
+                                            if db_handler.get_subscription_expiry_date(chat_id) < datetime.now().date():        
+                                                db_handler.del_subscription(chat_id)
+                                                db_handler.draw_free_options_limit(chat_id)
+                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")     
                                     else:
                                         await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
                                 else:
@@ -923,6 +953,26 @@ async def process_the_sound(c: types.CallbackQuery):
 
                         # Отправка сообщения
                         await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *KEY FINDER*\n\nОпределить тональность\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*, *.ogg*, *.flac*.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
+
+                        # Удалить processing для пользователя
+                        db_handler.del_processing(chat_id)
+
+                    elif pressed_button == keyboards.OPTIONS_BUTTONS[5]:
+
+                        # Установить processing для пользователя
+                        db_handler.set_processing(chat_id)
+
+                        # Обнулить выбранные пользователем параметры бита
+                        await reset_chosen_params(c.message.chat.id)
+
+                        user_chosen_option = 'bpm_finder'
+
+                        db_handler.set_chosen_style(chat_id, user_chosen_option)  
+
+                        db_handler.set_wait_for_file(chat_id)
+
+                        # Отправка сообщения
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *BPM FINDER*\n\nОпределить темп\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
 
                         # Удалить processing для пользователя
                         db_handler.del_processing(chat_id)

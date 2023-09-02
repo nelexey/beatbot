@@ -44,7 +44,8 @@ options = {
     'Slowed+RVB': 'slow_down',
     'Remove Vocal': 'remove_vocal',
     'Улучшение звука': 'normalize_sound',
-    'Определитель тональности': 'key_finder',
+    'Опр. тональность': 'key_finder',
+    'Опр. темп': 'bpm_finder',
 }
 
 
@@ -110,10 +111,11 @@ btn_slow_down = InlineKeyboardButton(OPTIONS_BUTTONS[1], callback_data=OPTIONS_B
 btn_remove_vocal = InlineKeyboardButton(OPTIONS_BUTTONS[2], callback_data=OPTIONS_BUTTONS[2])
 btn_normalize_sound = InlineKeyboardButton(OPTIONS_BUTTONS[3], callback_data=OPTIONS_BUTTONS[3])
 btn_key_finder = InlineKeyboardButton(OPTIONS_BUTTONS[4], callback_data=OPTIONS_BUTTONS[4])
+btn_bpm_finder = InlineKeyboardButton(OPTIONS_BUTTONS[5], callback_data=OPTIONS_BUTTONS[5])
 free_keyboard = InlineKeyboardMarkup(row_width=2)
 free_keyboard.row(btn_speed_up, btn_slow_down)
 free_keyboard.row(btn_remove_vocal)
-free_keyboard.row(btn_key_finder)
+free_keyboard.row(btn_key_finder, btn_bpm_finder)
 free_keyboard.row(btn_normalize_sound)
 free_keyboard.row(btn_undo)
 
