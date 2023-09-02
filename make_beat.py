@@ -504,7 +504,7 @@ def plug(chat_id, bpm, file_corr=0, sample_preset=None, bass_preset=None, extens
     clap = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/clap/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/hi-hat/*.wav")])
     kick = choice([AudioSegment.from_wav(file) for file in glob("style_Plug/kick/*.wav")])
-    voicetag = AudioSegment.from_wav('voicetags/beatbot_voicetag_130bpm.wav')
+    voicetag = AudioSegment.from_wav('voicetags/beatbot_voicetag_145bpm.wav')
    
     # bass preset
     if bass_preset is None:
