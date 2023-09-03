@@ -216,6 +216,13 @@ try:
             print(f'[INFO] Getting chat_ids by messages_to_del_ids was completed successfully')
             result = cursor.fetchall()
             return [row[0] for row in result]
+    def get_all_chat_ids():
+        connect()
+        with connection.cursor() as cursor:
+            cursor.execute(f'''SELECT chat_id FROM bot_users;''')
+            print(f'[INFO] Getting chat_ids was completed successfully')
+            result = cursor.fetchall()
+            return [row[0] for row in result]
 
     # запросы к таблице orders
     def set_chosen_style(chat_id, user_chosen_style):
