@@ -2,6 +2,9 @@ from pydub import AudioSegment
 from keyfinder import Tonal_Fragment
 import librosa
 
+import numpy as np
+import math
+
 class sound_options:
 
     @staticmethod
@@ -54,3 +57,17 @@ class sound_options:
         tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
 
         return tempo
+    
+    def bass_boost(file, user_dir):
+
+        attenuate_db = 0
+        accentuate_db = 13
+
+        # Загрузите аудиофайл
+        audio = AudioSegment.from_file(f'{user_dir}/{file}')
+
+        filtered = audio.low_pass_filter(50)
+
+        combined = (audio - attenuate_db).overlay(filtered + accentuate_db)
+
+        combined.export(f'{user_dir}/{file}', format=f"{file.split('.')[-1]}")
