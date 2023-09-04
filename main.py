@@ -164,7 +164,7 @@ async def check_removes_response(chat_id, message_id):
             await asyncio.sleep(2*order_number)
     except Exception as e:
         print(e)
-        db_handler.logger(chat_id, '[BAD]', f'func check_removes_response |')
+        db_handler.logger(chat_id, '[BAD]', f'func check_removes_response | {e}')
         return False
 
 ## Обработчик для файлов в формате mp3, wav
@@ -524,7 +524,7 @@ async def handle_audio_file(message: types.Message):
         # Удалить processing для пользователя
         db_handler.del_processing(message.chat.id)   
         db_handler.del_options_query_by_chat_id(chat_id)
-        db_handler.logger(chat_id, '[BAD]', f'handle_audio_file |')
+        db_handler.logger(chat_id, '[BAD]', f'handle_audio_file | {e}')
 
 ## Обработка кнопок
 
@@ -805,7 +805,7 @@ async def prepare_payment(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id) 
 
-        db_handler.logger(c.message.chat.id, '[BAD]', f'prepare_payment |')
+        db_handler.logger(c.message.chat.id, '[BAD]', f'prepare_payment | {e}')
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.STYLES_BUTTONS)
 async def show_bpm(c: types.CallbackQuery):
@@ -845,7 +845,7 @@ async def show_bpm(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
 
-        db_handler.logger(c.message.chat.id, '[BAD]', f'show_bpm |')
+        db_handler.logger(c.message.chat.id, '[BAD]', f'show_bpm | {e}')
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.CATEGORIES_BUTTONS)
 async def free_options(c: types.CallbackQuery):
@@ -878,7 +878,7 @@ async def free_options(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
 
-        db_handler.logger(c.message.chat.id, '[BAD]', f'free_options |')
+        db_handler.logger(c.message.chat.id, '[BAD]', f'free_options | {e}')
     
 @dp.callback_query_handler(lambda c: c.data in keyboards.OPTIONS_BUTTONS)
 async def process_the_sound(c: types.CallbackQuery):
@@ -1036,7 +1036,7 @@ async def process_the_sound(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
 
-        db_handler.logger(c.message.chat.id, '[BAD]', f'process_the_sound |')
+        db_handler.logger(c.message.chat.id, '[BAD]', f'process_the_sound | {e}')
 
 # Сохраняет выбранный пользователем bpm и style во время редактирования сообщения ботом. chat_id: ['bpm', 'style']
 user_chosen_bpm_style = {}
@@ -1082,7 +1082,7 @@ async def show_bpm(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
 
-        db_handler.logger(c.message.chat.id, '[BAD]', f'show_bpm |')
+        db_handler.logger(c.message.chat.id, '[BAD]', f'show_bpm | {e}')
 
 @dp.callback_query_handler(lambda c: c.data == keyboards.GET_EXAMPLE_BEAT)
 async def send_example_beat(c: types.CallbackQuery):
@@ -1118,7 +1118,7 @@ async def send_example_beat(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
 
-        db_handler.logger(c.message.chat.id, '[BAD]', f'send_example_beat |')
+        db_handler.logger(c.message.chat.id, '[BAD]', f'send_example_beat | {e}')
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.BPM_CONFIRM)
 async def configure_bpm(c: types.CallbackQuery):
@@ -1161,7 +1161,7 @@ async def configure_bpm(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
 
-        db_handler.logger(c.message.chat.id, '[BAD]', f'configure_bpm |')
+        db_handler.logger(c.message.chat.id, '[BAD]', f'configure_bpm | {e}')
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.KEY_BUTTONS)
 async def show_extensions(c: types.CallbackQuery):
@@ -1200,7 +1200,7 @@ async def show_extensions(c: types.CallbackQuery):
         # Удалить processing для пользователя
         db_handler.del_processing(c.message.chat.id)
 
-        db_handler.logger(c.message.chat.id, '[BAD]', f'show_extensions |')
+        db_handler.logger(c.message.chat.id, '[BAD]', f'show_extensions | {e}')
 
 # Сообщение для редактирования
 message_to_edit = {}
@@ -1309,7 +1309,7 @@ async def make_query(c: types.CallbackQuery):
             
         await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.', reply_markup=keyboards.undo_keyboard)
 
-        db_handler.logger(c.message.chat.id, '[BAD]', f'Error while checking for beats generation or sending beats versions |')
+        db_handler.logger(c.message.chat.id, '[BAD]', f'Error while checking for beats generation or sending beats versions | {e}')
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.BEATS_BUTTONS)
 async def send_beat(c: types.CallbackQuery):
@@ -1400,7 +1400,7 @@ async def send_beat(c: types.CallbackQuery):
         for file in glob(f'output_beats/{c.message.chat.id}_[1-{beats}].*'):
             remove(file)
 
-        db_handler.logger(c.message.chat.id, '[BAD]', f'send_beat (error while sending beat) |')
+        db_handler.logger(c.message.chat.id, '[BAD]', f'send_beat (error while sending beat) | {e}')
 # Запуск бота
 if __name__ == '__main__':
     executor.start(dp, safe_launch())

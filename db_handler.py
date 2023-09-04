@@ -486,9 +486,14 @@ try:
     # запросы к таблице logger
     def logger(chat_id, short_error, description):
         connect()
-        with connection.cursor() as cursor:
-            cursor.execute(f'''INSERT INTO logger (chat_id, short_error, description, catched_at)
-            VALUES ('{chat_id}', '{short_error}', '{description}', NOW());''')
+        # Replace any single quotes in the description string with two single quotes
+        description = description.replace("'", "''")
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(f'''INSERT INTO logger (chat_id, short_error, description, catched_at)
+                                VALUES ('{chat_id}', '{short_error}', '{description}', NOW());''')
+        except Exception as _ex:
+            print('[INFO] Error while working with PostgreSQL', _ex)
 
 except Exception as _ex:
     print('[INFO] Error while working with PostgreSQL', _ex)
