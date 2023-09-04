@@ -1,6 +1,6 @@
 import logging
 import asyncio
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, types, exceptions
 from aiogram.utils import executor
 from aiogram.types import InlineKeyboardMarkup, ContentType
 
@@ -1337,13 +1337,17 @@ async def send_beat(c: types.CallbackQuery):
                 messages_to_delete_ids = db_handler.get_beats_versions_messages_ids(chat_id)
                 if messages_to_delete_ids != '':
                     for mes_id in messages_to_delete_ids.split(', '):
-                        await bot.delete_message(chat_id, mes_id)
+                        try:
+                            await bot.delete_message(chat_id, mes_id)
+                        except exceptions.MessageToDeleteNotFound:
+                            print('Cannot delete beat-version message.')
+
                 db_handler.del_beats_versions_messages_ids(chat_id)
                 
                 # Проверяем размер файла
                 file_path = f'output_beats/{chat_id}_{pressed_button}.{db_handler.get_chosen_extension(chat_id).split(".")[-1]}'
                 file_size = path.getsize(file_path)  # Размер файла в байтах
-                print(file_size)
+                # print(file_size)
                 if file_size >= 50 * 1000 * 1000:  # Проверяем, больше ли файл 50 МБ
                     # Создаем временный файл в формате FLAC
                     temp_flac_path = f'output_beats/{chat_id}_{pressed_button}.flac'
