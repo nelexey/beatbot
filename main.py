@@ -353,7 +353,9 @@ async def handle_audio_file(message: types.Message):
                                             if db_handler.get_subscription_expiry_date(chat_id) < datetime.now().date():        
                                                 db_handler.del_subscription(chat_id)
                                                 db_handler.draw_free_options_limit(chat_id)
-                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")  
+                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.") 
+                                        else:
+                                            db_handler.draw_free_options_limit(chat_id)
 
                                     elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[6]]:
 
@@ -385,6 +387,8 @@ async def handle_audio_file(message: types.Message):
                                                 db_handler.del_subscription(chat_id)
                                                 db_handler.draw_free_options_limit(chat_id)
                                                 await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")
+                                        else:
+                                            db_handler.draw_free_options_limit(chat_id)
                                     elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_handler.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[5]]:
 
                                         db_handler.del_wait_for_file(chat_id)
@@ -414,7 +418,9 @@ async def handle_audio_file(message: types.Message):
                                             if db_handler.get_subscription_expiry_date(chat_id) < datetime.now().date():        
                                                 db_handler.del_subscription(chat_id)
                                                 db_handler.draw_free_options_limit(chat_id)
-                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")      
+                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")     
+                                        else:
+                                            db_handler.draw_free_options_limit(chat_id) 
                                     else:
                                         await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
                                 else:
