@@ -46,14 +46,18 @@ class Handler():
                         if len(leads_list) >= 3 and len(bass_list) >= 3 :
                             filled_keys.append(key)
 
-                    print(filled_keys)
-
-                    key = random.choice(filled_keys)
+                    if filled_keys != []:
+                        for key in keys:
+                            leads_list = sorted(glob(f'style_{style}/lead/{harmony}/{key}/*.wav'))
+                            bass_list = sorted(glob(f'style_{style}/bass/{harmony}/{key}/*.wav'))
+                            if len(leads_list) >= 1 and len(bass_list) >= 1 :
+                                filled_keys.append(key)
+                        
                 else:
                     key = None
 
-                def generate_beats(aliases, num, style, chat_id, bpm, extension, harmony, key=None):
-                    status = make_beat.generate_some_beats(aliases, num, style, chat_id, bpm, extension, harmony, key)
+                def generate_beats(aliases, num, style, chat_id, bpm, extension, harmony, keys=None):
+                    status = make_beat.generate_some_beats(aliases, num, style, chat_id, bpm, extension, harmony, keys)
                     if status:
                         return True
                     else:
@@ -67,7 +71,7 @@ class Handler():
                         new_file_path = f"{path.splitext(file_path)[0]}_short.mp3"
                         trimmed.export(new_file_path, format=f"mp3")
 
-                generate_beats(aliases, beats, style, chat_id, bpm, extension, harmony, key)
+                generate_beats(aliases, beats, style, chat_id, bpm, extension, harmony, filled_keys)
                 trimmed_audio(sorted(glob(f'output_beats/{query[0]}_[1-{beats}].*'), key=lambda x: int(x.split('_')[-1].split('.')[0])))
                 
                 db_handler.del_query()

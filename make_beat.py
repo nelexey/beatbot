@@ -1,6 +1,6 @@
 from glob import glob
 from pydub import AudioSegment
-from random import choice, randint, sample
+from random import choice, randint, sample, shuffle
 from os import path
 from keyfinder import Tonal_Fragment
 import librosa
@@ -37,16 +37,34 @@ def analyze_key(audio_file):
         print(e)
         return None, None
 
-def generate_some_beats(aliases, num, style, chat_id, bpm, extension, harmony, key):
+def generate_some_beats(aliases, num, style, chat_id, bpm, extension, harmony, keys):
     # Выбрать случайные неповторяющиеся лиды и бассы 
 
-    if key is not None:
-        get_leads = sample(glob(f"style_{aliases[style]}/lead/{harmony}/{key}/*.wav"), 3)
-
+    if keys is not None:
         sample_presets = []
-        for file in get_leads:
-            filename = path.basename(file)
-            sample_presets.append(filename)
+        basses_presets = []
+
+        for key in keys:
+            get_leads = sample(glob(f"style_{aliases[style]}/lead/{harmony}/{key}/*.wav"), 3)
+            get_basses = sample(glob(f"style_{aliases[style]}/bass/{harmony}/{key}/*.wav"), 3)
+
+            print(' -- LEADS --')
+            for file in get_leads:
+                filename = path.basename(file)
+                sample_presets.append(f'{key}/{filename}')
+                
+                print(f'{key}/{filename}')
+            print(' -- BASSES --')
+            for file in get_basses:
+                filename = path.basename(file)
+                basses_presets.append(f'{key}/{filename}')
+                print(f'{key}/{filename}')
+        
+        # Попарно перемешать элементы в списке
+        combined = list(zip(sample_presets, basses_presets))
+        shuffle(combined)
+        sample_presets, basses_presets = zip(*combined)
+
     else:
         get_all_leads = glob(f"style_{aliases[style]}/lead/*.wav")
 
@@ -94,6 +112,7 @@ def generate_some_beats(aliases, num, style, chat_id, bpm, extension, harmony, k
                 basses_presets.append(filename)
 
     print(sample_presets)
+    print(basses_presets)
 
     for i in range(1, num+1):
         # ОБЯЗАТЕЛЬНО УКАЗЫВАТЬ SAMPLE_PRESET ЕСЛИ ЗВУКИ НЕ ИДУТ В ТОЧНОМ ЧИСЛОВОМ ПОРЯДКЕ
@@ -102,7 +121,7 @@ def generate_some_beats(aliases, num, style, chat_id, bpm, extension, harmony, k
         elif style == 'Trap':
             # Применение ладов и тональностей 
             # status = trap(chat_id, bpm, i, sample_presets[i-1], extension)
-            status = trap(harmony, key, chat_id, bpm, i, sample_presets[i-1], extension)
+            status = trap(harmony, key, chat_id, bpm, i, sample_presets[i-1], basses_presets[i-1], extension)
         elif style == 'Drill':
             status = drill(chat_id, bpm, i, sample_presets[i-1], basses_presets[i-1], extension)
         elif style == 'Plug':
@@ -627,19 +646,16 @@ def plug(chat_id, bpm, file_corr=0, sample_preset=None, bass_preset=None, extens
 
     return True
 
-def trap(harmony, key, chat_id, bpm, file_corr=None, sample_preset=None, extension='wav'):
+def trap(harmony, key, chat_id, bpm, file_corr=None, sample_preset=None, bass_preset=None, extension='wav'):
     clap = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/clap/*.wav")])
     kick = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/kick/*.wav")])
     hi_hat = choice([AudioSegment.from_wav(file) for file in glob("style_Trap/hi-hat/*.wav")])
     voicetag = AudioSegment.from_wav('voicetags/beatbot_voicetag_130bpm.wav')
 
-    bass = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/bass/{harmony}/{key}/*.wav")])
-    
-    ## sync leads and help_leads ON
-    if sample_preset is None: 
-        lead = choice([AudioSegment.from_wav(file) for file in glob(f"style_Trap/lead/{harmony}/{key}/*.wav")])
-    else:
-        lead = AudioSegment.from_wav(f"style_Trap/lead/{harmony}/{key}/{sample_preset}")
+    bass = AudioSegment.from_wav(f"style_Trap/bass/{harmony}/{bass_preset}")
+    lead = AudioSegment.from_wav(f"style_Trap/lead/{harmony}/{sample_preset}")
+
+    print(sample_preset, bass_preset)
 
     ##### ТАКТЫ #####
 
