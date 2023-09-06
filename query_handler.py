@@ -1,38 +1,25 @@
-import db_handler
+
+
 import time
-import make_beat
-from keyboards import aliases, options
-import random
 from pydub import AudioSegment # Для обрезки битов на их демо-версии
 from os import path
 from glob import glob
 
-beats = 3
-
-# Ключи - названия стилей на кнопках, значения - названия папок style_*
-
-# Тональности
-keys = [
-    'A',
-    'B',
-    'C',
-    'C#',
-    'E',
-    'F',
-    'F#',
-    'G',
-]
+from data.utility_data import keys, beats
+import utils.db_connect as db_connect
+import utils.make_beat as make_beat
+from utils.keyboards import aliases
 
 class Handler():
 
     def checking():
         while True:
-            query = db_handler.get_query()
+            query = db_connect.get_query()
             if query is not None:
 
                 chat_id, style, bpm, harmony, extension = query[0], query[1], query[2], query[3], query[4]
 
-                db_handler.del_beats_ready(chat_id)
+                db_connect.del_beats_ready(chat_id)
                 
                 print(query)
 
@@ -74,9 +61,9 @@ class Handler():
                 generate_beats(aliases, beats, style, chat_id, bpm, extension, harmony, filled_keys)
                 trimmed_audio(sorted(glob(f'output_beats/{query[0]}_[1-{beats}].*'), key=lambda x: int(x.split('_')[-1].split('.')[0])))
                 
-                db_handler.del_query()
+                db_connect.del_query()
 
-                db_handler.set_beats_ready(chat_id)
+                db_connect.set_beats_ready(chat_id)
 
             time.sleep(3)
 

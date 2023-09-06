@@ -1,8 +1,6 @@
 __pycache__
-config.py
+/config/config.py
 env/
-/style*/
 /output_beats/
-/example_beats/
 /users_sounds/
-/voicetags/
+/sounds/

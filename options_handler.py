@@ -1,4 +1,4 @@
-import db_handler
+import utils.db_connect as db_connect
 import time
 from pydub import AudioSegment
 from os import path, makedirs, remove
@@ -10,7 +10,7 @@ class Handler():
     @staticmethod
     def checking():
         while True:
-            query = db_handler.get_option_query()
+            query = db_connect.get_option_query()
             if query is not None:
                 chat_id, chosen_format, order_number = query[0], query[1], query[2]
 
@@ -104,8 +104,8 @@ class Handler():
                 for file in all_vocals + all_accompaniment:
                     remove(file)
 
-                db_handler.set_removes_ready(chat_id)
-                db_handler.del_options_query()
+                db_connect.set_removes_ready(chat_id)
+                db_connect.del_options_query()
 
             time.sleep(3)
 

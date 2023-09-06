@@ -1,12 +1,12 @@
 import requests
-import config
-import db_handler
+import config.config as config
+import utils.db_connect as db_connect
 
 
 bot_token = config.TOKEN
 
 # Список chat_ids, которым нужно отправить сообщение
-chat_ids = db_handler.get_all_chat_ids()
+chat_ids = db_connect.get_all_chat_ids()
 
 message_text = '''Привет! 👋 
 

@@ -1,5 +1,5 @@
 from pydub import AudioSegment
-from keyfinder import Tonal_Fragment
+from utils.keyfinder import Tonal_Fragment
 import librosa
 
 import numpy as np
@@ -37,6 +37,7 @@ class sound_options:
         # Сохранение результата
         normalized_sound.export(f'{user_dir}/sound.wav', format="wav")
 
+    @staticmethod
     def analyze_key(path_to_file):
         try:
             y, sr = librosa.load(path_to_file)
@@ -50,6 +51,7 @@ class sound_options:
             print(e)
             return None, None, None, None
     
+    @staticmethod
     def analyze_bpm(path_to_file):
         y, sr = librosa.load(path_to_file)
 
@@ -58,6 +60,7 @@ class sound_options:
 
         return tempo
     
+    @staticmethod
     def bass_boost(file, user_dir):
 
         attenuate_db = 0

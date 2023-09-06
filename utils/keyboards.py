@@ -1,5 +1,6 @@
-from config import beats, beat_price
+from config.config import beats, beat_price
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from data.utility_data import styles_aliases as aliases
 
 # Инициализация кнопок
 # Кнопки меню
@@ -26,18 +27,6 @@ EXTENSIONS_BUTTONS = [BUTTON_WAV,
 UNDO_BUTTON = '⬅️ Назад'
 MENU_BUTTON = '⬅️ В меню'
 STYLES_BUTTON = '⬅️ К стилям'
-
-# Кнопки стилей
-# Ключи - названия стилей на кнопках, значения - названия папок style_*
-aliases = {
-    'Jersey Club':'JC',
-    'Trap':       'Trap',
-    'Drill':      'Drill',
-    'Plug':       'Plug',
-    'Old School': 'OldSchool',
-    'Opium':      'Opium',
-    'NewJazz':    'NewJazz'
-}
 
 options = {
     'Speed UP':   'speed_up',

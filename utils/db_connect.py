@@ -1,5 +1,5 @@
 import psycopg2
-from config import host, user, password, db_name
+from config.config import host, user, password, db_name
 
 
 try:
