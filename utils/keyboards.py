@@ -35,7 +35,8 @@ options = {
     'Улучшение звука': 'normalize_sound',
     'Опр. тональность': 'key_finder',
     'Опр. темп': 'bpm_finder',
-    'BASSBOOST': 'bass_boost'
+    'BASSBOOST': 'bass_boost',
+    'MIDI + WAV': 'midi_to_wav'
 }
 
 
@@ -103,12 +104,13 @@ btn_normalize_sound = InlineKeyboardButton(OPTIONS_BUTTONS[3], callback_data=OPT
 btn_key_finder = InlineKeyboardButton(OPTIONS_BUTTONS[4], callback_data=OPTIONS_BUTTONS[4])
 btn_bpm_finder = InlineKeyboardButton(OPTIONS_BUTTONS[5], callback_data=OPTIONS_BUTTONS[5])
 btn_bass_boost = InlineKeyboardButton(OPTIONS_BUTTONS[6], callback_data=OPTIONS_BUTTONS[6])
+btn_midi_to_wav = InlineKeyboardButton(OPTIONS_BUTTONS[7], callback_data=OPTIONS_BUTTONS[7])
 free_keyboard = InlineKeyboardMarkup(row_width=2)
 free_keyboard.row(btn_speed_up, btn_slow_down)
-free_keyboard.row(btn_bass_boost)
+free_keyboard.row(btn_midi_to_wav)
 free_keyboard.row(btn_remove_vocal)
 free_keyboard.row(btn_key_finder, btn_bpm_finder)
-free_keyboard.row(btn_normalize_sound)
+free_keyboard.row(btn_normalize_sound, btn_bass_boost)
 free_keyboard.row(btn_undo)
 
 # Клавиатура баланса

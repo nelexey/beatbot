@@ -1,7 +1,10 @@
 __pycache__
 /config/config.py
+/config/local_config.py
 env/
 /output_beats/
 /users_sounds/
 /sounds/
 /pretrained_models/
+/example_beats/
+.DS_Store

@@ -17,6 +17,7 @@ import utils.db_connect as db_connect
 # Клавиатура
 import utils.keyboards as keyboards
 from data.utility_data import beats
+from utils.audio_action import Audio_Action as au
 
 
 # Для конфигурирования и создания платежа
@@ -140,27 +141,50 @@ async def refill_limits(chat_id):
         db_connect.refill_limits(chat_id)
 
 # Функция для проверки готовности разделенного ремувером файла.
-async def check_removes_response(chat_id, message_id):
+async def check_options_handler_response(chat_id, message_id):
+    #TODO
     try:
         order_number = 0
 
         # Установить processing для пользователя
         db_connect.set_processing(chat_id)
 
-        while True:
+        if db_connect.get_chosen_style(chat_id)=='remove_vocal':
+            while True:
 
-            if db_connect.get_removes_ready(chat_id) == 1:
-                db_connect.del_removes_ready(chat_id)
-                edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'🔄 Отправляю вокал и минус...', parse_mode='Markdown')  
+                if db_connect.get_removes_ready(chat_id) == 1:
+                    db_connect.del_removes_ready(chat_id)
+                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'🔄 Отправляю вокал и минус...', parse_mode='Markdown')  
 
-                return True
+                    return True
 
-            new_order_number = db_connect.get_options_query_by_chat_id(chat_id)
-            if new_order_number != order_number:
-                order_number = new_order_number
-                await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'💽 Разделяю трек, на это время бот *не будет* реагировать\n\nТвоё место в очереди: *{order_number}*\n\n🔽Вокал и минус появятся снизу🔽', parse_mode='Markdown')  
+                new_order_number = db_connect.get_options_query_by_chat_id(chat_id)
+                if new_order_number != order_number:
+                    order_number = new_order_number
+                    await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'💽 Разделяю трек, на это время бот *не будет* реагировать\n\nТвоё место в очереди: *{order_number}*\n\n🔽Вокал и минус появятся снизу🔽', parse_mode='Markdown')  
 
-            await asyncio.sleep(2*order_number)
+                await asyncio.sleep(2*order_number)
+
+        elif db_connect.get_chosen_style(chat_id)=='midi_to_wav':
+            while True:
+
+                if db_connect.get_removes_ready(chat_id) == 1:
+                    db_connect.del_removes_ready(chat_id)
+                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'🔄 Отправляю трек...', parse_mode='Markdown')  
+
+                    return True
+
+                new_order_number = db_connect.get_options_query_by_chat_id(chat_id)
+                if new_order_number != order_number:
+                    order_number = new_order_number
+                    await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'💽 Синтезирую, на это время бот *не будет* реагировать\n\nТвоё место в очереди: *{order_number}*\n\n🔽Результат появятся снизу🔽', parse_mode='Markdown')  
+                elif new_order_number == order_number and new_order_number==0:
+                    db_connect.del_removes_ready(chat_id)
+                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'⚠️ Некорректный midi файл, я не могу его обработать.', parse_mode='Markdown')  
+
+                    return False
+                await asyncio.sleep(2*order_number)
+
     except Exception as e:
         print(e)
         db_connect.logger(chat_id, '[BAD]', f'func check_removes_response | {e}')
@@ -193,13 +217,7 @@ async def handle_audio_file(message: types.Message):
 
                         audio_extension = audio.file_name.split('.')[-1]
 
-                        if chosen_style in [keyboards.options[keyboards.OPTIONS_BUTTONS[1]],
-                                            keyboards.options[keyboards.OPTIONS_BUTTONS[0]],
-                                            keyboards.options[keyboards.OPTIONS_BUTTONS[2]],
-                                            keyboards.options[keyboards.OPTIONS_BUTTONS[3]],
-                                            keyboards.options[keyboards.OPTIONS_BUTTONS[4]],
-                                            keyboards.options[keyboards.OPTIONS_BUTTONS[5]],
-                                            keyboards.options[keyboards.OPTIONS_BUTTONS[6]]]:   
+                        if chosen_style in {keyboards.options[keyboards.OPTIONS_BUTTONS[i]]: i for i in range(len(keyboards.OPTIONS_BUTTONS))}:   
                             # Установить processing для пользователя
                             db_connect.set_processing(chat_id)
                             
@@ -208,7 +226,7 @@ async def handle_audio_file(message: types.Message):
                                     
                                     # Проверяем размер директории users_sounds
                                     total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
-                                    
+
                                     if total_size_mb > 500:
                                         await bot.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
                                         
@@ -259,8 +277,7 @@ async def handle_audio_file(message: types.Message):
                                                 db_connect.draw_free_options_limit(chat_id)
                                                 await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")
                                         else:  
-                                            db_connect.draw_free_options_limit(chat_id)
-                                        
+                                            db_connect.draw_free_options_limit(chat_id)                             
                                     elif audio_extension == 'mp3' and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[1]]:
                                         
                                         db_connect.del_wait_for_file(chat_id)
@@ -290,7 +307,6 @@ async def handle_audio_file(message: types.Message):
                                                 await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")    
                                         else:  
                                             db_connect.draw_free_options_limit(chat_id)
-
                                     elif audio_extension in ['mp3', 'wav'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[3]]:
                                         
                                         db_connect.del_wait_for_file(chat_id)
@@ -323,8 +339,7 @@ async def handle_audio_file(message: types.Message):
                                                 db_connect.draw_free_options_limit(chat_id)
                                                 await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")    
                                         else:  
-                                            db_connect.draw_free_options_limit(chat_id)
-                                    
+                                            db_connect.draw_free_options_limit(chat_id)    
                                     elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[4]]:
                                         
                                         db_connect.del_wait_for_file(chat_id)
@@ -355,7 +370,6 @@ async def handle_audio_file(message: types.Message):
                                                 await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.") 
                                         else:
                                             db_connect.draw_free_options_limit(chat_id)
-
                                     elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[6]]:
 
                                         db_connect.del_wait_for_file(chat_id)
@@ -419,12 +433,139 @@ async def handle_audio_file(message: types.Message):
                                                 db_connect.draw_free_options_limit(chat_id)
                                                 await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")     
                                         else:
-                                            db_connect.draw_free_options_limit(chat_id) 
+                                            db_connect.draw_free_options_limit(chat_id)
+                                    
                                     else:
                                         await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
                                 else:
                                     await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
                                     db_connect.del_wait_for_file(chat_id)
+
+                            elif audio_extension in ['mp3', 'wav', 'mid'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[7]]:
+                                #TODO
+                                if db_connect.get_free_options_limit(chat_id) <= 0:
+                                    await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
+                                    db_connect.del_wait_for_file(chat_id)
+                                    return
+                                
+                                db_connect.del_wait_for_file(chat_id)
+                                
+                                file = f'fragment.{audio.file_name.split(".")[-1]}'
+                                
+                                # Путь к директории для сохранения файла
+                                user_dir = f"users_sounds/{chat_id}"
+
+                                # Создаем директорию пользователя, если она не существует
+                                makedirs(user_dir, exist_ok=True)
+                                    
+                                # Проверяем размер директории users_sounds
+                                total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
+
+                                if total_size_mb > 300:
+                                    await bot.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
+                                    
+                                    # Удалить processing для пользователя
+                                    db_connect.del_processing(chat_id)
+                                    
+                                    return
+                                
+                                # Проверка файла .mid
+                                if audio_extension == 'mid':
+                                    if  audio.file_size > 5000 * 1024:
+                                        await bot.send_message(chat_id, "🔊 Midi слишком большой. Пожалуйста, загрузите файл размером до 5мб.")
+                                        
+                                        # Удалить processing для пользователя
+                                        db_connect.del_processing(chat_id)
+
+                                        db_connect.set_wait_for_file(chat_id)
+
+                                        return
+                                    else:
+                                        # Скачиваем файл на сервер
+                                        await audio.download(destination_file=f'{user_dir}/{file}')  
+
+                                        if not glob(f'{user_dir}/*.wav') + glob(f'{user_dir}/*.mp3'):
+                                            await bot.send_message(chat_id, "Отлично, теперь скинь звук в формате *mp3* или *wav*, примеры звуков есть в нашем канале @beatbotnews", parse_mode='Markdown')
+                                            
+                                            # Удалить processing для пользователя
+                                            db_connect.del_processing(chat_id)
+
+                                            db_connect.set_wait_for_file(chat_id)
+
+                                            return
+
+                                # Проверяем размер загруженного файла
+                                if audio_extension in ['mp3', 'wav']:
+                                    if audio.file_size > 5000 * 1024:
+                                        await bot.send_message(chat_id, "🔊 Звук слишком большой. Пожалуйста, загрузите файл размером до 5мб.")
+                                       
+                                        # Удалить processing для пользователя
+                                        db_connect.del_processing(chat_id)
+
+                                        db_connect.set_wait_for_file(chat_id)
+                                       
+                                        return
+                                    else: 
+                                        # Скачиваем файл на сервер
+                                        await audio.download(destination_file=f'{user_dir}/{file}')
+                                        if not glob(f'{user_dir}/*.mid'):
+                                            await bot.send_message(chat_id, "Хорошо, теперь скинь трек в формате *mid*, примеры треков есть в нашем канале @beatbotnews, можешь использовать их.", parse_mode='Markdown')
+                                            
+                                            # Удалить processing для пользователя
+                                            db_connect.del_processing(chat_id)
+
+                                            db_connect.set_chosen_extension(chat_id, audio_extension)
+                                            db_connect.set_wait_for_file(chat_id)
+                                        
+                                            return
+                                
+                                audio_extension = db_connect.get_chosen_extension(chat_id)
+
+                                edit_message = await bot.send_message(chat_id, "🔄 Подготавливаю BeatBot Fusion...", parse_mode='Markdown')
+
+                                # if au.get_midi_length(f'{user_dir}/fragment.mid') > 40000:
+                                if False:
+                                    await bot.send_message(chat_id, "🔊 Midi слишком длинное. Пожалуйста, загрузите файл длительностью до 4 минут.")
+                                    # Удалить processing для пользователя
+                                    db_connect.del_processing(chat_id)
+                                    return
+
+                                await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Подготавливаю BeatBot Fusion...', parse_mode='Markdown') 
+                                
+                                # Добавить в очередь 
+                                db_connect.set_options_query(chat_id, audio_extension)
+
+                                await asyncio.sleep(1)
+
+                                db_connect.del_removes_ready(chat_id)
+                                
+                                if await check_options_handler_response(chat_id, edit_message.message_id):
+
+                                    # Отправляем обратно пользователю обработанныt файлы
+                                    
+                                    with open(f'{user_dir}/output_fragments/output.{audio_extension}', 'rb') as f:
+                                        await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Fusioned')
+                                    
+                                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Отправлено', parse_mode='Markdown')
+
+                                    # Прибавляем к количеству исопльзуемых опции
+                                    db_connect.get_free_option(chat_id)
+
+                                    # Удаляем временный файл
+                                    for file in glob(f'{user_dir}/fragment.*') + glob(f'{user_dir}/output_fragments/.*'):
+                                        remove(file)
+                                    
+                                    # Если нет премиум подписки, отнять от дневного лимита
+                                    if db_connect.get_has_subscription(chat_id):
+                                        # Если подписка устарела
+                                        if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
+                                            db_connect.del_subscription(chat_id)
+                                            db_connect.draw_removes_limit(chat_id)
+                                            await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")    
+                                    else:  
+                                        db_connect.draw_removes_limit(chat_id)
+
+  
                             elif audio_extension in ['mp3', 'wav'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[2]]:
                                 
                                 db_connect.del_wait_for_file(chat_id)
@@ -482,7 +623,7 @@ async def handle_audio_file(message: types.Message):
 
                                     db_connect.del_removes_ready(chat_id)
                                     
-                                    if await check_removes_response(chat_id, edit_message.message_id):
+                                    if await check_options_handler_response(chat_id, edit_message.message_id):
 
                                         # Отправляем обратно пользователю обработанныt файлы
                                         with open(f'{user_dir}/final_vocals.{audio_extension}', 'rb') as f:
@@ -1033,6 +1174,26 @@ async def process_the_sound(c: types.CallbackQuery):
 
                         # Удалить processing для пользователя
                         db_connect.del_processing(chat_id)
+                    
+                    elif pressed_button == keyboards.OPTIONS_BUTTONS[7]:
+
+                        # Установить processing для пользователя
+                        db_connect.set_processing(chat_id)
+
+                        # Обнулить выбранные пользователем параметры бита
+                        await reset_chosen_params(c.message.chat.id)
+
+                        user_chosen_option = 'midi_to_wav'
+
+                        db_connect.set_chosen_style(chat_id, user_chosen_option)  
+
+                        db_connect.set_wait_for_file(chat_id)
+
+                        # Отправка сообщения
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *MIDI TO WAV*\n\n*Создать музыку из своих звуков*\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.\nПотом скинь музыку в формате *.mid*. Если не знаешь, как это работает, можешь выбрать примеры *.mid* файлов из нашего канала.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
+
+                        # Удалить processing для пользователя
+                        db_connect.del_processing(chat_id)
             else:
                 # Отправка оповещения
                 await bot.answer_callback_query(callback_query_id=c.id, text='Ты не можешь воспользоваться бесплатными опциями во время генерации бита', show_alert=True)
@@ -1268,6 +1429,8 @@ async def make_query(c: types.CallbackQuery):
                                 files_list = sorted(glob(f'output_beats/{chat_id}_[1-{beats}]_short.*'))
 
                                 messages_ids = []
+                                
+                                print(chat_id, c.message.message_id)
 
                                 await bot.delete_message(chat_id=chat_id, message_id=c.message.message_id)
 
@@ -1292,10 +1455,10 @@ async def make_query(c: types.CallbackQuery):
                                 db_connect.del_processing(chat_id)
                         else:
                             # Отправка сообщения
-                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Не удалось выбрать расширение, попробуй ещё раз. Выбрать параметры бита нужно строго в предлагаемом ботом порядке и в одном сообщении', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
+                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Не удалось выбрать расширение, попробуй ещё раз. Выбрать параметры бита нужно строго в предлагаемом ботом порядке и в одном сообщении.', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
                     else:
                         balance_keyboard = InlineKeyboardMarkup().add(keyboards.btn_balance)
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Сперва тебе нужно пополнить баланс', reply_markup=balance_keyboard, parse_mode='Markdown')
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠ Бит стоит *{config.beat_price}₽*. Тебе нужно пополнить баланс.', reply_markup=balance_keyboard, parse_mode='Markdown')
 
                 # Удалить processing для пользователя
                 db_connect.del_processing(chat_id)
@@ -1313,7 +1476,7 @@ async def make_query(c: types.CallbackQuery):
         for file in glob(f'output_beats/{c.message.chat.id}_[1-{beats}]*.*'):
             remove(file)
             
-        await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте ещё раз.', reply_markup=keyboards.undo_keyboard)
+        await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте заказать бит ещё раз, вызвав новое сообщение /menu.', reply_markup=keyboards.undo_keyboard)
 
         db_connect.logger(c.message.chat.id, '[BAD]', f'Error while checking for beats generation or sending beats versions | {e}')
 

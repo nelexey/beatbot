@@ -2,7 +2,7 @@ import librosa
 from utils.keyfinder import Tonal_Fragment
 from pydub import AudioSegment
 from os import path
-import numpy as np
+import mido
 
 class Audio_Action():
 
@@ -30,6 +30,22 @@ class Audio_Action():
         trimmed = sound[35000:50000]
         new_file_path = f"{path.splitext(file_path)[0]}_short.mp3"
         trimmed.export(new_file_path, format=f"mp3")
+
+    @staticmethod
+    def get_midi_length(file_path):
+        try:
+            mid = mido.MidiFile(file_path)
+            
+            # Получаем длину в тиках
+            ticks = mid.length
+            
+            # Получаем длину в миллисекундах (предполагая стандартное разрешение тика 480)
+            milliseconds = mido.second2tick(mid.length, mid.ticks_per_beat, 500000)  # 500000 микросекунд в секунде
+            
+            return milliseconds
+        except Exception as e:
+            print(e)
+            return e
     
     # Изменить темп аудио
     @staticmethod
