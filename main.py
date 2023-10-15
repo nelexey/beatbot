@@ -541,7 +541,7 @@ async def handle_audio_file(message: types.Message):
 
                                 edit_message = await bot.send_message(chat_id, "🔄 Подготавливаю BeatBot Fusion...", parse_mode='Markdown')
 
-                                
+                                await asyncio.sleep(2)
 
                                 await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Подготавливаю BeatBot Fusion...', parse_mode='Markdown') 
                                 
