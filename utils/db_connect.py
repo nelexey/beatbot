@@ -474,6 +474,7 @@ try:
     def set_subscription(chat_id, date):
         connect()
         with connection.cursor() as cursor:
+            cursor.execute("SET datestyle = 'DMY';")
             cursor.execute(f'''UPDATE user_limits SET free_removes_use_limit = 3, free_options_use_limit = 10, last_updated = NOW(), has_subscription=true, subscription_expiry_date = '{date}' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
             print(f'[INFO] *{chat_id}* subscription updated')
 
