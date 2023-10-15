@@ -482,7 +482,25 @@ async def handle_audio_file(message: types.Message):
                                         return
                                     else:
                                         # Скачиваем файл на сервер
-                                        await audio.download(destination_file=f'{user_dir}/{file}')  
+                                        await audio.download(destination_file=f'{user_dir}/{file}')
+
+                                        length = au.get_midi_length(f'{user_dir}/fragment.mid')
+                                        if not length:
+                                            remove(glob(f'users_sounds/{chat_id}/fragment.mid')[0])
+                                            # Удалить processing для пользователя
+                                            db_connect.del_processing(chat_id)
+                                            db_connect.set_wait_for_file(chat_id)
+                                            return await bot.send_message(chat_id, "⚠️ Не удаётся обработать этот midi файл. Пожалуйста, загрузите другой файл для обработки", parse_mode='Markdown')
+                                        
+                                        if length > 80000:
+                                        # if False:
+                                            await bot.send_message(chat_id, "🔊 Midi слишком длинное. Пожалуйста, загрузите файл длительностью до 8 минут.")
+                                            
+                                            remove(glob(f'users_sounds/{chat_id}/fragment.mid')[0])
+                                            # Удалить processing для пользователя
+                                            db_connect.del_processing(chat_id)
+                                            db_connect.set_wait_for_file(chat_id)
+                                            return
 
                                         if not glob(f'{user_dir}/*.wav') + glob(f'{user_dir}/*.mp3'):
                                             await bot.send_message(chat_id, "Отлично, теперь скинь звук в формате *mp3* или *wav*, примеры звуков есть в нашем канале @beatbotnews", parse_mode='Markdown')
@@ -523,12 +541,7 @@ async def handle_audio_file(message: types.Message):
 
                                 edit_message = await bot.send_message(chat_id, "🔄 Подготавливаю BeatBot Fusion...", parse_mode='Markdown')
 
-                                # if au.get_midi_length(f'{user_dir}/fragment.mid') > 40000:
-                                if False:
-                                    await bot.send_message(chat_id, "🔊 Midi слишком длинное. Пожалуйста, загрузите файл длительностью до 4 минут.")
-                                    # Удалить processing для пользователя
-                                    db_connect.del_processing(chat_id)
-                                    return
+                                
 
                                 await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Подготавливаю BeatBot Fusion...', parse_mode='Markdown') 
                                 
@@ -560,17 +573,17 @@ async def handle_audio_file(message: types.Message):
                                         # Если подписка устарела
                                         if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
                                             db_connect.del_subscription(chat_id)
-                                            db_connect.draw_removes_limit(chat_id)
+                                            db_connect.draw_free_options_limit(chat_id)
                                             await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")    
                                     else:  
-                                        db_connect.draw_removes_limit(chat_id)
+                                        db_connect.draw_free_options_limit(chat_id)
 
   
                             elif audio_extension in ['mp3', 'wav'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[2]]:
                                 
                                 db_connect.del_wait_for_file(chat_id)
                                 
-                                if db_connect.get_removes_limit(chat_id) > 0:
+                                if db_connect.get_free_options_limit(chat_id) > 0:
                                     # Проверяем размер директории users_sounds
                                     total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
                                     
@@ -642,10 +655,10 @@ async def handle_audio_file(message: types.Message):
                                             # Если подписка устарела
                                             if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
                                                 db_connect.del_subscription(chat_id)
-                                                db_connect.draw_removes_limit(chat_id)
+                                                db_connect.draw_free_options_limit(chat_id)
                                                 await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")    
                                         else:  
-                                            db_connect.draw_removes_limit(chat_id)
+                                            db_connect.draw_free_options_limit(chat_id)
                                         
                                     
                                     for file in glob(f'{user_dir}/*.*'):

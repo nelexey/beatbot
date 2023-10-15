@@ -45,7 +45,7 @@ class Audio_Action():
             return milliseconds
         except Exception as e:
             print(e)
-            return e
+            return False
     
     # Изменить темп аудио
     @staticmethod
