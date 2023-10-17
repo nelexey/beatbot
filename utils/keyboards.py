@@ -29,14 +29,14 @@ MENU_BUTTON = '⬅️ В меню'
 STYLES_BUTTON = '⬅️ К стилям'
 
 options = {
-    'Speed UP':   'speed_up',
-    'Slowed+RVB': 'slow_down',
-    'Remove Vocal': 'remove_vocal',
+    '⏩ Speed UP':   'speed_up',
+    '⏪ Slowed+RVB': 'slow_down',
+    '🗣 Remove Vocal': 'remove_vocal',
     'Улучшение звука': 'normalize_sound',
     'Опр. тональность': 'key_finder',
     'Опр. темп': 'bpm_finder',
     'BASSBOOST': 'bass_boost',
-    'MIDI + WAV': 'midi_to_wav'
+    '🔥 Музыка из своих звуков': 'midi_to_wav'
 }
 
 

@@ -47,7 +47,7 @@ beat_price = config.beat_price # RUB
 start_balance = config.start_balance # RUB
 
 # Константы сообщений
-MENU_MESSAGE_TEXT = "🔣 <b>МЕНЮ</b>\n\nЛучший и единственный бот для комплексной работы со звуком, а также возможностью генерации битов на основе обученной нейронной сети.\n\n<b>Генерация:</b>\n— 🎙️<b>Бит под запись</b>🎙️\n\n<b>Работа с аудио:</b>\n— ⏩ Сделать <b>speed up</b>\n— ⏪ Сделать <b>slowed + reverb</b>\n— 🔀️ <b>Vocal Remover</b>\n— 📶 <b>Улучшение</b> звука\n— #️⃣ Определитель <b>тональности</b>\n— ⏩ Определитель <b>темпа</b>\n— ⭐ <b>BASSBOOST</b>\n\nНаш телеграм-канал: @beatbotnews"
+MENU_MESSAGE_TEXT = "🔣 <b>МЕНЮ</b>\n\nЛучший и единственный бот для комплексной работы со звуком, а также возможностью генерации битов на основе обученной нейронной сети.\n\n<b>Генерация:</b>\n— 🎙️<b>Бит под запись</b>🎙️\n\n<b>Работа с аудио:</b>\n— ⏩ Сделать <b>speed up</b>\n— ⏪ Сделать <b>slowed + reverb</b>\n— 🔀️ <b>Vocal Remover</b>\n— 📶 <b>Улучшение</b> звука\n— #️⃣ Определитель <b>тональности</b>\n— ⏩ Определитель <b>темпа</b>\n— ⬆️ <b>BASSBOOST</b>\n— 🔥 <b>Музыка из своих звуков</b>\n\nНаш телеграм-канал: @beatbotnews"
 STYLES_MESSAGE_TEXT = '🪩 *СТИЛИ*\n\nЯ могу генерировать в разных стилях, каждый из них имеет свои особенности. Такие биты подойдут под запись голоса.\n\n*⏺ - Стиль*\n⏺ - Темп\n⏺ - Лад\n⏺ - Формат'
 
 # Безопасный запуск
@@ -70,7 +70,7 @@ async def safe_launch():
         try:
             for chat_id in launch.removes_mailing_list:
                 beat_keyboard = InlineKeyboardMarkup().add(keyboards.btn_free_options)
-                await bot.send_message(chat_id, '⚙️ Сожалею, но во время разделения трека бот перезапустился\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Твоё количество использований бесплатных опций не уменьшилось.\n\nТы можешь использовать опцию ещё раз 👉', reply_markup=beat_keyboard)          
+                await bot.send_message(chat_id, '⚙️ Сожалею, но во время обработки бот перезапустился\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Твоё количество использований бесплатных опций не уменьшилось.\n\nТы можешь использовать опцию ещё раз 👉', reply_markup=beat_keyboard)          
                 db_connect.logger(chat_id, '[RELOAD]', 'Перезапуск во время содзания remove_vocal')
         except Exception as e:
             print(e)
@@ -492,7 +492,7 @@ async def handle_audio_file(message: types.Message):
                                             db_connect.set_wait_for_file(chat_id)
                                             return await bot.send_message(chat_id, "⚠️ Не удаётся обработать этот midi файл. Пожалуйста, загрузите другой файл для обработки", parse_mode='Markdown')
                                         
-                                        if length > 80000:
+                                        if length > 480000:
                                         # if False:
                                             await bot.send_message(chat_id, "🔊 Midi слишком длинное. Пожалуйста, загрузите файл длительностью до 8 минут.")
                                             
@@ -523,20 +523,31 @@ async def handle_audio_file(message: types.Message):
                                         db_connect.set_wait_for_file(chat_id)
                                        
                                         return
+
                                     else: 
                                         # Скачиваем файл на сервер
                                         await audio.download(destination_file=f'{user_dir}/{file}')
+
+                                        db_connect.set_chosen_extension(chat_id, audio_extension)
+
+                                        # Проверяем длительность аудио
+                                        max_duration_seconds = 10 # sec
+                                        audio_duration = get_duration(path=f'{user_dir}/{file}')
+                                        print(audio_duration)
+                                        if audio_duration > max_duration_seconds:  # Преобразуем в миллисекунды
+                                            au.crop_audio(f'{user_dir}/{file}', max_duration_seconds)
+                                            await bot.send_message(chat_id, "🔊 Аудио обрезано до 10 секунд")
+                                        
                                         if not glob(f'{user_dir}/*.mid'):
                                             await bot.send_message(chat_id, "Хорошо, теперь скинь трек в формате *mid*, примеры треков есть в нашем канале @beatbotnews, можешь использовать их.", parse_mode='Markdown')
                                             
+                                            db_connect.set_wait_for_file(chat_id)
+
                                             # Удалить processing для пользователя
                                             db_connect.del_processing(chat_id)
 
-                                            db_connect.set_chosen_extension(chat_id, audio_extension)
-                                            db_connect.set_wait_for_file(chat_id)
-                                        
                                             return
-                                
+                                        
                                 audio_extension = db_connect.get_chosen_extension(chat_id)
 
                                 edit_message = await bot.send_message(chat_id, "🔄 Подготавливаю BeatBot Fusion...", parse_mode='Markdown')
@@ -1206,6 +1217,10 @@ async def process_the_sound(c: types.CallbackQuery):
                         db_connect.set_chosen_style(chat_id, user_chosen_option)  
 
                         db_connect.set_wait_for_file(chat_id)
+
+                        for file in glob(f'users_sounds/{chat_id}/fragment.wav') + glob(f'users_sounds/{chat_id}/fragment.mp3'):
+                            print(file)
+                            remove(file)
 
                         # Отправка сообщения
                         await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *MIDI TO WAV*\n\n*Создать музыку из своих звуков*\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.\nПотом скинь музыку в формате *.mid*. Если не знаешь, как это работает, можешь выбрать примеры *.mid* файлов из нашего канала.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')

@@ -25,7 +25,29 @@ class Audio_Action():
 
     # Обрезать аудио на демо-версии в формате mp3 и сохранить.
     @staticmethod
-    def trimmed_audio(file_path):
+    def crop_audio(input_path, duration_seconds):
+        # Загрузите аудиофайл
+        audio = AudioSegment.from_file(input_path)
+        
+        # Определите сколько миллисекунд нужно обрезать
+        crop_duration = duration_seconds * 1000
+        
+        # Обрежьте аудиофайл
+        cropped_audio = audio[:crop_duration]
+        
+        # Получите имя файла и путь из исходного пути
+        file_name = path.basename(input_path)
+        file_path = path.dirname(input_path)
+        
+        # Сгенерируйте путь для сохранения обрезанного файла
+        output_path = path.join(file_path, f"{file_name}")
+        
+        # Сохраните обрезанный файл по новому пути
+        cropped_audio.export(output_path, format=input_path.split('.')[-1])
+
+    # Обрезать аудио на демо-версии в формате mp3 и сохранить.
+    @staticmethod
+    def cut_from_start(file_path):
         sound = AudioSegment.from_file(file_path)
         trimmed = sound[35000:50000]
         new_file_path = f"{path.splitext(file_path)[0]}_short.mp3"
