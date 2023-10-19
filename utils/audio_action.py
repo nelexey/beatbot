@@ -1,6 +1,7 @@
 import librosa
 from utils.keyfinder import Tonal_Fragment
 from pydub import AudioSegment
+from pydub.silence import split_on_silence
 from os import path
 import mido
 
@@ -54,9 +55,9 @@ class Audio_Action():
         trimmed.export(new_file_path, format=f"mp3")
 
     @staticmethod
-    def get_midi_length(file_path):
+    def get_midi_length(file):
         try:
-            mid = mido.MidiFile(file_path)
+            mid = mido.MidiFile(file)
             
             # Получаем длину в тиках
             ticks = mid.length
@@ -99,3 +100,20 @@ class Audio_Action():
         #     # Преобразование обратно в AudioSegment
         #     x = AudioSegment(x.tobytes(), frame_rate=44100, sample_width=x.dtype.itemsize, channels=1)
         return x
+    
+    @staticmethod
+    def remove_start_silence(audio, silence_thresh = -40):
+        try:
+            # Найдите индекс первого сегмента, не являющегося тишиной
+            start_idx = next((i for i, seg in enumerate(audio) if seg.dBFS > silence_thresh), None)
+
+            if start_idx is not None:
+                # Обрежьте тишину в начале аудио
+                audio_trimmed = audio[start_idx:]
+                print('Silence deleted.')
+                return audio_trimmed
+            else:
+                print('No silence found.')
+        except Exception as e:
+            print('Unable to delete silence from audio. Returning same audio...')
+            return audio

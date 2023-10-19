@@ -437,8 +437,10 @@ async def handle_audio_file(message: types.Message):
                                     
                                     else:
                                         await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
+                                        
                                 else:
                                     await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
+
                                     db_connect.del_wait_for_file(chat_id)
 
                             elif audio_extension in ['mp3', 'wav', 'mid'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[7]]:
@@ -446,6 +448,8 @@ async def handle_audio_file(message: types.Message):
                                 if db_connect.get_free_options_limit(chat_id) <= 0:
                                     await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
                                     db_connect.del_wait_for_file(chat_id)
+                                    # Удалить processing для пользователя
+                                    db_connect.del_processing(chat_id)
                                     return
                                 
                                 db_connect.del_wait_for_file(chat_id)
@@ -1119,7 +1123,7 @@ async def process_the_sound(c: types.CallbackQuery):
                         db_connect.set_wait_for_file(chat_id)
 
                         # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *REMOVE VOCAL*\n\nРазделить трек на бит и голос\n\nСкинь сюда свой звук в формате *.mp3* или *.wav*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🗣 *REMOVE VOCAL*\n\nРазделить трек на бит и голос\n\nСкинь сюда свой звук в формате *.mp3* или *.wav*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
 
                         # Удалить processing для пользователя
                         db_connect.del_processing(chat_id)
@@ -1223,7 +1227,7 @@ async def process_the_sound(c: types.CallbackQuery):
                             remove(file)
 
                         # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *MIDI TO WAV*\n\n*Создать музыку из своих звуков*\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.\nПотом скинь музыку в формате *.mid*. Если не знаешь, как это работает, можешь выбрать примеры *.mid* файлов из нашего канала.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
+                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🔥 *МУЗЫКА ИЗ СВОИХ ЗВУКОВ*\n\n*Создать музыку из своих звуков*\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.\nПотом скинь музыку в формате *.mid*. Если не знаешь, как это работает, можешь выбрать примеры *.mid* файлов из нашего канала.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
 
                         # Удалить processing для пользователя
                         db_connect.del_processing(chat_id)

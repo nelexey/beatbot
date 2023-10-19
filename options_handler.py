@@ -1,5 +1,6 @@
 import utils.db_connect as db_connect
 from utils.sound_markup import sound_markup
+from utils.audio_action import Audio_Action as au
 import time
 from pydub import AudioSegment
 import pyrubberband as pyrb
@@ -148,8 +149,8 @@ class Handler():
 
             # Загрузите инструмент из файла WAV
             instrument = AudioSegment.from_file(output_path, format=chosen_format)
-            # instrument = instrument.fade(from_gain=start_volume, to_gain=end_volume, start=0, end=len(instrument))
-            
+            instrument = au.remove_start_silence(instrument)
+
             track = track.overlay(instrument[:duration], position=start_time)
 
         for file in glob(f'{output_folder}/*'):
