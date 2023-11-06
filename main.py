@@ -708,9 +708,8 @@ async def handle_audio_file(message: types.Message):
 
 ## Обработка кнопок
 
-# Обработка кнопок интерфейса
 async def get_user(chat_id):
-    if db_connect.get_user(chat_id) == False:
+    if not db_connect.get_user(chat_id):
         # Отправка сообщения
         await bot.send_message(chat_id, 'Нужно перезапустить бота командой /start')
         return False
@@ -721,31 +720,45 @@ async def reset_chosen_params(chat_id: int) -> None:
     db_connect.del_chosen_bpm(chat_id)
     db_connect.del_chosen_style(chat_id)
 
+# Обработка кнопок интерфейса
+
 @dp.callback_query_handler(lambda c: c.data in keyboards.STYLES_BUTTON)
 async def return_to_styles(c: types.CallbackQuery):
     chat_id = c.message.chat.id
-    if await get_user(chat_id):
-        # Проверить, не находится ли пользователь в beats_generating
-        if db_connect.get_beats_generating(chat_id) == 0:
-            # Проверить, не находится ли пользователь в processing
-            if db_connect.get_processing(chat_id) == 0:
-                # Установить processing для пользователя
-                db_connect.set_processing(chat_id)
+    if not await get_user(chat_id):
+        return
 
-                # Обнулить выбранные пользователем параметры бита
-                await reset_chosen_params(chat_id)
+    # Проверить, не находится ли пользователь в processing
+    if db_connect.get_processing(chat_id) != 0:
+        return
 
-                if user_chosen_bpm_style.get(chat_id) is not None: 
-                    del user_chosen_bpm_style[chat_id]
-                
-                # Отправка сообщения
-                await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=STYLES_MESSAGE_TEXT, reply_markup=keyboards.styles_keyboard, parse_mode='Markdown')
-                
-                # Удалить processing для пользователя
-                db_connect.del_processing(chat_id)
-        else:
-            # Отправка оповещения
-            await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', show_alert=True)
+    # Проверить, не находится ли пользователь в beats_generating
+    if db_connect.get_beats_generating(chat_id) != 0:
+        # Отправка оповещения
+        await bot.answer_callback_query(callback_query_id=c.id, 
+                                        text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', 
+                                        show_alert=True)
+        return
+    
+    # Установить processing для пользователя
+    db_connect.set_processing(chat_id)
+
+    # Обнулить выбранные пользователем параметры бита
+    await reset_chosen_params(chat_id)
+
+    if user_chosen_bpm_style.get(chat_id) is not None: 
+        del user_chosen_bpm_style[chat_id]
+    
+    # Отправка сообщения
+    await bot.edit_message_text(chat_id=chat_id, 
+                                message_id=c.message.message_id, 
+                                text=STYLES_MESSAGE_TEXT, 
+                                reply_markup=keyboards.styles_keyboard, 
+                                parse_mode='Markdown')
+    
+    # Удалить processing для пользователя
+    db_connect.del_processing(chat_id)
+
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.UNDO_BUTTON or c.data in keyboards.MENU_BUTTON)
 async def return_to_menu(c: types.CallbackQuery):
@@ -801,7 +814,6 @@ async def show_menu(c: types.CallbackQuery):
         print(repr(e))
         # Удалить processing для пользователя
         db_connect.del_processing(c.message.chat.id)
-
 
 # Создает платёж
 async def payment(value,description):
@@ -1617,6 +1629,7 @@ async def send_beat(c: types.CallbackQuery):
             remove(file)
 
         db_connect.logger(c.message.chat.id, '[BAD]', f'send_beat (error while sending beat) | {e}')
+
 # Запуск бота
 if __name__ == '__main__':
     executor.start(dp, safe_launch())
