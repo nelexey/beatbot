@@ -310,10 +310,10 @@ try:
             print(f'[INFO] Getting beats_ready for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]
 
-    def set_removes_ready(chat_id):
+    def set_removes_ready(chat_id, status=1):
         connect()
         with connection.cursor() as cursor:
-            cursor.execute(f'''UPDATE orders SET removes_ready = 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
+            cursor.execute(f'''UPDATE orders SET removes_ready = {status} WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
             print(f'[INFO] Setting removes_ready for *{chat_id}* was successfully')
     def del_removes_ready(chat_id):
         connect()

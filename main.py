@@ -173,6 +173,12 @@ async def check_options_handler_response(chat_id, message_id):
                     edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'🔄 Отправляю трек...', parse_mode='Markdown')  
 
                     return True
+                
+                elif db_connect.get_removes_ready(chat_id) == 2:
+                    db_connect.del_removes_ready(chat_id)
+                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'0️⃣ Не удалось определить ноты в этом midi файле', parse_mode='Markdown')  
+
+                    return False
 
                 new_order_number = db_connect.get_options_query_by_chat_id(chat_id)
                 if new_order_number != order_number:

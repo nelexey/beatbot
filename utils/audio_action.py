@@ -23,6 +23,14 @@ class Audio_Action():
         except Exception as e:
             print(e)
             return None, None
+        
+    # Обрезать аудио на демо-версии в формате mp3 и сохранить.
+    @staticmethod
+    def trimmed_audio(file_path):
+        sound = AudioSegment.from_file(file_path)
+        trimmed = sound[35000:50000]
+        new_file_path = f"{path.splitext(file_path)[0]}_short.mp3"
+        trimmed.export(new_file_path, format=f"mp3")
 
     # Обрезать аудио на демо-версии в формате mp3 и сохранить.
     @staticmethod

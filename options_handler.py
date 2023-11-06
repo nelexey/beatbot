@@ -120,6 +120,13 @@ class Handler():
 
         # Загрузите данные о маркировке звука из MIDI файла
         sound_markup_data, time = sound_markup(midi_file_path)
+        
+        if not sound_markup_data:
+            db_connect.set_removes_ready(chat_id, 2)
+            for file in glob(f'users_sounds/{chat_id}/fragment.*'):
+                remove(file)
+            db_connect.del_options_query()
+            return
 
         # Создайте пустую аудиодорожку длиной 30 секунд (30 000 миллисекунд)
         track = AudioSegment.silent(duration=time)
