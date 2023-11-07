@@ -725,6 +725,7 @@ async def reset_chosen_params(chat_id: int) -> None:
 @dp.callback_query_handler(lambda c: c.data in keyboards.STYLES_BUTTON)
 async def return_to_styles(c: types.CallbackQuery):
     chat_id = c.message.chat.id
+
     if not await get_user(chat_id):
         return
 
@@ -759,15 +760,20 @@ async def return_to_styles(c: types.CallbackQuery):
     # Удалить processing для пользователя
     db_connect.del_processing(chat_id)
 
-
 @dp.callback_query_handler(lambda c: c.data in keyboards.UNDO_BUTTON or c.data in keyboards.MENU_BUTTON)
 async def return_to_menu(c: types.CallbackQuery):
     chat_id = c.message.chat.id
-    if await get_user(chat_id):
-        # Обнулить выбранные пользователем параметры бита
-        await reset_chosen_params(chat_id)
-        # Отправка сообщения
-        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=MENU_MESSAGE_TEXT, reply_markup=keyboards.menu_keyboard, parse_mode='html')
+    
+    if not await get_user(chat_id):
+        return 
+    # Обнулить выбранные пользователем параметры бита
+    await reset_chosen_params(chat_id)
+    # Отправка сообщения
+    await bot.edit_message_text(chat_id=chat_id, 
+                                message_id=c.message.message_id, 
+                                text=MENU_MESSAGE_TEXT, 
+                                reply_markup=keyboards.menu_keyboard, 
+                                parse_mode='html')
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.MENU_BUTTONS)
 async def show_menu(c: types.CallbackQuery):
@@ -775,41 +781,56 @@ async def show_menu(c: types.CallbackQuery):
         chat_id = c.message.chat.id
         pressed_button = c.data
 
-        if await get_user(chat_id):
-            if pressed_button == keyboards.BUTTON_GENERATE_BEAT:
-                # Проверить, не находится ли пользователь в beats_generating
-                if db_connect.get_beats_generating(chat_id) == 0:
-                    # Проверить, не находится ли пользователь в processing
-                    if db_connect.get_processing(chat_id) == 0:
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
+        if not await get_user(chat_id):
+            return
+        
+        # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
 
-                        # Обнулить выбранные пользователем параметры бита
-                        await reset_chosen_params(c.message.chat.id)
-
-                        # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=STYLES_MESSAGE_TEXT, reply_markup=keyboards.styles_keyboard, parse_mode='Markdown')
-                        
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-                else:
-                    # Отправка оповещения
-                    await bot.answer_callback_query(callback_query_id=c.id, text='Ты не можешь заказать еще один бит во время осуществления текущего заказа.', show_alert=True)
-
-            elif pressed_button == keyboards.BUTTON_BALANCE:
-                # Запрос баланса пользователя в таблице users
-                balance = db_connect.get_balance(chat_id)
-                # Отправка сообщения
-                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'*💰 БАЛАНС*\n\nНа твоем балансе: *{balance}₽*\n\n👉 Выбери сумму для пополнения:', reply_markup=keyboards.balance_keyboard, parse_mode='Markdown')
-
-            elif pressed_button == keyboards.BUTTON_ABOUT:
-                # Отправка сообщения
-                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'*🏡 О НАС*\n\n📌 Услугу предоставляет:\n\n👤 ИНН: 910821614530\n\n✉️ Почта для связи:\ntech.beatbot@mail.ru\n\n🌐 Официальный сайт:\nhttps://beatmaker.site', reply_markup=keyboards.undo_keyboard, parse_mode='Markdown')
-            
-            elif pressed_button == keyboards.BUTTON_TUTORIAL:          
-                # Отправка сообщения
-                await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'https://t.me/beatbotnews/31', reply_markup=keyboards.undo_keyboard, parse_mode='Markdown')
-
+        # Проверить, не находится ли пользователь в beats_generating
+        if db_connect.get_beats_generating(chat_id) != 0:
+            # Отправка оповещения
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='Ты не можешь заказать еще один бит во время осуществления текущего заказа.', 
+                                            show_alert=True)
+        # Обработка кнопок
+        if pressed_button == keyboards.BUTTON_GENERATE_BEAT:
+            # Установить processing для пользователя
+            db_connect.set_processing(chat_id)
+            # Обнулить выбранные пользователем параметры бита
+            await reset_chosen_params(c.message.chat.id)
+            # Отправка сообщения
+            await bot.edit_message_text(chat_id=chat_id, 
+                                        message_id=c.message.message_id, 
+                                        text=STYLES_MESSAGE_TEXT, 
+                                        reply_markup=keyboards.styles_keyboard, 
+                                        parse_mode='Markdown')      
+            # Удалить processing для пользователя
+            db_connect.del_processing(chat_id)
+        elif pressed_button == keyboards.BUTTON_BALANCE:
+            # Запрос баланса пользователя в таблице users
+            balance = db_connect.get_balance(chat_id)
+            # Отправка сообщения
+            await bot.edit_message_text(chat_id=c.message.chat.id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'*💰 БАЛАНС*\n\nНа твоем балансе: *{balance}₽*\n\n👉 Выбери сумму для пополнения:', 
+                                        reply_markup=keyboards.balance_keyboard, 
+                                        parse_mode='Markdown')
+        elif pressed_button == keyboards.BUTTON_ABOUT:
+            # Отправка сообщения
+            await bot.edit_message_text(chat_id=c.message.chat.id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'*🏡 О НАС*\n\n📌 Услугу предоставляет:\n\n👤 ИНН: 910821614530\n\n✉️ Почта для связи:\ntech.beatbot@mail.ru\n\n🌐 Официальный сайт:\nhttps://beatmaker.site', 
+                                        reply_markup=keyboards.undo_keyboard, 
+                                        parse_mode='Markdown')
+        elif pressed_button == keyboards.BUTTON_TUTORIAL:          
+            # Отправка сообщения
+            await bot.edit_message_text(chat_id=c.message.chat.id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'https://t.me/beatbotnews/31', 
+                                        reply_markup=keyboards.undo_keyboard, 
+                                        parse_mode='Markdown')
     except Exception as e:
         print(repr(e))
         # Удалить processing для пользователя
