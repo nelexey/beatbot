@@ -468,7 +468,7 @@ try:
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT subscription_expiry_date FROM user_limits WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Getting has_subscription for *{chat_id}* was completed successfully')
+            print(f'[INFO] Getting subscription_expiry_date for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]  
 
     def set_subscription(chat_id, date):

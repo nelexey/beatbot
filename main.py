@@ -930,95 +930,107 @@ async def check_payment(payment_id, c, type=''):
 @dp.callback_query_handler(lambda c: c.data in keyboards.BALANCE_BUTTONS or c.data == keyboards.PREMIUM_BUTTON)
 async def prepare_payment(c: types.CallbackQuery):
     try:
-
         chat_id = c.message.chat.id
 
-        if await get_user(chat_id):
-            # Проверить, не находится ли пользователь в beats_generating
-            if db_connect.get_beats_generating(chat_id) == 0:
-                # Проверить, не находится ли пользователь в processing
-                if db_connect.get_processing(chat_id) == 0:
+        if not await get_user(chat_id):
+            return
+
+        # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
+
+        # Проверить, не находится ли пользователь в beats_generating
+        if db_connect.get_beats_generating(chat_id) != 0:
+            # Отправка оповещения
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='⚠️ Ты не можешь пополнить баланс во время генерации бита.', 
+                                            show_alert=True)
+            return  
+
+        # Установить processing для пользователя
+        db_connect.set_processing(chat_id)
+
+        if users_payment_transactions.get(chat_id) is not None and c.data in users_payment_transactions[chat_id]:
+            # Удалить processing для пользователя
+            db_connect.del_processing(chat_id)
+
+            return await bot.answer_callback_query(callback_query_id=c.id, 
+                                                    text='⚠️ Вам уже сгенерирована ссылка на эту сумму для оплаты, пожалуйста оплатите по ней.', 
+                                                    show_alert=True)
+
+        # Добавление транзакции оплаты пользователя
+        if users_payment_transactions.get(chat_id) is None:
+            users_payment_transactions[chat_id] = []
+        users_payment_transactions[chat_id].append(c.data)
+
+        if c.data == keyboards.PREMIUM_BUTTON:
+            # Если подписка уже куплена
+            if db_connect.get_has_subscription(chat_id):
+                # Если подписка устарела
+                if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
+                    pass
+                else:
+                    await bot.edit_message_text(chat_id=chat_id, 
+                                                message_id=c.message.message_id, 
+                                                text='⚡️ У вас уже активна премиум подписка', 
+                                                reply_markup=keyboards.to_menu_keyboard)
+                    # Если подписка уже активна, то удалить транзакцию из списка уже сгенерированных
+                    users_payment_transactions[chat_id].remove(c.data)
+            # Если подписки нет
+            else:  
+                # Цена бита в рублях
+                price = 49
+
+                # print(users_payment_transactions)
+
+                # Отправка счета пользователю
+                payment_data = await payment(price, f'Оплата премиум подписки на месяц: {price}₽.\nchat_id: {chat_id}')
+                payment_id = payment_data['id']
+                confirmation_url = payment_data['confirmation']['confirmation_url'] 
+                # Создаем объект кнопки
+                btn = types.InlineKeyboardButton(f'Оплатить {price}₽', url=confirmation_url)
+                # Создаем объект клавиатуры и добавляем на нее кнопку
+                keyboard = types.InlineKeyboardMarkup()
+                keyboard.add(btn)
+                await bot.send_message(c.message.chat.id, f'💳 *ОПЛАТА*\n\n💾 Идентификатор чата - *{c.message.chat.id}*\nУслугу предоставляет: ИНН: 910821614530\n\n🎟️ Заказывая услугу, вы соглашаетесь с договором оферты: https://beatmaker.site/offer\n\n✉️ Техническая поддержка: *tech.beatbot@mail.ru*\n\nНажмите на ссылку под сообщением, оплатите удобным вам способом.\nПосле оплаты автоматически будет активирована премиум подписка на месяц.', 
+                                        reply_markup=keyboard, 
+                                        parse_mode='Markdown')
+
+                await check_payment(payment_id, c, 'subscription')
+            
+            # Удалить processing для пользователя
+            db_connect.del_processing(chat_id)
+
+        else:
+            # Получение цены из callback_data
+            price = int(c.data.split('₽')[0])
+
+            # print(users_payment_transactions)
+            
+            # Отправка счета пользователю
+            payment_data = await payment(price, f'Пополнение баланса на {price}₽.\nchat_id: {chat_id}')
+            payment_id = payment_data['id']
+            confirmation_url = payment_data['confirmation']['confirmation_url'] 
+            # Создаем объект кнопки
+            btn = types.InlineKeyboardButton(f'Оплатить {price}₽', url=confirmation_url)
+            # Создаем объект клавиатуры и добавляем на нее кнопку
+            keyboard = types.InlineKeyboardMarkup()
+            keyboard.add(btn)
+            await bot.send_message(c.message.chat.id, f'💳 *ПОПОЛНЕНИЕ*\n\n💾 Идентификатор чата - *{c.message.chat.id}*\nУслугу предоставляет: ИНН: 910821614530\n\n🎟️ Заказывая услугу, вы соглашаетесь с договором оферты: https://beatmaker.site/offer\n\n✉️ Техническая поддержка: *tech.beatbot@mail.ru*\n\nНажмите на ссылку под сообщением, оплатите удобным вам способом.', 
+                                    reply_markup=keyboard, 
+                                    parse_mode='Markdown')
+            # Удалить processing для пользователя
+            db_connect.del_processing(chat_id)
+            
+            await check_payment(payment_id, c, 'balance')
                     
-                    # Установить processing для пользователя
-                    db_connect.set_processing(chat_id)
-
-                    if users_payment_transactions.get(chat_id) is not None and c.data in users_payment_transactions[chat_id]:
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-                        return await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Вам уже сгенерирована ссылка на эту сумму для оплаты, пожалуйста оплатите по ней.', show_alert=True)
-         
-                    # Добавление транзакции оплаты пользователя
-                    if users_payment_transactions.get(chat_id) is None:
-                        users_payment_transactions[chat_id] = []
-                    users_payment_transactions[chat_id].append(c.data)
-
-                    if c.data == keyboards.PREMIUM_BUTTON:
-
-                        # Если нет премиум подписки, отнять от дневного лимита
-                        if db_connect.get_has_subscription(chat_id):
-                            # Если подписка устарела
-                            if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
-                                pass
-                            else:
-                                await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='⚡️ У вас уже активна премиум подписка', reply_markup=keyboards.to_menu_keyboard, parse_mode='html')
-                                
-                                # Удалить processing для пользователя
-                                db_connect.del_processing(chat_id)
-                        else:  
-
-                            price = 49
-
-                            print(users_payment_transactions)
-
-                            # Отправка счета пользователю
-                            payment_data = await payment(price, f'Оплата премиум подписки на месяц: {price}₽.\nchat_id: {chat_id}')
-                            payment_id = payment_data['id']
-                            confirmation_url = payment_data['confirmation']['confirmation_url'] 
-                            # Создаем объект кнопки
-                            btn = types.InlineKeyboardButton(f'Оплатить {price}₽', url=confirmation_url)
-                            # Создаем объект клавиатуры и добавляем на нее кнопку
-                            keyboard = types.InlineKeyboardMarkup()
-                            keyboard.add(btn)
-                            await bot.send_message(c.message.chat.id, f'💳 Нажмите на ссылку под сообщением, оплатите удобным вам способом.\n\n💾 Идентификатор чата - *{c.message.chat.id}*\nУслугу предоставляет: ИНН: 910821614530\n\n🎟️ Заказывая услугу, вы соглашаетесь с договором оферты: https://beatmaker.site/offer\n\n✉️ Техническая поддержка: *tech.beatbot@mail.ru*\n\nПосле оплаты автоматически будет активирована премиум подписка на месяц.', reply_markup=keyboard, parse_mode='Markdown')
-
-                            # Удалить processing для пользователя
-                            db_connect.del_processing(chat_id)
-
-                            await check_payment(payment_id, c, 'subscription')
-
-                    else:
-
-                        # Получение цены из callback_data
-                        price = int(c.data.split('₽')[0])
-
-                        print(users_payment_transactions)
-                        
-                        # Отправка счета пользователю
-                        payment_data = await payment(price, f'Пополнение баланса на {price}₽.\nchat_id: {chat_id}')
-                        payment_id = payment_data['id']
-                        confirmation_url = payment_data['confirmation']['confirmation_url'] 
-                        # Создаем объект кнопки
-                        btn = types.InlineKeyboardButton(f'Оплатить {price}₽', url=confirmation_url)
-                        # Создаем объект клавиатуры и добавляем на нее кнопку
-                        keyboard = types.InlineKeyboardMarkup()
-                        keyboard.add(btn)
-                        await bot.send_message(c.message.chat.id, f'💳 Нажмите на ссылку под сообщением, оплатите удобным вам способом.\n\n💾 Идентификатор чата - *{c.message.chat.id}*\nУслугу предоставляет: ИНН: 910821614530\n\n🎟️ Заказывая услугу, вы соглашаетесь с договором оферты: https://beatmaker.site/offer\n\n✉️ Техническая поддержка: *tech.beatbot@mail.ru*', reply_markup=keyboard, parse_mode='Markdown')
-                        
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-                        
-                        await check_payment(payment_id, c, 'balance')
-                    
-                    
-            else:
-                # Отправка оповещения
-                await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь пополнить баланс во время генерации бита.', show_alert=True)
     except Exception as e:   
         print(repr(e))
         # Удалить processing для пользователя
         db_connect.del_processing(c.message.chat.id) 
-
+        # Запись ошибки в логгер
         db_connect.logger(c.message.chat.id, '[BAD]', f'prepare_payment | {e}')
+
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.STYLES_BUTTONS)
 async def show_bpm(c: types.CallbackQuery):
