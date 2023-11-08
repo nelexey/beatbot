@@ -1038,38 +1038,53 @@ async def show_bpm(c: types.CallbackQuery):
         chat_id = c.message.chat.id
         user_chosen_style = c.data
 
-        if await get_user(chat_id):     
-            # Проверить, не находится ли пользователь в beats_generating
-            if db_connect.get_beats_generating(chat_id) == 0:
-                # Проверить, не находится ли пользователь в processing
-                if db_connect.get_processing(chat_id) == 0:
-                    if db_connect.get_chosen_style(chat_id) == '':
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
+        if not await get_user(chat_id): 
+            return
 
-                        db_connect.set_chosen_style(chat_id, user_chosen_style)  
+            # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
 
-                        if user_chosen_bpm_style.get(chat_id) is None: 
-                            current_bpm = keyboards.BPM_BUTTONS[user_chosen_style][1]
-                            
-                            user_chosen_bpm_style[chat_id] = [current_bpm, user_chosen_style] 
+        # Проверить, не находится ли пользователь в beats_generating
+        if db_connect.get_beats_generating(chat_id) != 0:
+            # Отправка оповещения
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', 
+                                            show_alert=True)
+            return
 
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ТЕМП*\n\nТеперь отрегулируй темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\nРегулируй желаемый bpm кнопками на клавиатуре. *Подтверди* выбранный темп: *{keyboards.BPM_BUTTONS[user_chosen_style][1]}*\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Лад\n⏺ - Формат\n\n', reply_markup=keyboards.bpm_keyboard, parse_mode='Markdown') 
-                        
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-                    else:
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Похоже, что ты уже выбрал другой стиль в другом сообщении, закончи выбор параметров твоего бита там же\n\n...или начни новый выбор параметров здесь 👉', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
+        # Если никакой стиль до этого не был выбран
+        if db_connect.get_chosen_style(chat_id) == '':
+            # Установить processing для пользователя
+            db_connect.set_processing(chat_id)
 
-            else:
-                # Отправка оповещения
-                await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', show_alert=True)
+            db_connect.set_chosen_style(chat_id, user_chosen_style)  
 
+            if user_chosen_bpm_style.get(chat_id) is None: 
+                current_bpm = keyboards.BPM_BUTTONS[user_chosen_style][1]
+                
+                user_chosen_bpm_style[chat_id] = [current_bpm, user_chosen_style] 
+
+            await bot.edit_message_text(chat_id=chat_id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'🪩 *ТЕМП*\n\nТеперь отрегулируй темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\nРегулируй желаемый bpm кнопками на клавиатуре. *Подтверди* выбранный темп: *{keyboards.BPM_BUTTONS[user_chosen_style][1]}*\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Лад\n⏺ - Формат\n\n', 
+                                        reply_markup=keyboards.bpm_keyboard, 
+                                        parse_mode='Markdown') 
+            
+            # Удалить processing для пользователя
+            db_connect.del_processing(chat_id)
+        # Если вдруг какой-либо из стилей был выбран
+        else:
+            await bot.edit_message_text(chat_id=chat_id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'⚠️ Похоже, что вами уже выбран другой стиль в другом сообщении, закончите выбор параметров вашего бита там же\n\n...или начните новый выбор параметров здесь 👉', 
+                                        reply_markup=keyboards.to_styles_keyboard, 
+                                        parse_mode='Markdown')
     except Exception as e:
         print(repr(e))
         # Удалить processing для пользователя
         db_connect.del_processing(c.message.chat.id)
-
+        # Запись ошибки в логгер
         db_connect.logger(c.message.chat.id, '[BAD]', f'show_bpm | {e}')
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.CATEGORIES_BUTTONS)
