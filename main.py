@@ -1089,40 +1089,51 @@ async def show_bpm(c: types.CallbackQuery):
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.CATEGORIES_BUTTONS)
 async def free_options(c: types.CallbackQuery):
-    chat_id = c.message.chat.id
-    pressed_button = c.data
     try:
-        if await get_user(chat_id):
-            if pressed_button == keyboards.BUTTON_CATEGORY_FREE_OPTIONS:
-                # Проверить, не находится ли пользователь в beats_generating
-                if db_connect.get_beats_generating(chat_id) == 0:
-                    # Проверить, не находится ли пользователь в processing
-                    if db_connect.get_processing(chat_id) == 0:
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
+        chat_id = c.message.chat.id
+        pressed_button = c.data
 
-                        # Обнулить выбранные пользователем параметры бита
-                        await reset_chosen_params(c.message.chat.id)
+        if not await get_user(chat_id): 
+            return
 
-                        await refill_limits(chat_id)
+            # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
 
-                        # Отправка сообщения
-                        if db_connect.get_has_subscription(chat_id):
-                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🆓 *БЕСПЛАТНЫЕ ОПЦИИ*\n\nМы предоставляем некоторые бесплатные опции для обработки вашего звука.\n\nЕжесуточные лимиты:\n*♾ БЕЗЛИМИТ до {db_connect.get_subscription_expiry_date(chat_id)}*\n\nОбработчик поддерживает *.mp3* формат для всех опций, а также *.wav* для вокал-ремувера.\nБесплатные опции доступны только подписчикам нашего официального канала: *@beatbotnews*', reply_markup=keyboards.free_keyboard, parse_mode='Markdown')
-                        else:
-                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🆓 *БЕСПЛАТНЫЕ ОПЦИИ*\n\nМы предоставляем некоторые бесплатные опции для обработки вашего звука.\n\nЕжесуточные лимиты:\n*{db_connect.get_free_options_limit(chat_id)}/10* использований бесплатных опций\n*♾ Безлимит на месяц всего за 49₽*\n\nОбработчик поддерживает *.mp3* формат для всех опций, а также *.wav* для вокал-ремувера.\nБесплатные опции доступны только подписчикам нашего официального канала: *@beatbotnews*', reply_markup=keyboards.free_keyboard, parse_mode='Markdown')
-                        
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-                else:
-                    # Отправка оповещения
-                    await bot.answer_callback_query(callback_query_id=c.id, text='Ты не можешь воспользоваться беслпатными опциями во время генерации бита', show_alert=True)
+        # Проверить, не находится ли пользователь в beats_generating
+        if db_connect.get_beats_generating(chat_id) != 0:
+            # Отправка оповещения
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', 
+                                            show_alert=True)
+            return
+        # Установить processing для пользователя
+        db_connect.set_processing(chat_id)
+        # Обнулить выбранные пользователем параметры бита
+        await reset_chosen_params(c.message.chat.id)
+        # Пополнить лимиты, нужно каждый раз вызывать для точного отображение остатков на стороне клиента
+        await refill_limits(chat_id)
+        # Отправка сообщения
+        if db_connect.get_has_subscription(chat_id):
+            await bot.edit_message_text(chat_id=chat_id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'🆓 *БЕСПЛАТНЫЕ ОПЦИИ*\n\nМы предоставляем некоторые бесплатные опции для обработки вашего звука.\n\nЕжесуточные лимиты:\n*♾ БЕЗЛИМИТ до {db_connect.get_subscription_expiry_date(chat_id)}*\n\nОбработчик поддерживает *.mp3* формат для всех опций, а также *.wav* для вокал-ремувера.\nБесплатные опции доступны только подписчикам нашего официального канала: *@beatbotnews*', 
+                                        reply_markup=keyboards.free_keyboard, 
+                                        parse_mode='Markdown')
+        else:
+            await bot.edit_message_text(chat_id=chat_id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'🆓 *БЕСПЛАТНЫЕ ОПЦИИ*\n\nМы предоставляем некоторые бесплатные опции для обработки вашего звука.\n\nЕжесуточные лимиты:\n*{db_connect.get_free_options_limit(chat_id)}/10* использований бесплатных опций\n*♾ Безлимит на месяц всего за 49₽*\n\nОбработчик поддерживает *.mp3* формат для всех опций, а также *.wav* для вокал-ремувера.\nБесплатные опции доступны только подписчикам нашего официального канала: *@beatbotnews*', 
+                                        reply_markup=keyboards.free_keyboard, 
+                                        parse_mode='Markdown')
+        # Удалить processing для пользователя
+        db_connect.del_processing(chat_id)
 
     except Exception as e:
         print(repr(e))
         # Удалить processing для пользователя
         db_connect.del_processing(c.message.chat.id)
-
+        # Запись ошибки в логгер
         db_connect.logger(c.message.chat.id, '[BAD]', f'free_options | {e}')
     
 @dp.callback_query_handler(lambda c: c.data in keyboards.OPTIONS_BUTTONS)
@@ -1312,7 +1323,7 @@ async def process_the_sound(c: types.CallbackQuery):
 user_chosen_bpm_style = {}
 
 @dp.callback_query_handler(lambda c: c.data  in list(itertools.chain(*keyboards.BPM_BUTTONS_CONTROLLER.values())))
-async def show_bpm(c: types.CallbackQuery):
+async def set_bpm(c: types.CallbackQuery):
     try:
         chat_id = c.message.chat.id
 
