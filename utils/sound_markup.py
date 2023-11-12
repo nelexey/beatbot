@@ -7,12 +7,12 @@ def sound_markup(midi_file_path):
     # Инициализируем переменную для хранения начального темпа в BPM
     initial_bpm = None
 
+    # Время начала: [[нота, время начала, длина]]
+    sound_markup = []
+
     # Проходимся по всем трекам в MIDI файле
     for i, track in enumerate(midi_file.tracks):
         # print(f"Track {i}:")
-
-        # Время начала: [[нота, время начала, длина]]
-        sound_markup = []
 
         start_time = 0
         # Перебираем сообщения
@@ -45,6 +45,6 @@ def sound_markup(midi_file_path):
 
                 print(f'{msg.type} -> {msg.time} ms | note: {msg.note} | velocity: {msg.velocity}')
        
-    print(sound_markup)
+    # print(sound_markup)
     return sound_markup, start_time
 
