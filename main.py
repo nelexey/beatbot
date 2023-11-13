@@ -100,7 +100,7 @@ async def menu(message: types.Message):
 async def echo(message: types.Message):
     await bot.send_message(message.chat.id, 'Я не воспринимаю текстовые команды\n\nВызвать меню можно по команде /menu или нажав на кнопку в нижнем левом углу экрана.')
 
-## Обработка аудио файлов.
+## Обработка аудио файлов
 
 # Функция для проверки размера директории users_sounds
 def get_directory_size(directory):
@@ -451,6 +451,10 @@ async def handle_audio_file(message: types.Message):
 
                             elif audio_extension in ['mp3', 'wav', 'mid'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[7]]:
                                 #TODO
+
+                                for file in glob(f'users_sounds/{chat_id}/fragment.wav') + glob(f'users_sounds/{chat_id}/fragment.mp3'):
+                                    remove(file)
+
                                 if db_connect.get_free_options_limit(chat_id) <= 0:
                                     await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
                                     db_connect.del_wait_for_file(chat_id)
@@ -978,8 +982,8 @@ async def prepare_payment(c: types.CallbackQuery):
                     users_payment_transactions[chat_id].remove(c.data)
             # Если подписки нет
             else:  
-                # Цена бита в рублях
-                price = 49
+                # Цена подписки в рублях
+                price = 69
 
                 # print(users_payment_transactions)
 
@@ -1123,7 +1127,7 @@ async def free_options(c: types.CallbackQuery):
         else:
             await bot.edit_message_text(chat_id=chat_id, 
                                         message_id=c.message.message_id, 
-                                        text=f'🆓 *БЕСПЛАТНЫЕ ОПЦИИ*\n\nМы предоставляем некоторые бесплатные опции для обработки вашего звука.\n\nЕжесуточные лимиты:\n*{db_connect.get_free_options_limit(chat_id)}/10* использований бесплатных опций\n*♾ Безлимит на месяц всего за 49₽*\n\nОбработчик поддерживает *.mp3* формат для всех опций, а также *.wav* для вокал-ремувера.\nБесплатные опции доступны только подписчикам нашего официального канала: *@beatbotnews*', 
+                                        text=f'🆓 *БЕСПЛАТНЫЕ ОПЦИИ*\n\nМы предоставляем некоторые бесплатные опции для обработки вашего звука.\n\nЕжесуточные лимиты:\n*{db_connect.get_free_options_limit(chat_id)}/10* использований бесплатных опций\n*♾ Безлимит на месяц всего за 69₽*\n\nОбработчик поддерживает *.mp3* формат для всех опций, а также *.wav* для вокал-ремувера.\nБесплатные опции доступны только подписчикам нашего официального канала: *@beatbotnews*', 
                                         reply_markup=keyboards.free_keyboard, 
                                         parse_mode='Markdown')
         # Удалить processing для пользователя
