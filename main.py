@@ -452,9 +452,6 @@ async def handle_audio_file(message: types.Message):
                             elif audio_extension in ['mp3', 'wav', 'mid'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[7]]:
                                 #TODO
 
-                                for file in glob(f'users_sounds/{chat_id}/fragment.wav') + glob(f'users_sounds/{chat_id}/fragment.mp3'):
-                                    remove(file)
-
                                 if db_connect.get_free_options_limit(chat_id) <= 0:
                                     await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
                                     db_connect.del_wait_for_file(chat_id)
@@ -1142,179 +1139,65 @@ async def free_options(c: types.CallbackQuery):
     
 @dp.callback_query_handler(lambda c: c.data in keyboards.OPTIONS_BUTTONS)
 async def process_the_sound(c: types.CallbackQuery):
-    chat_id = c.message.chat.id
-    pressed_button = c.data
     try:
-        if await get_user(chat_id):
-            if db_connect.get_beats_generating(chat_id) == 0:
-                # Проверить, не находится ли пользователь в processing
-                if db_connect.get_processing(chat_id) == 0:
-                     
-                    if pressed_button == keyboards.OPTIONS_BUTTONS[0]:
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
+        chat_id = c.message.chat.id
+        pressed_button = c.data
 
-                        # Обнулить выбранные пользователем параметры бита
-                        await reset_chosen_params(c.message.chat.id)
+        if not await get_user(chat_id):
+            return
 
-                        user_chosen_option = 'speed_up'
+        # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
 
-                        db_connect.set_chosen_style(chat_id, user_chosen_option)  
+        # Проверить, не находится ли пользователь в beats_generating
+        if db_connect.get_beats_generating(chat_id) != 0:
+            # Отправка оповещения
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='⚠️ Ты не можешь воспользоваться бесплатными опциями во время генерации бита.', 
+                                            show_alert=True)
+                                            
+            return
+        
+        # Обнулить выбранные пользователем параметры бита
+        await reset_chosen_params(c.message.chat.id)
 
-                        db_connect.set_wait_for_file(chat_id)
+        for file in glob(f'users_sounds/{chat_id}/fragment.wav') + glob(f'users_sounds/{chat_id}/fragment.mp3'):
+            remove(file)
 
-                        # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *SPEED UP*\n\nУвеличить темп аудио\n\nСкинь сюда свой звук в формате *.mp3*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
+        # Установить processing для пользователя
+        db_connect.set_processing(chat_id)
 
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
+        # Ключ - текст на кнопке, список: 1значение - текст ответа, 2значение - название опции.
+        button_text_arr = {
+            keyboards.OPTIONS_BUTTONS[0]: ['🆓 *SPEED UP*\n\nУвеличить темп аудио\n\nСкинь сюда свой звук в формате *.mp3*.',
+                                            'speed_up'],
+            keyboards.OPTIONS_BUTTONS[1]: ['🆓 *SLOWED + REVERB*\n\nЗамедлить звук\n\nСкинь сюда свой звук в формате *.mp3*.', 
+                                            'slow_down'],
+            keyboards.OPTIONS_BUTTONS[2]: ['🗣 *REMOVE VOCAL*\n\nРазделить трек на бит и голос\n\nСкинь сюда свой звук в формате *.mp3* или *.wav*.', 
+                                            'remove_vocal'],
+            keyboards.OPTIONS_BUTTONS[3]: ['🆓 *NORMALIZE SOUND*\n\nНормализовать качество звука\n\nСкинь сюда свой звук в формате *.mp3* или *.wav*\nТебе вернётся звук в формате *.wav*.', 
+                                            'normalize_sound'],
+            keyboards.OPTIONS_BUTTONS[4]: ['🆓 *KEY FINDER*\n\nОпределить тональность\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*, *.ogg*, *.flac*.',
+                                            'key_finder'],
+            keyboards.OPTIONS_BUTTONS[5]: ['🆓 *BPM FINDER*\n\nОпределить темп\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.',
+                                            'bpm_finder'],
+            keyboards.OPTIONS_BUTTONS[6]: ['🆓 *BASSBOOST*\n\nПовысить низкие частоты\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.',
+                                            'bass_boost'],
+            keyboards.OPTIONS_BUTTONS[7]: ['🔥 *МУЗЫКА ИЗ СВОИХ ЗВУКОВ*\n\n*Создать музыку из своих звуков*\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.\nПотом скинь музыку в формате *.mid*. Если не знаешь, как это работает, можешь выбрать примеры *.mid* файлов из нашего канала.', 
+                                            'midi_to_wav'],
+        }
 
-                    elif pressed_button == keyboards.OPTIONS_BUTTONS[1]:
+        user_chosen_option = button_text_arr[pressed_button][1]
+        db_connect.set_chosen_style(chat_id, user_chosen_option)  
 
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
+        db_connect.set_wait_for_file(chat_id)
 
-                        # Обнулить выбранные пользователем параметры бита
-                        await reset_chosen_params(c.message.chat.id)
+        # Отправка сообщения
+        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=button_text_arr[pressed_button][0], reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
 
-                        user_chosen_option = 'slow_down'
-
-                        db_connect.set_chosen_style(chat_id, user_chosen_option)  
-
-                        db_connect.set_wait_for_file(chat_id)
-
-                        # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *SLOWED + REVERB*\n\nЗамедлить звук\n\nСкинь сюда свой звук в формате *.mp3*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
-
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-                    
-                    elif pressed_button == keyboards.OPTIONS_BUTTONS[2]:
-
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
-
-                        # Обнулить выбранные пользователем параметры бита
-                        await reset_chosen_params(c.message.chat.id)
-
-                        user_chosen_option = 'remove_vocal'
-
-                        db_connect.set_chosen_style(chat_id, user_chosen_option)  
-
-                        db_connect.set_wait_for_file(chat_id)
-
-                        # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🗣 *REMOVE VOCAL*\n\nРазделить трек на бит и голос\n\nСкинь сюда свой звук в формате *.mp3* или *.wav*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
-
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-
-                    elif pressed_button == keyboards.OPTIONS_BUTTONS[3]:
-
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
-
-                        # Обнулить выбранные пользователем параметры бита
-                        await reset_chosen_params(c.message.chat.id)
-
-                        user_chosen_option = 'normalize_sound'
-
-                        db_connect.set_chosen_style(chat_id, user_chosen_option)  
-
-                        db_connect.set_wait_for_file(chat_id)
-
-                        # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *NORMALIZE SOUND*\n\nНормализовать качество звука\n\nСкинь сюда свой звук в формате *.mp3* или *.wav*\nТебе вернётся звук в формате *.wav*', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
-
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-
-                    elif pressed_button == keyboards.OPTIONS_BUTTONS[4]:
-
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
-
-                        # Обнулить выбранные пользователем параметры бита
-                        await reset_chosen_params(c.message.chat.id)
-
-                        user_chosen_option = 'key_finder'
-
-                        db_connect.set_chosen_style(chat_id, user_chosen_option)  
-
-                        db_connect.set_wait_for_file(chat_id)
-
-                        # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *KEY FINDER*\n\nОпределить тональность\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*, *.ogg*, *.flac*.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
-
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-
-                    elif pressed_button == keyboards.OPTIONS_BUTTONS[5]:
-
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
-
-                        # Обнулить выбранные пользователем параметры бита
-                        await reset_chosen_params(c.message.chat.id)
-
-                        user_chosen_option = 'bpm_finder'
-
-                        db_connect.set_chosen_style(chat_id, user_chosen_option)  
-
-                        db_connect.set_wait_for_file(chat_id)
-
-                        # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *BPM FINDER*\n\nОпределить темп\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
-
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-                    
-                    elif pressed_button == keyboards.OPTIONS_BUTTONS[6]:
-
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
-
-                        # Обнулить выбранные пользователем параметры бита
-                        await reset_chosen_params(c.message.chat.id)
-
-                        user_chosen_option = 'bass_boost'
-
-                        db_connect.set_chosen_style(chat_id, user_chosen_option)  
-
-                        db_connect.set_wait_for_file(chat_id)
-
-                        # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🆓 *BASSBOOST*\n\nПовысить низкие частоты\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
-
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-                    
-                    elif pressed_button == keyboards.OPTIONS_BUTTONS[7]:
-
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
-
-                        # Обнулить выбранные пользователем параметры бита
-                        await reset_chosen_params(c.message.chat.id)
-
-                        user_chosen_option = 'midi_to_wav'
-
-                        db_connect.set_chosen_style(chat_id, user_chosen_option)  
-
-                        db_connect.set_wait_for_file(chat_id)
-
-                        for file in glob(f'users_sounds/{chat_id}/fragment.wav') + glob(f'users_sounds/{chat_id}/fragment.mp3'):
-                            print(file)
-                            remove(file)
-
-                        # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text='🔥 *МУЗЫКА ИЗ СВОИХ ЗВУКОВ*\n\n*Создать музыку из своих звуков*\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.\nПотом скинь музыку в формате *.mid*. Если не знаешь, как это работает, можешь выбрать примеры *.mid* файлов из нашего канала.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
-
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-            else:
-                # Отправка оповещения
-                await bot.answer_callback_query(callback_query_id=c.id, text='Ты не можешь воспользоваться бесплатными опциями во время генерации бита', show_alert=True)
+        # Удалить processing для пользователя
+        db_connect.del_processing(chat_id)
 
     except Exception as e:
         print(repr(e))

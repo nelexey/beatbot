@@ -176,7 +176,7 @@ class Handler():
             if query is not None:
                 chat_id, chosen_format, order_number = query[0], query[1], query[2]
 
-                if db_connect.get_chosen_style(chat_id)=='vocal_remover':
+                if db_connect.get_chosen_style(chat_id)=='remove_vocal':
                     Handler.remove_vocal(chat_id, chosen_format)
                 elif db_connect.get_chosen_style(chat_id)=='midi_to_wav':                    
                     Handler.midi_to_wav(chat_id, chosen_format)
