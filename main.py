@@ -1068,7 +1068,7 @@ async def show_bpm(c: types.CallbackQuery):
 
             await bot.edit_message_text(chat_id=chat_id, 
                                         message_id=c.message.message_id, 
-                                        text=f'🪩 *ТЕМП*\n\nТеперь отрегулируй темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\nРегулируй желаемый bpm кнопками на клавиатуре. *Подтверди* выбранный темп: *{keyboards.BPM_BUTTONS[user_chosen_style][1]}*\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Лад\n⏺ - Формат\n\n', 
+                                        text=f'🪩 *ТЕМП*\n\nТеперь отрегулируй темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\nРегулируй желаемый *bpm* кнопками на клавиатуре. *Подтверди* выбранный темп: *{keyboards.BPM_BUTTONS[user_chosen_style][1]}*\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Лад\n⏺ - Формат\n\n', 
                                         reply_markup=keyboards.bpm_keyboard, 
                                         parse_mode='Markdown') 
             
@@ -1186,6 +1186,8 @@ async def process_the_sound(c: types.CallbackQuery):
                                             'bass_boost'],
             keyboards.OPTIONS_BUTTONS[7]: ['🔥 *МУЗЫКА ИЗ СВОИХ ЗВУКОВ*\n\n*Создать музыку из своих звуков*\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.\nПотом скинь музыку в формате *.mid*. Если не знаешь, как это работает, можешь выбрать примеры *.mid* файлов из нашего канала.', 
                                             'midi_to_wav'],
+            keyboards.OPTIONS_BUTTONS[8]: ['Пифмы и ранчи', 
+                                            'rhymes'],
         }
 
         user_chosen_option = button_text_arr[pressed_button][1]
@@ -1203,7 +1205,7 @@ async def process_the_sound(c: types.CallbackQuery):
         print(repr(e))
         # Удалить processing для пользователя
         db_connect.del_processing(c.message.chat.id)
-
+        # Запись ошибки в логгер
         db_connect.logger(c.message.chat.id, '[BAD]', f'process_the_sound | {e}')
 
 # Сохраняет выбранный пользователем bpm и style во время редактирования сообщения ботом. chat_id: ['bpm', 'style']
@@ -1214,43 +1216,76 @@ async def set_bpm(c: types.CallbackQuery):
     try:
         chat_id = c.message.chat.id
 
-        if await get_user(chat_id):     
-            # Проверить, не находится ли пользователь в beats_generating
-            if db_connect.get_beats_generating(chat_id) == 0:
-                # Проверить, не находится ли пользователь в processing
-                if db_connect.get_processing(chat_id) == 0:
+        if not await get_user(chat_id): 
+            return
 
-                    # Установить processing для пользователя
-                    db_connect.set_processing(chat_id)
+            # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
 
-                    user_chosen_style = db_connect.get_chosen_style(chat_id)
-                    
-                    calculate_bpm = int(user_chosen_bpm_style[chat_id][0].split('b')[0]) + int(c.data)
+        # Проверить, не находится ли пользователь в beats_generating
+        if db_connect.get_beats_generating(chat_id) != 0:
+            # Отправка оповещения
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', 
+                                            show_alert=True)
+            return
 
-                    if calculate_bpm > int(keyboards.BPM_BUTTONS[user_chosen_style][2].split('b')[0]):
-                        await bot.answer_callback_query(callback_query_id=c.id, text='⚠️MAX достигнут максимальный bpm для этого стиля', show_alert=True)
+        # Установить processing для пользователя
+        db_connect.set_processing(chat_id)
 
-                    elif calculate_bpm < int(keyboards.BPM_BUTTONS[user_chosen_style][0].split('b')[0]):
-                        await bot.answer_callback_query(callback_query_id=c.id, text='⚠️MIN достигнут минимальный bpm для этого стиля', show_alert=True)
+        # Получить выбранный стиль
+        user_chosen_style = db_connect.get_chosen_style(chat_id)
 
-                    else:
-                        current_bpm = str(calculate_bpm) + 'bpm'
-                        user_chosen_bpm_style[chat_id] = [current_bpm, user_chosen_style]
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ТЕМП*\n\nТеперь отрегулируй темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\nРегулируй желаемый *bpm* кнопками на клавиатуре. *Подтверди* выбранный темп: *{current_bpm}*\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Лад\n⏺ - Формат', reply_markup=keyboards.bpm_keyboard, parse_mode='Markdown')                  
+        # Если стиль сбросился
+        if user_chosen_style == '':
+            await bot.edit_message_text(chat_id=chat_id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'⚠️ Не удалось отрегулировать bpm, пожалуйста выбери стиль ещё раз.', 
+                                        reply_markup=keyboards.to_styles_keyboard, 
+                                        parse_mode='Markdown')
+            # Удалить processing для пользователя
+            db_connect.del_processing(chat_id)
+            return
 
-                    # Удалить processing для пользователя
-                    db_connect.del_processing(chat_id)
+        try:
+            # Регулирование bpm
+            calculate_bpm = int(user_chosen_bpm_style[chat_id][0].split('b')[0]) + int(c.data)
+        except KeyError:
+            await bot.edit_message_text(chat_id=chat_id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'⚠️ Произошла ошибка в обработке запроса, пожалуйста попробуйте ещё раз.', 
+                                        reply_markup=keyboards.to_styles_keyboard, 
+                                        parse_mode='Markdown')
 
-            else:
-                # Отправка оповещения
-                await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь заказывать еще один бит во время осуществления заказа.', show_alert=True)
+        if calculate_bpm > int(keyboards.BPM_BUTTONS[user_chosen_style][2].split('b')[0]):
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='⚠️ MAX\n\nДостигнут максимальный bpm для этого стиля', 
+                                            show_alert=True)
+
+        elif calculate_bpm < int(keyboards.BPM_BUTTONS[user_chosen_style][0].split('b')[0]):
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='⚠️ MIN\n\nДостигнут минимальный bpm для этого стиля', 
+                                            show_alert=True)
+
+        else:
+            current_bpm = str(calculate_bpm) + 'bpm'
+            user_chosen_bpm_style[chat_id] = [current_bpm, user_chosen_style]
+            await bot.edit_message_text(chat_id=chat_id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'🪩 *ТЕМП*\n\nТеперь отрегулируй темп:\n\n*{keyboards.BPM_BUTTONS[user_chosen_style][0]}* - замедлено\n*{keyboards.BPM_BUTTONS[user_chosen_style][1]}* - нормально\n*{keyboards.BPM_BUTTONS[user_chosen_style][2]}* - ускорено\n\nРегулируй желаемый *bpm* кнопками на клавиатуре. *Подтверди* выбранный темп: *{current_bpm}*\n\n✅ - {user_chosen_style}\n*⏺ - Темп*\n⏺ - Лад\n⏺ - Формат', 
+                                        reply_markup=keyboards.bpm_keyboard, 
+                                        parse_mode='Markdown')                  
+
+        # Удалить processing для пользователя
+        db_connect.del_processing(chat_id)
 
     except Exception as e:
         print(repr(e))
         # Удалить processing для пользователя
         db_connect.del_processing(c.message.chat.id)
-
-        db_connect.logger(c.message.chat.id, '[BAD]', f'show_bpm | {e}')
+        # Запись ошибки в логгер
+        db_connect.logger(c.message.chat.id, '[BAD]', f'set_bpm | {e}')
 
 @dp.callback_query_handler(lambda c: c.data == keyboards.GET_EXAMPLE_BEAT)
 async def send_example_beat(c: types.CallbackQuery):
@@ -1258,77 +1293,105 @@ async def send_example_beat(c: types.CallbackQuery):
         chat_id = c.message.chat.id
         user_chosen_style = db_connect.get_chosen_style(chat_id)
 
-        if await get_user(chat_id):     
-            # Проверить, не находится ли пользователь в beats_generating
-            if db_connect.get_beats_generating(chat_id) == 0:
-                # Проверить, не находится ли пользователь в processing
-                if db_connect.get_processing(chat_id) == 0:
-                    if user_chosen_style is not None:
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
+        if not await get_user(chat_id): 
+            return
 
-                        files_list = sorted(glob(f'example_beats/style_{keyboards.aliases[db_connect.get_chosen_style(chat_id)]}/*'))
-                        print(files_list)
-                        for file_path in files_list:
-                            with open(file_path, 'rb') as trimmed_sound:
-                                await bot.send_audio(c.message.chat.id, trimmed_sound)   
+        # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
 
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-                    else:
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Произошла ошибка, пожалуйста, выберите стиль ещё раз', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
+        # Проверить, не находится ли пользователь в beats_generating
+        if db_connect.get_beats_generating(chat_id) != 0:
+            # Отправка оповещения
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='⚠️ Я не могу скинуть примеры во время генерации бита.', 
+                                            show_alert=True)
+            return      
+        
+        if user_chosen_style is not None:
+            # Установить processing для пользователя
+            db_connect.set_processing(chat_id)
 
+            files_list = sorted(glob(f'example_beats/style_{keyboards.aliases[db_connect.get_chosen_style(chat_id)]}/*'))
+
+            if files_list != []:
+                for file_path in files_list:
+                    with open(file_path, 'rb') as trimmed_sound:
+                        await bot.send_audio(c.message.chat.id, trimmed_sound)   
             else:
-                # Отправка оповещения
-                await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Я не могу скинуть тебе примеры во время генерации бита.', show_alert=True)
+                await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='😵 Не удается подобрать примеры', 
+                                            show_alert=True)
+
+            # Удалить processing для пользователя
+            db_connect.del_processing(chat_id)
+        else:
+            await bot.edit_message_text(chat_id=chat_id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'⚠️ Произошла ошибка, пожалуйста, выберите стиль ещё раз', 
+                                        reply_markup=keyboards.to_styles_keyboard, 
+                                        parse_mode='Markdown')
     except Exception as e:
         print(repr(e))
         # Удалить processing для пользователя
         db_connect.del_processing(c.message.chat.id)
-
+        # Запись ошибки в логгер
         db_connect.logger(c.message.chat.id, '[BAD]', f'send_example_beat | {e}')
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.BPM_CONFIRM)
-async def configure_bpm(c: types.CallbackQuery):
+async def show_tonality(c: types.CallbackQuery):
     try:
-
         chat_id = c.message.chat.id
-        print(user_chosen_bpm_style)
-        user_chosen_bpm = user_chosen_bpm_style[chat_id][0]
 
-        if await get_user(chat_id):     
-            # Проверить, не находится ли пользователь в beats_generating
-            if db_connect.get_beats_generating(chat_id) == 0:
-                # Проверить, не находится ли пользователь в processing
-                if db_connect.get_processing(chat_id) == 0:
-                    user_chosen_style = user_chosen_bpm_style[chat_id][1]
-                    db_connect.set_chosen_style(chat_id, user_chosen_style)
+        if not await get_user(chat_id): 
+            return
 
-                    if user_chosen_bpm_style.get(chat_id) is not None:
-                        del user_chosen_bpm_style[chat_id]
-                    # Проверить, есть ли в базе выбранный пользователем стиль
-                    if  user_chosen_style != '':
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
+            # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
 
-                        db_connect.set_chosen_bpm(chat_id, user_chosen_bpm)
-                        # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ЛАД*\n\n*major* - больше подходит для энергичных треков с более весёлым звучанием (Heroinwater, Big Baby Tape, MORGENSHTERN, Lil Tecca)\n\n*minor* - отлично подойдёт для лиричных треков (Большинство битов: OG BUDA, Гуф, THRILL PILL, Juice WRLD, XXXTENTACION)\n\n✅ - {user_chosen_style}\n✅ - {user_chosen_bpm}\n*⏺ - Лад*\n⏺ - Формат', reply_markup=keyboards.keys_keyboard, parse_mode='Markdown')       
+        # Проверить, не находится ли пользователь в beats_generating
+        if db_connect.get_beats_generating(chat_id) != 0:
+            # Отправка оповещения
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', 
+                                            show_alert=True)
+            return
 
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-                    else:
-                        # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.mesмsage_id, text=f'⚠️ Не удалось выбрать bpm, пожалуйста выбери стиль ещё раз', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
-            else:
-                # Отправка оповещения
-                await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', show_alert=True)
+        # Установить processing для пользователя
+        db_connect.set_processing(chat_id)
+
+        try:
+            user_chosen_bpm = user_chosen_bpm_style[chat_id][0]
+            db_connect.set_chosen_bpm(chat_id, user_chosen_bpm)
+        except KeyError:
+            # Отправка сообщения
+            await bot.edit_message_text(chat_id=chat_id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'⚠️ Не удалось выбрать bpm, пожалуйста выбери стиль ещё раз', 
+                                        reply_markup=keyboards.to_styles_keyboard, 
+                                        parse_mode='Markdown')
+            # Удалить processing для пользователя
+            db_connect.del_processing(chat_id)
+            return
+
+        user_chosen_style = user_chosen_bpm_style[chat_id][1]
+        db_connect.set_chosen_style(chat_id, user_chosen_style)
+
+        if user_chosen_bpm_style.get(chat_id) is not None:
+            del user_chosen_bpm_style[chat_id]
+            
+        # Отправка сообщения
+        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ЛАД*\n\n*major* - больше подходит для энергичных треков с более весёлым звучанием (Heroinwater, Big Baby Tape, MORGENSHTERN, Lil Tecca)\n\n*minor* - отлично подойдёт для лиричных треков (Большинство битов: OG BUDA, Гуф, THRILL PILL, Juice WRLD, XXXTENTACION)\n\n✅ - {user_chosen_style}\n✅ - {user_chosen_bpm}\n*⏺ - Лад*\n⏺ - Формат', reply_markup=keyboards.keys_keyboard, parse_mode='Markdown')       
+
+        # Удалить processing для пользователя
+        db_connect.del_processing(chat_id)
 
     except Exception as e:
         print(repr(e))
         # Удалить processing для пользователя
         db_connect.del_processing(c.message.chat.id)
-
+        # Запись ошибки в логгер
         db_connect.logger(c.message.chat.id, '[BAD]', f'configure_bpm | {e}')
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.KEY_BUTTONS)
@@ -1367,7 +1430,7 @@ async def show_extensions(c: types.CallbackQuery):
         print(repr(e))
         # Удалить processing для пользователя
         db_connect.del_processing(c.message.chat.id)
-
+        # Запись ошибки в логгер
         db_connect.logger(c.message.chat.id, '[BAD]', f'show_extensions | {e}')
 
 # Сообщение для редактирования
