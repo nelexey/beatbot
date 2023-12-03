@@ -1402,29 +1402,43 @@ async def show_extensions(c: types.CallbackQuery):
         user_chosen_bpm = db_connect.get_chosen_bpm(chat_id)
         user_chosen_harmony = c.data
 
-        if await get_user(chat_id):     
-            # Проверить, не находится ли пользователь в beats_generating
-            if db_connect.get_beats_generating(chat_id) == 0:
-                # Проверить, не находится ли пользователь в processing
-                if db_connect.get_processing(chat_id) == 0:
-                    user_chosen_style = db_connect.get_chosen_style(chat_id)
-                    # Проверить, есть ли в базе выбранный пользователем стиль
-                    if  user_chosen_style != '':
-                        # Установить processing для пользователя
-                        db_connect.set_processing(chat_id)
+        if not await get_user(chat_id): 
+            return
 
-                        db_connect.set_chosen_harmony(chat_id, user_chosen_harmony)
-                        # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'🪩 *ФОРМАТ*\n\nВ каком формате скинуть финальный бит?\n\n*.wav* - оригинальное качество, используется профессионалами для записи. (Не воспроизводится на iphone)\n\n*.mp3* - более низкое качество, значительно меньше весит, не подходит для профессиональной записи.\n\n✅ - {user_chosen_style}\n✅ - {user_chosen_bpm}\n✅ - {user_chosen_harmony}\n*⏺ - Формат*\n\nПосле выбора формата начнётся генерация битов', reply_markup=keyboards.extensions_keyboard, parse_mode='Markdown')       
-                        
-                        # Удалить processing для пользователя
-                        db_connect.del_processing(chat_id)
-                    else:
-                        # Отправка сообщения
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Не удалось выбрать bpm, пожалуйста выбери стиль ещё раз', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
-            else:
-                # Отправка оповещения
-                await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', show_alert=True)
+        # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
+
+        # Проверить, не находится ли пользователь в beats_generating
+        if db_connect.get_beats_generating(chat_id) != 0:
+            # Отправка оповещения
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', 
+                                            show_alert=True)
+            return
+
+        user_chosen_style = db_connect.get_chosen_style(chat_id)
+        # Проверить, есть ли в базе выбранный пользователем стиль
+        if  user_chosen_style != '':
+            # Установить processing для пользователя
+            db_connect.set_processing(chat_id)
+
+            db_connect.set_chosen_harmony(chat_id, user_chosen_harmony)
+            # Отправка сообщения
+            await bot.edit_message_text(chat_id=chat_id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'🪩 *ФОРМАТ*\n\nВ каком формате скинуть финальный бит?\n\n*.wav* - оригинальное качество, используется профессионалами для записи. (Не воспроизводится на iphone)\n\n*.mp3* - более низкое качество, значительно меньше весит, не подходит для профессиональной записи.\n\n✅ - {user_chosen_style}\n✅ - {user_chosen_bpm}\n✅ - {user_chosen_harmony}\n*⏺ - Формат*\n\nПосле выбора формата начнётся генерация битов', 
+                                        reply_markup=keyboards.extensions_keyboard, 
+                                        parse_mode='Markdown')       
+            # Удалить processing для пользователя
+            db_connect.del_processing(chat_id)
+        else:
+            # Отправка сообщения
+            await bot.edit_message_text(chat_id=chat_id, 
+                                        message_id=c.message.message_id, 
+                                        text=f'⚠️ Не удалось выбрать bpm, пожалуйста выбери стиль ещё раз', 
+                                        reply_markup=keyboards.to_styles_keyboard, 
+                                        parse_mode='Markdown')
 
     except Exception as e:
         print(repr(e))
@@ -1458,77 +1472,82 @@ async def make_query(c: types.CallbackQuery):
         chat_id = c.message.chat.id
         user_chosen_extension = c.data
 
-        if await get_user(chat_id):     
-            # Проверить, не находится ли пользователь в beats_generating
-            if db_connect.get_beats_generating(chat_id) == 0:
-                # Проверить, не находится ли пользователь в processing
-                if db_connect.get_processing(chat_id) == 0:
-                    # Установить processing для пользователя
-                    db_connect.set_processing(chat_id)
+        if not await get_user(chat_id): 
+            return
 
-                    user_chosen_style = db_connect.get_chosen_style(chat_id)
-                    user_chosen_bpm = db_connect.get_chosen_bpm(chat_id)
+            # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
 
-                    # Проверить, есть ли в базе выбранный пользователем style и bpm
-                    if db_connect.get_balance(chat_id) >= beat_price:
-                        if  user_chosen_style != '' and user_chosen_bpm != '':
-                            
-                            # Установить processing для пользователя
-                            db_connect.set_chosen_extension(chat_id, user_chosen_extension)
+        # Проверить, не находится ли пользователь в beats_generating
+        if db_connect.get_beats_generating(chat_id) != 0:
+            # Отправка оповещения
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', 
+                                            show_alert=True)
+            return
 
-                            # Добавить пользователя в beats_generating
-                            db_connect.set_beats_generating(chat_id)
+        # Установить processing для пользователя
+        db_connect.set_processing(chat_id)
 
-                            message = await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text='💽 Создаю версии битов, это может занять несколько минут...\n\n🔽Версии появятся внизу🔽')
-                            message_to_edit[chat_id] = message.message_id
+        user_chosen_style = db_connect.get_chosen_style(chat_id)
+        user_chosen_bpm = db_connect.get_chosen_bpm(chat_id)
 
-                            # Удалить файлы
-                            for file in glob(f'output_beats/{chat_id}_[1-{beats}]*.*'):
-                                remove(file)
-                                                        
-                            # Добавить в очередь 
-                            db_connect.set_query(chat_id, db_connect.get_chosen_style(chat_id), db_connect.get_chosen_bpm(chat_id), db_connect.get_chosen_extension(chat_id).split('.')[-1], db_connect.get_chosen_harmony(chat_id))
-                            
-                            if await check_response(chat_id, message_to_edit[chat_id]):
-                                files_list = sorted(glob(f'output_beats/{chat_id}_[1-{beats}]_short.*'))
+        # Проверить, есть ли в базе выбранный пользователем style и bpm
+        if db_connect.get_balance(chat_id) >= beat_price:
+            if  user_chosen_style != '' and user_chosen_bpm != '':
+                
+                # Установить processing для пользователя
+                db_connect.set_chosen_extension(chat_id, user_chosen_extension)
 
-                                messages_ids = []
-                                
-                                print(chat_id, c.message.message_id)
+                # Добавить пользователя в beats_generating
+                db_connect.set_beats_generating(chat_id)
 
-                                await bot.delete_message(chat_id=chat_id, message_id=c.message.message_id)
+                message = await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text='💽 Создаю версии битов, это может занять несколько минут...\n\n🔽Версии появятся внизу🔽')
+                message_to_edit[chat_id] = message.message_id
 
-                                message = await bot.send_message(chat_id=chat_id, text=f'✅ Вот 3 демо-версии битов, выбери ту, которая понравилась, и я скину полную версию:\n\nСтиль - *{user_chosen_style}* Темп - *{user_chosen_bpm}*', parse_mode='Markdown')
-                                message_to_edit[chat_id] = message.message_id
-
-                                for file_path in files_list:
-                                    with open(file_path, 'rb') as trimmed_sound:
-                                        if files_list.index(file_path) == len(files_list)-1:
-                                            message = await bot.send_audio(c.message.chat.id, trimmed_sound, title='demo - @NeuralBeatBot gen.', reply_markup=keyboards.beats_keyboard)
-                                            messages_ids.append(message.message_id)
-                                            db_connect.set_beats_versions_messages_ids(c.message.chat.id, ', '.join(str(messages_id) for messages_id in messages_ids))
-                                            trimmed_sound.close()
-                                            for file in files_list:         
-                                                remove(file)
-                                            del messages_ids
+                # Удалить файлы
+                for file in glob(f'output_beats/{chat_id}_[1-{beats}]*.*'):
+                    remove(file)
                                             
-                                        else:
-                                            message = await bot.send_audio(c.message.chat.id, trimmed_sound, title='demo - @NeuralBeatBot gen.')
-                                            messages_ids.append(message.message_id)
-                                # Удалить processing для пользователя
-                                db_connect.del_processing(chat_id)
-                        else:
-                            # Отправка сообщения
-                            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Не удалось выбрать расширение, попробуй ещё раз. Выбрать параметры бита нужно строго в предлагаемом ботом порядке и в одном сообщении.', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
-                    else:
-                        balance_keyboard = InlineKeyboardMarkup().add(keyboards.btn_balance)
-                        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠ Бит стоит *{config.beat_price}₽*. Тебе нужно пополнить баланс.', reply_markup=balance_keyboard, parse_mode='Markdown')
+                # Добавить в очередь 
+                db_connect.set_query(chat_id, db_connect.get_chosen_style(chat_id), db_connect.get_chosen_bpm(chat_id), db_connect.get_chosen_extension(chat_id).split('.')[-1], db_connect.get_chosen_harmony(chat_id))
+                
+                if await check_response(chat_id, message_to_edit[chat_id]):
+                    files_list = sorted(glob(f'output_beats/{chat_id}_[1-{beats}]_short.*'))
 
-                # Удалить processing для пользователя
-                db_connect.del_processing(chat_id)
+                    messages_ids = []
+                    
+                    print(chat_id, c.message.message_id)
+
+                    await bot.delete_message(chat_id=chat_id, message_id=c.message.message_id)
+
+                    message = await bot.send_message(chat_id=chat_id, text=f'✅ Вот 3 демо-версии битов, выбери ту, которая понравилась, и я скину полную версию:\n\nСтиль - *{user_chosen_style}* Темп - *{user_chosen_bpm}*', parse_mode='Markdown')
+                    message_to_edit[chat_id] = message.message_id
+
+                    for file_path in files_list:
+                        with open(file_path, 'rb') as trimmed_sound:
+                            if files_list.index(file_path) == len(files_list)-1:
+                                message = await bot.send_audio(c.message.chat.id, trimmed_sound, title='demo - @NeuralBeatBot gen.', reply_markup=keyboards.beats_keyboard)
+                                messages_ids.append(message.message_id)
+                                db_connect.set_beats_versions_messages_ids(c.message.chat.id, ', '.join(str(messages_id) for messages_id in messages_ids))
+                                trimmed_sound.close()
+                                for file in files_list:         
+                                    remove(file)
+                                del messages_ids
+                                
+                            else:
+                                message = await bot.send_audio(c.message.chat.id, trimmed_sound, title='demo - @NeuralBeatBot gen.')
+                                messages_ids.append(message.message_id)
             else:
-                # Отправка оповещения
-                await bot.answer_callback_query(callback_query_id=c.id, text='⚠️ Ты не можешь заказать еще один бит во время осуществления текущего заказа.', show_alert=True)
+                # Отправка сообщения
+                await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Не удалось выбрать расширение, попробуй ещё раз. Выбрать параметры бита нужно строго в предлагаемом ботом порядке и в одном сообщении.', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
+        else:
+            balance_keyboard = InlineKeyboardMarkup().add(keyboards.btn_balance)
+            await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠ Бит стоит *{config.beat_price}₽*. Тебе нужно пополнить баланс.', reply_markup=balance_keyboard, parse_mode='Markdown')
+
+        # Удалить processing для пользователя
+        db_connect.del_processing(chat_id)
 
     except Exception as e:
         print(repr(e))
@@ -1541,7 +1560,7 @@ async def make_query(c: types.CallbackQuery):
             remove(file)
             
         await bot.edit_message_text(chat_id=c.message.chat.id, message_id=c.message.message_id, text=f'⚠️ Не удалось отправить бит, деньги за транзакцию не сняты. Попробуйте заказать бит ещё раз, вызвав новое сообщение /menu.', reply_markup=keyboards.undo_keyboard)
-
+        # Запись ошибки в логгер
         db_connect.logger(c.message.chat.id, '[BAD]', f'Error while checking for beats generation or sending beats versions | {e}')
 
 @dp.callback_query_handler(lambda c: c.data in keyboards.BEATS_BUTTONS)
@@ -1550,77 +1569,80 @@ async def send_beat(c: types.CallbackQuery):
         chat_id = c.message.chat.id
         pressed_button = c.data
 
-        if await get_user(chat_id):
+        if not await get_user(chat_id): 
+            return
 
             # Проверить, не находится ли пользователь в processing
-            if db_connect.get_processing(chat_id) == 0:
-                # Установить processing для пользователя
-                db_connect.set_processing(chat_id)
+        if db_connect.get_processing(chat_id) != 0:
+            return
 
-                message = await bot.edit_message_text(chat_id=chat_id, message_id=message_to_edit[chat_id], text='📤 Скидываю полную версию... 📤')
-                message_to_edit[chat_id] = message.message_id
+        # Установить processing для пользователя
+        db_connect.set_processing(chat_id)
 
-                # Удалить примеры битов
-                messages_to_delete_ids = db_connect.get_beats_versions_messages_ids(chat_id)
-                if messages_to_delete_ids != '':
-                    for mes_id in messages_to_delete_ids.split(', '):
-                        try:
-                            await bot.delete_message(chat_id, mes_id)
-                        except exceptions.MessageToDeleteNotFound:
-                            print('Cannot delete beat-version message.')
+        message = await bot.edit_message_text(chat_id=chat_id, message_id=message_to_edit[chat_id], text='📤 Скидываю полную версию... 📤')
+        message_to_edit[chat_id] = message.message_id
 
-                db_connect.del_beats_versions_messages_ids(chat_id)
-                
-                # Проверяем размер файла
-                file_path = f'output_beats/{chat_id}_{pressed_button}.{db_connect.get_chosen_extension(chat_id).split(".")[-1]}'
-                file_size = path.getsize(file_path)  # Размер файла в байтах
-                # print(file_size)
-                if file_size >= 50 * 1000 * 1000:  # Проверяем, больше ли файл 50 МБ
-                    # Создаем временный файл в формате FLAC
-                    temp_flac_path = f'output_beats/{chat_id}_{pressed_button}.flac'
-                    ffmpeg.input(file_path).output(temp_flac_path, acodec='flac').run()
-                    
-                    # Отправляем файл в формате FLAC
-                    with open(temp_flac_path, 'rb') as flac_file:
-                        await bot.send_audio(chat_id, flac_file, title='BEAT - tg: @NeuralBeatBot')
+        # Удалить примеры битов
+        messages_to_delete_ids = db_connect.get_beats_versions_messages_ids(chat_id)
+        if messages_to_delete_ids != '':
+            for mes_id in messages_to_delete_ids.split(', '):
+                try:
+                    await bot.delete_message(chat_id, mes_id)
+                except exceptions.MessageToDeleteNotFound:
+                    print('Cannot delete beat-version message.')
 
-                    await bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\n\nБот не может отправить файл, больше 50мб из-за ограничения Telegram.\n🔄 Файл был форматирован во *FLAC*. Качество бита при этом не изменилось.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')                        
+        db_connect.del_beats_versions_messages_ids(chat_id)
+        
+        # Проверяем размер файла
+        file_path = f'output_beats/{chat_id}_{pressed_button}.{db_connect.get_chosen_extension(chat_id).split(".")[-1]}'
+        file_size = path.getsize(file_path)  # Размер файла в байтах
+        # print(file_size)
+        if file_size >= 50 * 1000000:  # Проверяем, больше ли файл 50 МБ
+            # Создаем временный файл в формате FLAC
+            temp_flac_path = f'output_beats/{chat_id}_{pressed_button}.flac'
+            ffmpeg.input(file_path).output(temp_flac_path, acodec='flac').run()
+            
+            # Отправляем файл в формате FLAC
+            with open(temp_flac_path, 'rb') as flac_file:
+                await bot.send_audio(chat_id, flac_file, title='BEAT - tg: @NeuralBeatBot')
 
-                    print(path.getsize(f'output_beats/{chat_id}_{pressed_button}.flac'))
+            await bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\n\nБот не может отправить файл, больше 50мб из-за ограничения Telegram.\n🔄 Файл был форматирован во *FLAC*. Качество бита при этом не изменилось.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')                        
 
-                    # Удаляем временный файл FLAC
-                    remove(temp_flac_path)
-                else:
-                    # Просто отправляем файл без архивирования
-                    with open(file_path, 'rb') as beat:
-                        await bot.send_audio(chat_id, beat, title='BEAT - tg: @NeuralBeatBot')
-                    
-                        await bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\nНадеюсь, тебе понравится бит 😉', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')                        
+            print(path.getsize(f'output_beats/{chat_id}_{pressed_button}.flac'))
 
-                # Отправка сообщения
-                message = await bot.edit_message_text(chat_id=chat_id, message_id=message_to_edit[chat_id], text='🔽 Держи 🔽')
-                message_to_edit[chat_id] = message.message_id
+            # Удаляем временный файл FLAC
+            remove(temp_flac_path)
+        else:
+            # Просто отправляем файл без архивирования
+            with open(file_path, 'rb') as beat:
+                await bot.send_audio(chat_id, beat, title='BEAT - tg: @NeuralBeatBot')
+            
+                await bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\nНадеюсь, тебе понравится бит 😉', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')                        
 
-                # Удалить файлы
-                for file in glob(f'output_beats/{chat_id}_[1-{beats}]*.*'):
-                    remove(file)
+        # Отправка сообщения
+        message = await bot.edit_message_text(chat_id=chat_id, message_id=message_to_edit[chat_id], text='🔽 Держи 🔽')
+        message_to_edit[chat_id] = message.message_id
 
-                # Снять деньги
-                db_connect.pay(chat_id, beat_price)
+        # Удалить файлы
+        for file in glob(f'output_beats/{chat_id}_[1-{beats}]*.*'):
+            remove(file)
 
-                # Увеличеть количество купленых битов на аккаунте
-                db_connect.get_beat(chat_id)
-             
-                # Обнулить выбранные пользователем параметры бита
-                await reset_chosen_params(chat_id)
-                # Удалить processing для пользователя
-                db_connect.del_processing(chat_id)
-                # Удалить beats_generating для пользователя
-                db_connect.del_beats_generating(chat_id)
-                # Удалить chosen_extension для пользователя
-                db_connect.del_chosen_extension(chat_id)
+        # Снять деньги
+        db_connect.pay(chat_id, beat_price)
 
-                db_connect.logger(chat_id, '[BEAT][OK]', 'Бит отправлен')
+        # Увеличеть количество купленых битов на аккаунте
+        db_connect.get_beat(chat_id)
+        
+        # Обнулить выбранные пользователем параметры бита
+        await reset_chosen_params(chat_id)
+        # Удалить processing для пользователя
+        db_connect.del_processing(chat_id)
+        # Удалить beats_generating для пользователя
+        db_connect.del_beats_generating(chat_id)
+        # Удалить chosen_extension для пользователя
+        db_connect.del_chosen_extension(chat_id)
+        # Запись результата в логгер
+        db_connect.logger(chat_id, '[BEAT][OK]', 'Бит отправлен')
 
     except Exception as e:
         print(repr(e))
@@ -1636,7 +1658,7 @@ async def send_beat(c: types.CallbackQuery):
         # Удалить файлы
         for file in glob(f'output_beats/{c.message.chat.id}_[1-{beats}].*'):
             remove(file)
-
+        # Запись ошибки в логгер
         db_connect.logger(c.message.chat.id, '[BAD]', f'send_beat (error while sending beat) | {e}')
 
 # Запуск бота
