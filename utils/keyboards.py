@@ -1,8 +1,11 @@
 from config.config import beats, beat_price
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from data.utility_data import styles_aliases as aliases
 
 # Инициализация кнопок
+
+# Кнопка рифм
+END_RHYMES = f'◀️ Закончить'
 # Кнопки меню
 BUTTON_GENERATE_BEAT = f'🎙️ Бит под запись 🎙️'
 BUTTON_BALANCE = '💰 Баланс'
@@ -12,7 +15,6 @@ BUTTON_TUTORIAL = '🎥 Что умеет Битбот?'
 MENU_BUTTONS = [BUTTON_BALANCE, BUTTON_ABOUT, BUTTON_GENERATE_BEAT, BUTTON_TUTORIAL]
 
 # Кнопки баланса
-
 PREMIUM_BUTTON = 'Безлимит на месяц - 69₽'
 BALANCE_BUTTONS = ['180₽', '360₽', '540₽']
 
@@ -36,9 +38,9 @@ options = {
     'Опр. тональность': 'key_finder',
     'Опр. темп': 'bpm_finder',
     'BASSBOOST': 'bass_boost',
-    '🔥 Музыка из своих звуков': 'midi_to_wav'
+    '🔥 Музыка из своих звуков': 'midi_to_wav',
+    '📜 Подобрать рифму': 'rhymes'
 }
-
 
 # Бесплатные опции
 BUTTON_CATEGORY_FREE_OPTIONS = '🆓 Бесплатные опции'
@@ -105,10 +107,12 @@ btn_key_finder = InlineKeyboardButton(OPTIONS_BUTTONS[4], callback_data=OPTIONS_
 btn_bpm_finder = InlineKeyboardButton(OPTIONS_BUTTONS[5], callback_data=OPTIONS_BUTTONS[5])
 btn_bass_boost = InlineKeyboardButton(OPTIONS_BUTTONS[6], callback_data=OPTIONS_BUTTONS[6])
 btn_midi_to_wav = InlineKeyboardButton(OPTIONS_BUTTONS[7], callback_data=OPTIONS_BUTTONS[7])
+btn_rhymes = InlineKeyboardButton(OPTIONS_BUTTONS[8], callback_data=OPTIONS_BUTTONS[8])
 free_keyboard = InlineKeyboardMarkup(row_width=2)
 free_keyboard.row(btn_speed_up, btn_slow_down)
 free_keyboard.row(btn_midi_to_wav)
 free_keyboard.row(btn_remove_vocal)
+free_keyboard.row(btn_rhymes)
 free_keyboard.row(btn_key_finder, btn_bpm_finder)
 free_keyboard.row(btn_normalize_sound, btn_bass_boost)
 free_keyboard.row(btn_undo)
@@ -167,3 +171,9 @@ btn_beat2 = InlineKeyboardButton(BEATS_BUTTONS[1], callback_data=BEATS_BUTTONS[1
 btn_beat3 = InlineKeyboardButton(BEATS_BUTTONS[2], callback_data=BEATS_BUTTONS[2])
 
 beats_keyboard = InlineKeyboardMarkup(row_width=3).add(btn_beat1, btn_beat2, btn_beat3)
+
+# Клавиатура рифм (ReplyKeyboard)
+end_rhymes = KeyboardButton(text=END_RHYMES)
+rhymes_keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+
+rhymes_keyboard.add(end_rhymes)

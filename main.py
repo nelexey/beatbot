@@ -2,7 +2,7 @@ import logging
 import asyncio
 from aiogram import Bot, Dispatcher, types, exceptions
 from aiogram.utils import executor
-from aiogram.types import InlineKeyboardMarkup, ContentType
+from aiogram.types import InlineKeyboardMarkup, ContentType, ReplyKeyboardRemove
 
 # Инструмент для выборки путей к файлам
 from glob import glob
@@ -28,6 +28,10 @@ import json
 from datetime import date, timedelta, datetime
 from librosa import get_duration
 import ffmpeg
+import requests
+from urllib.parse import quote
+from bs4 import BeautifulSoup
+from random import choice
 
 # Установка уровня логирования
 logging.basicConfig(level=logging.INFO)
@@ -94,23 +98,6 @@ async def menu(message: types.Message):
     # Если пользователь уже добавлен то повторная запись не произойдет
     db_connect.add_user(message.chat.username, message.chat.id, user_initials, start_balance)
 
-## Обработка текста
-
-@dp.message_handler()
-async def echo(message: types.Message):
-    await bot.send_message(message.chat.id, 'Я не воспринимаю текстовые команды\n\nВызвать меню можно по команде /menu или нажав на кнопку в нижнем левом углу экрана.')
-
-## Обработка аудио файлов
-
-# Функция для проверки размера директории users_sounds
-def get_directory_size(directory):
-    total_size = 0
-    for dirpath, _, filenames in walk(directory):
-        for f in filenames:
-            fp = path.join(dirpath, f)
-            total_size += path.getsize(fp)
-    return total_size
-
 # Функция для проверки подписки на канал
 async def check_subscription(user_id, channel_username, status=None):
     chat_member = await bot.get_chat_member(chat_id=channel_username, user_id=user_id)
@@ -128,7 +115,151 @@ async def check_subscription(user_id, channel_username, status=None):
     except Exception as e:
         print(repr(e))
         return False
+
+## Обработка текста
+
+@dp.message_handler()
+async def text(message: types.Message):
+    chat_id = message.chat.id
+    text = message.text
+
+    if message.text == keyboards.END_RHYMES:
+
+        if not await get_user(chat_id):
+            return
+        
+        # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
+
+        # Проверить, не находится ли пользователь в beats_generating
+        if db_connect.get_beats_generating(chat_id) != 0:
+            # Отправка оповещения
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='🔀 Похоже, вы начали генерацию бита. Если вы хотите воспользоваться бесплатными опциями: выберите нужную в разделе с бесплатными опциями.', 
+                                            show_alert=True)
+        
+        # Установить processing для пользователя
+        db_connect.set_processing(chat_id)
+        
+        """Deletes buttons below the chat.
+        For now there are no way to delete kbd other than inline one, check
+            https://core.telegram.org/bots/api#updating-messages.
+        """
+        msg = await bot.send_message(chat_id,
+                                    '💿 Заканчиаю\.\.\.',
+                                    reply_markup=ReplyKeyboardRemove(),
+                                    parse_mode="MarkdownV2")
+
+        await asyncio.sleep(2)
+        await msg.delete()
+
+        # Обнулить выбранные пользователем параметры бита
+        await reset_chosen_params(chat_id)
+
+        # Отправка сообщения
+        await bot.send_message(chat_id=chat_id, 
+                                    text=MENU_MESSAGE_TEXT, 
+                                    reply_markup=keyboards.menu_keyboard, 
+                                    parse_mode='html')
+
+        # Удалить processing для пользователя
+        db_connect.del_processing(chat_id)
+
+        return
     
+    elif db_connect.get_chosen_style(chat_id) == 'rhymes':
+        if not await get_user(chat_id):
+            return
+        
+        # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
+
+        # Проверить, не находится ли пользователь в beats_generating
+        if db_connect.get_beats_generating(chat_id) != 0:
+            # Отправка оповещения
+            await bot.answer_callback_query(callback_query_id=c.id, 
+                                            text='🔀 Похоже, вы начали генерацию бита. Если вы хотите воспользоваться бесплатными опциями: выберите нужную в разделе с бесплатными опциями.', 
+                                            show_alert=True)
+
+        if db_connect.get_free_options_limit(chat_id) == 0:
+            await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
+            return
+
+        user = message.from_user
+        is_subscribed = await check_subscription(user.id, '@beatbotnews')
+
+        if not is_subscribed:
+            await bot.send_message(chat_id, text=' Бесплатные опции доступны только подписчикам канала', parse_mode='Markdown')
+            return
+
+        url = f"https://rifme.net/r/{quote(text)}/0"
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+
+        try:
+            # Установить processing для пользователя
+            db_connect.set_processing(chat_id)
+
+            response = requests.get(url, headers=headers)
+
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            # Находим элементы списка li с классом riLi и извлекаем значение атрибута data-w из первых 15 элементов
+            word_list = soup.find_all("li", class_="riLi", limit=15)
+            new_word_list = []
+
+            for word_item in word_list:
+                word_data_w = word_item.get("data-w")
+                new_word_list.append(word_data_w)
+            
+            if new_word_list != []:
+                rhymes = '\n'.join(new_word_list)
+                rhymes_message = f"<b>Рифмы:\n</b>{rhymes}"
+                await bot.send_message(chat_id, rhymes_message, reply_markup=keyboards.rhymes_keyboard, parse_mode='html')
+            else:
+                await bot.send_message(chat_id, '📭 Не удалось подобрать рифмы', reply_markup=keyboards.rhymes_keyboard)
+            
+            # Если нет премиум подписки, отнять от дневного лимита
+            if db_connect.get_has_subscription(chat_id):
+                # Если подписка устарела
+                if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
+                    db_connect.del_subscription(chat_id)
+                    db_connect.draw_free_options_limit(chat_id)
+                    await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.") 
+            else:
+                db_connect.draw_free_options_limit(chat_id)
+
+            # Удалить processing для пользователя
+            db_connect.del_processing(chat_id)
+            
+            return
+
+        except requests.RequestException as e:
+            await bot.send_message(chat_id, '⌛️ Опция временно не работает', reply_markup=keyboards.rhymes_keyboard)
+            
+            # Удалить processing для пользователя
+            db_connect.del_processing(chat_id)
+
+            db_connect.logger(chat_id, '[BAD]', f'rhyme | {e}')
+            return
+        
+    await bot.send_message(message.chat.id, 'Взаимодействовать с ботом можно по команде /menu')
+
+## Обработка аудио файлов
+
+# Функция для проверки размера директории users_sounds
+def get_directory_size(directory):
+    total_size = 0
+    for dirpath, _, filenames in walk(directory):
+        for f in filenames:
+            fp = path.join(dirpath, f)
+            total_size += path.getsize(fp)
+    return total_size
+
 # Функция для восстановления лимитов на опции
 async def refill_limits(chat_id):
 
@@ -599,8 +730,6 @@ async def handle_audio_file(message: types.Message):
                                             await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")    
                                     else:  
                                         db_connect.draw_free_options_limit(chat_id)
-
-  
                             elif audio_extension in ['mp3', 'wav'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[2]]:
                                 
                                 db_connect.del_wait_for_file(chat_id)
@@ -694,7 +823,7 @@ async def handle_audio_file(message: types.Message):
                             # Удалить processing для пользователя
                             db_connect.del_processing(chat_id)
                         else:
-                            await bot.send_message(chat_id, '🔀 Похоже, вы начали генерацию бита. Если вы хотите воспользоваться бесплатными функциями: выберите нужную в разделе с бесплатными функциями.')
+                            await bot.send_message(chat_id, '🔀 Похоже, вы начали генерацию бита. Если вы хотите воспользоваться бесплатными опциями: выберите нужную в разделе с бесплатными опциями.')
                     else:
                         await bot.send_message(chat_id, 'Сначала выбери бесплатную опцию', reply_markup=InlineKeyboardMarkup().add(keyboards.btn_free_options))
                 else:
@@ -1186,7 +1315,7 @@ async def process_the_sound(c: types.CallbackQuery):
                                             'bass_boost'],
             keyboards.OPTIONS_BUTTONS[7]: ['🔥 *МУЗЫКА ИЗ СВОИХ ЗВУКОВ*\n\n*Создать музыку из своих звуков*\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.\nПотом скинь музыку в формате *.mid*. Если не знаешь, как это работает, можешь выбрать примеры *.mid* файлов из нашего канала.', 
                                             'midi_to_wav'],
-            keyboards.OPTIONS_BUTTONS[8]: ['Пифмы и ранчи', 
+            keyboards.OPTIONS_BUTTONS[8]: ['📜 *ПОДОБРАТЬ РИФМУ*', 
                                             'rhymes'],
         }
 
@@ -1664,4 +1793,4 @@ async def send_beat(c: types.CallbackQuery):
 # Запуск бота
 if __name__ == '__main__':
     executor.start(dp, safe_launch())
-    executor.start_polling(dp, skip_updates=True)
+    executor.start_polling(dp, skip_updates=True) 
