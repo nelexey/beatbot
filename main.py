@@ -147,7 +147,7 @@ async def text(message: types.Message):
             https://core.telegram.org/bots/api#updating-messages.
         """
         msg = await bot.send_message(chat_id,
-                                    '💿 Заканчиаю\.\.\.',
+                                    '💿 Заканчиваю\.\.\.',
                                     reply_markup=ReplyKeyboardRemove(),
                                     parse_mode="MarkdownV2")
 
@@ -209,7 +209,8 @@ async def text(message: types.Message):
             soup = BeautifulSoup(response.text, "html.parser")
 
             # Находим элементы списка li с классом riLi и извлекаем значение атрибута data-w из первых 15 элементов
-            word_list = soup.find_all("li", class_="riLi", limit=15)
+            word_list = soup.find_all("li", class_="riLi", limit=20)
+            header = soup.find("h2", class_="rifmypervye")
             new_word_list = []
 
             for word_item in word_list:
@@ -218,7 +219,7 @@ async def text(message: types.Message):
             
             if new_word_list != []:
                 rhymes = '\n'.join(new_word_list)
-                rhymes_message = f"<b>Рифмы:\n</b>{rhymes}"
+                rhymes_message = f"<b>{header.text}\n\n</b>{rhymes}"
                 await bot.send_message(chat_id, rhymes_message, reply_markup=keyboards.rhymes_keyboard, parse_mode='html')
             else:
                 await bot.send_message(chat_id, '📭 Не удалось подобрать рифмы', reply_markup=keyboards.rhymes_keyboard)
