@@ -116,6 +116,19 @@ async def check_subscription(user_id, channel_username, status=None):
         print(repr(e))
         return False
 
+# Функция изменения ежесуточных лимитов
+async def remove_usage(chat_id):
+    # Если нет премиум подписки, отнять от дневного лимита
+                if db_connect.get_has_subscription(chat_id):
+                    # Если подписка устарела
+                    if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
+                        db_connect.del_subscription(chat_id)
+                        db_connect.draw_free_options_limit(chat_id)
+                        await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")
+                else:  
+                    db_connect.draw_free_options_limit(chat_id)       
+
+
 ## Обработка текста
 
 @dp.message_handler()
@@ -272,61 +285,459 @@ async def refill_limits(chat_id):
     if time_difference > timedelta(hours=24):
         db_connect.refill_limits(chat_id)
 
-# Функция для проверки готовности разделенного ремувером файла.
-async def check_options_handler_response(chat_id, message_id):
-    #TODO
-    try:
-        order_number = 0
+@dp.message_handler(content_types=[types.ContentType.DOCUMENT, types.ContentType.AUDIO])
+async def handle_audio_file(message: types.Message):
+    chat_id = message.chat.id
+    try: 
 
-        # Установить processing для пользователя
+        if not await get_user(chat_id): 
+            return
+
+        # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
+            
+        user = message.from_user
+
+        # Проверка на то, что пользователь подписан.
+        is_subscribed = await check_subscription(user.id, '@beatbotnews')
+        if not is_subscribed:
+            await bot.send_message(chat_id, text='Бесплатные опции доступны только подписчикам канала *@beatbotnews*', parse_mode='Markdown')
+            return
+
+        # Когда пользователь выбирает одну из опций, 
+        # в которых подразумевается работа с файлами пользователя, 
+        # нужно чтобы бот ожидал эти файлы.
+
+        # Это нужно для поддержания последовательности выбора услуги пользователем. 
+        # Сначала нужно выбрать опцию(chosen_style), потом уже скинуть файл, пока бот его ожидает.
+        if db_connect.get_wait_for_file(chat_id) != 1:
+            await bot.send_message(chat_id, 'Сначала выбери бесплатную опцию', reply_markup=InlineKeyboardMarkup().add(keyboards.btn_free_options))
+            return
+
+        chosen_style = db_connect.get_chosen_style(chat_id)
+        
+        # Все остальные данные в chosen_style уже не являются опциями, обрабатывающими файлы.
+        if chosen_style not in {keyboards.options[keyboards.OPTIONS_BUTTONS[i]]: i for i in range(len(keyboards.OPTIONS_BUTTONS))}:  
+            await bot.send_message(chat_id, 'Сначала выберите опцию, подразумевающую работу с файлами')
+            return
+        
+        # Восстановить лимиты если прошло время.
+        # В базе хранится дата, последнего обновления лимитов пользователя. Если с того момента прошло больше суток то лимиты обновляются.
+        await refill_limits(chat_id)
+        
+        # Если ежесуточный лимит закончился. Важно сначала перепроверить.
+        if db_connect.get_free_options_limit(chat_id) <= 0:
+            await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
+            db_connect.del_wait_for_file(chat_id)
+            return
+        
+        # Установить processing для пользователя.
         db_connect.set_processing(chat_id)
 
-        if db_connect.get_chosen_style(chat_id)=='remove_vocal':
-            while True:
+        # В переменной может быть как "файл" скинутый пользователем (.mid), так и "аудио"(.wav, .mp3, .ogg, .flac). 
+        audio = message.document or message.audio
 
-                if db_connect.get_removes_ready(chat_id) == 1:
-                    db_connect.del_removes_ready(chat_id)
-                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'🔄 Отправляю вокал и минус...', parse_mode='Markdown')  
+        # Получить расширение файла
+        audio_extension = audio.file_name.split('.')[-1]
 
-                    return True
+        # Есть 2 типа опций: 
+        # Немедленные (выполняются сразу же и возвращают результат).
+        instant_options = [keyboards.options[keyboards.OPTIONS_BUTTONS[0]],
+                           keyboards.options[keyboards.OPTIONS_BUTTONS[1]],         
+                           keyboards.options[keyboards.OPTIONS_BUTTONS[3]], 
+                           keyboards.options[keyboards.OPTIONS_BUTTONS[4]], 
+                           keyboards.options[keyboards.OPTIONS_BUTTONS[5]], 
+                           keyboards.options[keyboards.OPTIONS_BUTTONS[6]]]
+        # Обрабатываемые (собирают данные, создают запись в таблице очереди, и активируют фукнцию ожидания результата, пользователь встает в очередь).
+        processed_options = [keyboards.options[keyboards.OPTIONS_BUTTONS[7]],
+                             keyboards.options[keyboards.OPTIONS_BUTTONS[2]]]
 
-                new_order_number = db_connect.get_options_query_by_chat_id(chat_id)
-                if new_order_number != order_number:
-                    order_number = new_order_number
-                    await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'💽 Разделяю трек, на это время бот *не будет* реагировать\n\nТвоё место в очереди: *{order_number}*\n\n🔽Вокал и минус появятся снизу🔽', parse_mode='Markdown')  
+        if chosen_style in instant_options:
+            # Проверяем размер директории users_sounds
+            total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
 
-                await asyncio.sleep(2*order_number)
+            if total_size_mb > 500:
+                await bot.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
+                return
 
-        elif db_connect.get_chosen_style(chat_id)=='midi_to_wav':
-            while True:
+            # Проверяем размер загруженного файла
+            if audio.file_size > 20000 * 1024:
+                await bot.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 20мб.")
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
+                return
 
-                if db_connect.get_removes_ready(chat_id) == 1:
-                    db_connect.del_removes_ready(chat_id)
-                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'🔄 Отправляю трек...', parse_mode='Markdown')  
+            # Создаем директорию пользователя, если она не существует
+            makedirs(f"users_sounds/{chat_id}", exist_ok=True)
 
-                    return True
+            if audio_extension == 'mp3' and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[0]]:
                 
-                elif db_connect.get_removes_ready(chat_id) == 2:
-                    db_connect.del_removes_ready(chat_id)
-                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'0️⃣ Не удалось определить ноты в этом midi файле', parse_mode='Markdown')  
+                db_connect.del_wait_for_file(chat_id)
 
-                    return False
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/sound.mp3')
 
-                new_order_number = db_connect.get_options_query_by_chat_id(chat_id)
-                if new_order_number != order_number:
-                    order_number = new_order_number
-                    await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'💽 Синтезирую, на это время бот *не будет* реагировать\n\nТвоё место в очереди: *{order_number}*\n\n🔽Результат появятся снизу🔽', parse_mode='Markdown')  
-                elif new_order_number == order_number and new_order_number==0:
-                    db_connect.del_removes_ready(chat_id)
-                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'⚠️ Некорректный midi файл, я не могу его обработать.', parse_mode='Markdown')  
+                # УСКОРИТЬ ЗВУК
+                sound_options.speed_up(audio, user_dir)
 
-                    return False
-                await asyncio.sleep(2*order_number)
+                # Отправляем обратно пользователю обработанный файл
+                with open(f'{user_dir}/sound.mp3', 'rb') as f:
+                    await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - speed up')
+
+                # Прибавляем к количеству исопльзуемых опции
+                db_connect.get_free_option(chat_id)
+
+                # Удаляем временный файл
+                remove(f'{user_dir}/sound.mp3')
+
+                await remove_usage(chat_id)                           
+            elif audio_extension == 'mp3' and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[1]]:
+                
+                db_connect.del_wait_for_file(chat_id)
+
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/sound.mp3')
+                
+                # ЗАМЕДЛИТЬ ЗВУК
+                sound_options.slow_down(audio, user_dir)
+
+                # Отправляем обратно пользователю обработанный файл
+                with open(f'{user_dir}/sound.mp3', 'rb') as f:
+                    await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - slowed + rvb')
+
+                # Прибавляем к количеству исопльзуемых опции
+                db_connect.get_free_option(chat_id)
+
+                # Удаляем временный файл
+                remove(f'{user_dir}/sound.mp3')
+
+                await remove_usage(chat_id)
+            elif audio_extension in ['mp3', 'wav'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[3]]:
+                
+                db_connect.del_wait_for_file(chat_id)
+
+                file = f'sound.{audio.file_name.split(".")[-1]}'
+
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/{file}')
+                
+                # УЛУЧШИТЬ ЗВУК
+                sound_options.normalize_sound(file, user_dir)
+
+                # Отправляем обратно пользователю обработанный файл
+                with open(f'{user_dir}/sound.wav', 'rb') as f:
+                    await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - normalized')
+
+                # Прибавляем к количеству исопльзуемых опции
+                db_connect.get_free_option(chat_id)
+
+                # Удаляем временный файл
+                remove(f'{user_dir}/sound.wav')
+                if path.exists(f'{user_dir}/sound.mp3'):
+                    remove(f'{user_dir}/sound.mp3')
+
+                await remove_usage(chat_id)
+            elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[4]]:
+                
+                db_connect.del_wait_for_file(chat_id)
+
+                current_time = datetime.now()
+                formatted_time = current_time.strftime("%Y%m%d_%H%M%S%f")
+                unicue_file = f'sound_{formatted_time}.{audio.file_name.split(".")[-1]}'
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/{unicue_file}')
+                
+                # Определить тональность
+                key, corr, altkey, altcorr =sound_options.analyze_key(f'{user_dir}/{unicue_file}')
+                await message.reply(f"<i>{audio.file_name}</i>\n<b>{key}</b>", parse_mode='html')
+
+                # Удаляем временный файл 
+                if path.exists(f'{user_dir}/{unicue_file}'):
+                    remove(f'{user_dir}/{unicue_file}')
+                
+                # Прибавляем к количеству исопльзуемых опции
+                db_connect.get_free_option(chat_id)
+
+                await remove_usage(chat_id)
+            elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[6]]:
+
+                db_connect.del_wait_for_file(chat_id)
+
+                file = f'sound.{audio.file_name.split(".")[-1]}'
+
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/{file}')
+                
+                # УСИЛИТЬ НИЗКИЕ ЧАСТОТЫ
+                sound_options.bass_boost(file, user_dir)
+
+                # Отправляем обратно пользователю обработанный файл
+                with open(f'{user_dir}/{file}', 'rb') as f:
+                    await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - bass boosted')
+
+                # Прибавляем к количеству исопльзуемых опции
+                db_connect.get_free_option(chat_id)
+
+                # Удаляем временный файл
+                if path.exists(f'{user_dir}/{file}'):
+                    remove(f'{user_dir}/{file}')
+
+                await remove_usage(chat_id)
+            elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[5]]:
+
+                db_connect.del_wait_for_file(chat_id)
+
+                file = f'sound.{audio.file_name.split(".")[-1]}'
+
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/{file}')
+                
+                # Определить bpm
+                bpm = sound_options.analyze_bpm(f'{user_dir}/{file}')
+                
+                rounded_bpm = "{:.2f}".format(bpm)
+
+                await message.reply(f"<b>{rounded_bpm}bpm</b>", parse_mode='html')
+
+                # Удаляем временный файл 
+                if path.exists(f'{user_dir}/{file}'):
+                    remove(f'{user_dir}/{file}')
+                
+                # Прибавляем к количеству исопльзуемых опции
+                db_connect.get_free_option(chat_id)
+
+                await remove_usage(chat_id)
+            else:
+                # Так как проверка на подходящий chosen_style уже была ранее, то несовпадение может быть только формате файла.
+                await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
+                
+
+            db_connect.del_wait_for_file(chat_id)
+        elif chosen_style in processed_options:
+            # Путь к директории для сохранения файла
+            user_dir = f"users_sounds/{chat_id}"
+
+            # Создаем директорию пользователя, если она не существует
+            makedirs(user_dir, exist_ok=True)
+                
+            # Проверяем размер директории users_sounds
+            total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
+
+            if total_size_mb > 300:
+                await bot.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
+                return
+
+            if audio_extension in ['mp3', 'wav', 'mid'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[7]]:
+                
+                db_connect.del_wait_for_file(chat_id)
+                
+                file = f'fragment.{audio.file_name.split(".")[-1]}'
+                
+                # Проверка файла .mid
+                if audio_extension == 'mid':
+                    if  audio.file_size > 5000 * 1024:
+                        await bot.send_message(chat_id, "🔊 Midi слишком большой. Пожалуйста, загрузите файл размером до 5мб.")
+                        
+                        # Удалить processing для пользователя
+                        db_connect.del_processing(chat_id)
+
+                        db_connect.set_wait_for_file(chat_id)
+
+                        return
+                    else:
+                        # Скачиваем файл на сервер
+                        await audio.download(destination_file=f'{user_dir}/{file}')
+
+                        length = au.get_midi_length(f'{user_dir}/fragment.mid')
+                        if not length:
+                            remove(glob(f'users_sounds/{chat_id}/fragment.mid')[0])
+                            # Удалить processing для пользователя
+                            db_connect.del_processing(chat_id)
+                            db_connect.set_wait_for_file(chat_id)
+                            return await bot.send_message(chat_id, "⚠️ Не удаётся обработать этот midi файл. Пожалуйста, загрузите другой файл для обработки", parse_mode='Markdown')
+                        
+                        if length > 480000:
+                        # if False:
+                            await bot.send_message(chat_id, "🔊 Midi слишком длинное. Пожалуйста, загрузите файл длительностью до 8 минут.")
+                            
+                            remove(glob(f'users_sounds/{chat_id}/fragment.mid')[0])
+                            # Удалить processing для пользователя
+                            db_connect.del_processing(chat_id)
+                            db_connect.set_wait_for_file(chat_id)
+                            return
+
+                        if not glob(f'{user_dir}/*.wav') + glob(f'{user_dir}/*.mp3'):
+                            await bot.send_message(chat_id, "Отлично, теперь скинь звук в формате *mp3* или *wav*, примеры звуков есть в нашем канале @beatbotnews", parse_mode='Markdown')
+                            
+                            # Удалить processing для пользователя
+                            db_connect.del_processing(chat_id)
+
+                            db_connect.set_wait_for_file(chat_id)
+
+                            return
+
+                # Проверяем размер загруженного файла
+                if audio_extension in ['mp3', 'wav']:
+                    if audio.file_size > 5000 * 1024:
+                        await bot.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 5мб.")
+                        
+                        # Удалить processing для пользователя
+                        db_connect.del_processing(chat_id)
+
+                        db_connect.set_wait_for_file(chat_id)
+                        
+                        return
+
+                    else: 
+                        # Скачиваем файл на сервер
+                        await audio.download(destination_file=f'{user_dir}/{file}')
+
+                        db_connect.set_chosen_extension(chat_id, audio_extension)
+
+                        # Проверяем длительность аудио
+                        max_duration_seconds = 10 # sec
+                        audio_duration = get_duration(path=f'{user_dir}/{file}')
+                        print(audio_duration)
+                        if audio_duration > max_duration_seconds:  # Преобразуем в миллисекунды
+                            au.crop_audio(f'{user_dir}/{file}', max_duration_seconds)
+                            await bot.send_message(chat_id, "🔊 Аудио обрезано до 10 секунд")
+                        
+                        if not glob(f'{user_dir}/*.mid'):
+                            await bot.send_message(chat_id, "Хорошо, теперь скинь трек в формате *mid*, примеры треков есть в нашем канале @beatbotnews, можешь использовать их.", parse_mode='Markdown')
+                            
+                            db_connect.set_wait_for_file(chat_id)
+
+                            # Удалить processing для пользователя
+                            db_connect.del_processing(chat_id)
+
+                            return
+                        
+                audio_extension = db_connect.get_chosen_extension(chat_id)
+
+                edit_message = await bot.send_message(chat_id, "🔄 Подготавливаю BeatBot Fusion...", parse_mode='Markdown')
+
+                await asyncio.sleep(2)
+
+                await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Подготавливаю BeatBot Fusion...', parse_mode='Markdown') 
+                
+                # Добавить в очередь 
+                db_connect.set_options_query(chat_id, audio_extension)
+
+                await asyncio.sleep(1)
+
+                db_connect.del_removes_ready(chat_id)
+                
+                if await check_options_handler_response(chat_id, edit_message.message_id):
+
+                    # Отправляем обратно пользователю обработанныt файлы
+                    
+                    with open(f'{user_dir}/output_fragments/output.{audio_extension}', 'rb') as f:
+                        await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Fusioned')
+                    
+                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Отправлено', parse_mode='Markdown')
+
+                    # Прибавляем к количеству исопльзуемых опции
+                    db_connect.get_free_option(chat_id)
+
+                    # Удаляем временный файл
+                    for file in glob(f'{user_dir}/fragment.*') + glob(f'{user_dir}/output_fragments/.*'):
+                        remove(file)
+                    
+                    await remove_usage(chat_id)
+            elif audio_extension in ['mp3', 'wav'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[2]]:
+                
+                db_connect.del_wait_for_file(chat_id)
+                
+                # Проверяем размер директории users_sounds
+                total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
+                
+                if total_size_mb > 300:
+                    await bot.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
+                    
+                    # Удалить processing для пользователя
+                    db_connect.del_processing(chat_id)
+                    
+                    return
+
+                # Проверяем размер загруженного файла
+                if audio.file_size > 20000 * 1024:
+                    await bot.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 20мб.")
+                    
+                    # Удалить processing для пользователя
+                    db_connect.del_processing(chat_id)
+                    
+                    return
+
+                # Путь к директории для сохранения файла
+                user_dir = f"users_sounds/{chat_id}"
+
+                # Создаем директорию пользователя, если она не существует
+                makedirs(user_dir, exist_ok=True)
+
+                file = f'sound.{audio.file_name.split(".")[-1]}'
+
+                edit_message = await bot.send_message(chat_id, '🔄 Подготавливаю ремувер...')
+
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/{file}')
+
+                # Проверяем длительность аудио
+                max_duration_seconds = 4 * 60  # 4 минуты в секундах
+                audio_duration = get_duration(path=f'{user_dir}/{file}')
+                print(audio_duration)
+                if audio_duration > max_duration_seconds:  # Преобразуем в миллисекунды
+                    await bot.send_message(chat_id, "🔊 Аудио слишком длинное. Пожалуйста, загрузите аудио длительностью до 4 минут.")
+                    # Удалить processing для пользователя
+                    db_connect.del_processing(chat_id)
+                    return
+
+                edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Подготавливаю ремувер...', parse_mode='Markdown') 
+                
+                # Добавить в очередь 
+                db_connect.set_options_query(chat_id, audio_extension)
+
+                await asyncio.sleep(1)
+
+                db_connect.del_removes_ready(chat_id)
+                
+                if await check_options_handler_response(chat_id, edit_message.message_id):
+
+                    # Отправляем обратно пользователю обработанныt файлы
+                    with open(f'{user_dir}/final_vocals.{audio_extension}', 'rb') as f:
+                        await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Vocals')
+
+                    with open(f'{user_dir}/final_accompaniment.{audio_extension}', 'rb') as f:
+                        await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Instruments')
+                    
+                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Отправлено', parse_mode='Markdown') 
+
+                    # Прибавляем к количеству исопльзуемых опции
+                    db_connect.get_free_option(chat_id)
+                    
+                    await remove_usage(chat_id)
+                    
+                for file in glob(f'{user_dir}/*.*'):
+                    remove(file)
+            else:
+                # Так как проверка на подходящий chosen_style уже была ранее, то несовпадение может быть только формате файла.
+                await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
 
     except Exception as e:
-        print(e)
-        db_connect.logger(chat_id, '[BAD]', f'func check_removes_response | {e}')
-        return False
+        print(repr(e))
+        await bot.send_message(chat_id, '⚠️ Произошла ошибка на сервере, попробуйте ещё раз, и если она повторится обратитесь в поддержку.', reply_markup=InlineKeyboardMarkup().add(keyboards.btn_free_options))
+        # Удалить processing для пользователя
+        db_connect.del_processing(message.chat.id)   
+        db_connect.del_options_query_by_chat_id(chat_id)
+        db_connect.logger(chat_id, '[BAD]', f'handle_audio_file | {e}')
 
 ## Обработчик для файлов в формате mp3, wav
 
@@ -334,501 +745,447 @@ async def check_options_handler_response(chat_id, message_id):
 async def handle_audio_file(message: types.Message):
     chat_id = message.chat.id
     try: 
-        if await get_user(chat_id):
-            # Проверить, не находится ли пользователь в processing
-            if db_connect.get_processing(chat_id) == 0:
-                user = message.from_user
-                is_subscribed = await check_subscription(user.id, '@beatbotnews')
-                if is_subscribed:
-                    if db_connect.get_wait_for_file(chat_id) == 1:
 
-                        audio = message.document
-                        if audio is None:
-                            audio = message.audio
+        if not await get_user(chat_id): 
+            return
 
-                        chosen_style = db_connect.get_chosen_style(chat_id)
+        # Проверить, не находится ли пользователь в processing
+        if db_connect.get_processing(chat_id) != 0:
+            return
+            
+        user = message.from_user
 
-                        print(message)
+        # Проверка на то, что пользователь подписан.
+        is_subscribed = await check_subscription(user.id, '@beatbotnews')
+        if not is_subscribed:
+            await bot.send_message(chat_id, text='Бесплатные опции доступны только подписчикам канала *@beatbotnews*', parse_mode='Markdown')
+            return
 
-                        # Восстановить лимиты если прошло время
-                        await refill_limits(chat_id)
+        # Когда пользователь выбирает одну из опций, 
+        # в которых подразумевается работа с файлами пользователя, 
+        # нужно чтобы бот ожидал эти файлы.
 
-                        audio_extension = audio.file_name.split('.')[-1]
+        # Это нужно для поддержания последовательности выбора услуги пользователем. 
+        # Сначала нужно выбрать опцию(chosen_style), потом уже скинуть файл, пока бот его ожидает.
+        if db_connect.get_wait_for_file(chat_id) != 1:
+            await bot.send_message(chat_id, 'Сначала выбери бесплатную опцию', reply_markup=InlineKeyboardMarkup().add(keyboards.btn_free_options))
+            return
+        
+        # Все остальные данные в chosen_style уже не являются опциями, обрабатывающими файлы.
+        if chosen_style not in {keyboards.options[keyboards.OPTIONS_BUTTONS[i]]: i for i in range(len(keyboards.OPTIONS_BUTTONS))}:  
+            await bot.send_message(chat_id, 'Сначала выберите опцию, подразумевающую работу с файлами')
+            return
+        
+        # Восстановить лимиты если прошло время.
+        # В базе хранится дата, последнего обновления лимитов пользователя. Если с того момента прошло больше суток то лимиты обновляются.
+        await refill_limits(chat_id)
+        
+        # Если ежесуточный лимит закончился. Важно сначала перепроверить.
+        if db_connect.get_free_options_limit(chat_id) <= 0:
+            await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
+            db_connect.del_wait_for_file(chat_id)
+            return
+        
+        # Установить processing для пользователя.
+        db_connect.set_processing(chat_id)
 
-                        if chosen_style in {keyboards.options[keyboards.OPTIONS_BUTTONS[i]]: i for i in range(len(keyboards.OPTIONS_BUTTONS))}:   
-                            # Установить processing для пользователя
-                            db_connect.set_processing(chat_id)
+        # В переменной может быть как "файл" скинутый пользователем (.mid), так и "аудио"(.wav, .mp3, .ogg, .flac). 
+        audio = message.document or message.audio
+
+        # Получить расширение файла
+        audio_extension = audio.file_name.split('.')[-1]
+        chosen_style = db_connect.get_chosen_style(chat_id)
+
+        # Есть 2 типа опций: 
+        # Немедленные (выполняются сразу же и возвращают результат).
+        instant_options = [keyboards.options[keyboards.OPTIONS_BUTTONS[0]],
+                           keyboards.options[keyboards.OPTIONS_BUTTONS[1]],         
+                           keyboards.options[keyboards.OPTIONS_BUTTONS[3]], 
+                           keyboards.options[keyboards.OPTIONS_BUTTONS[4]], 
+                           keyboards.options[keyboards.OPTIONS_BUTTONS[5]], 
+                           keyboards.options[keyboards.OPTIONS_BUTTONS[6]]]
+        # Обрабатываемые (собирают данные, создают запись в таблице очереди, и активируют фукнцию ожидания результата, пользователь встает в очередь).
+        processed_options = [keyboards.options[keyboards.OPTIONS_BUTTONS[7]],
+                             keyboards.options[keyboards.OPTIONS_BUTTONS[2]]]
+
+        if chosen_style in instant_options:
+            # Проверяем размер директории users_sounds
+            total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
+
+            if total_size_mb > 500:
+                await bot.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
+                return
+
+            # Проверяем размер загруженного файла
+            if audio.file_size > 20000 * 1024:
+                await bot.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 20мб.")
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
+                return
+
+            # Создаем директорию пользователя, если она не существует
+            makedirs(f"users_sounds/{chat_id}", exist_ok=True)
+
+            if audio_extension == 'mp3' and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[0]]:
+                
+                db_connect.del_wait_for_file(chat_id)
+
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/sound.mp3')
+
+                # УСКОРИТЬ ЗВУК
+                sound_options.speed_up(audio, user_dir)
+
+                # Отправляем обратно пользователю обработанный файл
+                with open(f'{user_dir}/sound.mp3', 'rb') as f:
+                    await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - speed up')
+
+                # Прибавляем к количеству исопльзуемых опции
+                db_connect.get_free_option(chat_id)
+
+                # Удаляем временный файл
+                remove(f'{user_dir}/sound.mp3')
+
+                await remove_usage(chat_id)                           
+            elif audio_extension == 'mp3' and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[1]]:
+                
+                db_connect.del_wait_for_file(chat_id)
+
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/sound.mp3')
+                
+                # ЗАМЕДЛИТЬ ЗВУК
+                sound_options.slow_down(audio, user_dir)
+
+                # Отправляем обратно пользователю обработанный файл
+                with open(f'{user_dir}/sound.mp3', 'rb') as f:
+                    await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - slowed + rvb')
+
+                # Прибавляем к количеству исопльзуемых опции
+                db_connect.get_free_option(chat_id)
+
+                # Удаляем временный файл
+                remove(f'{user_dir}/sound.mp3')
+
+                await remove_usage(chat_id)
+            elif audio_extension in ['mp3', 'wav'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[3]]:
+                
+                db_connect.del_wait_for_file(chat_id)
+
+                file = f'sound.{audio.file_name.split(".")[-1]}'
+
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/{file}')
+                
+                # УЛУЧШИТЬ ЗВУК
+                sound_options.normalize_sound(file, user_dir)
+
+                # Отправляем обратно пользователю обработанный файл
+                with open(f'{user_dir}/sound.wav', 'rb') as f:
+                    await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - normalized')
+
+                # Прибавляем к количеству исопльзуемых опции
+                db_connect.get_free_option(chat_id)
+
+                # Удаляем временный файл
+                remove(f'{user_dir}/sound.wav')
+                if path.exists(f'{user_dir}/sound.mp3'):
+                    remove(f'{user_dir}/sound.mp3')
+
+                await remove_usage(chat_id)
+            elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[4]]:
+                
+                db_connect.del_wait_for_file(chat_id)
+
+                current_time = datetime.now()
+                formatted_time = current_time.strftime("%Y%m%d_%H%M%S%f")
+                unicue_file = f'sound_{formatted_time}.{audio.file_name.split(".")[-1]}'
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/{unicue_file}')
+                
+                # Определить тональность
+                key, corr, altkey, altcorr =sound_options.analyze_key(f'{user_dir}/{unicue_file}')
+                await message.reply(f"<i>{audio.file_name}</i>\n<b>{key}</b>", parse_mode='html')
+
+                # Удаляем временный файл 
+                if path.exists(f'{user_dir}/{unicue_file}'):
+                    remove(f'{user_dir}/{unicue_file}')
+                
+                # Прибавляем к количеству исопльзуемых опции
+                db_connect.get_free_option(chat_id)
+
+                await remove_usage(chat_id)
+            elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[6]]:
+
+                db_connect.del_wait_for_file(chat_id)
+
+                file = f'sound.{audio.file_name.split(".")[-1]}'
+
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/{file}')
+                
+                # УСИЛИТЬ НИЗКИЕ ЧАСТОТЫ
+                sound_options.bass_boost(file, user_dir)
+
+                # Отправляем обратно пользователю обработанный файл
+                with open(f'{user_dir}/{file}', 'rb') as f:
+                    await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - bass boosted')
+
+                # Прибавляем к количеству исопльзуемых опции
+                db_connect.get_free_option(chat_id)
+
+                # Удаляем временный файл
+                if path.exists(f'{user_dir}/{file}'):
+                    remove(f'{user_dir}/{file}')
+
+                await remove_usage(chat_id)
+            elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[5]]:
+
+                db_connect.del_wait_for_file(chat_id)
+
+                file = f'sound.{audio.file_name.split(".")[-1]}'
+
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/{file}')
+                
+                # Определить bpm
+                bpm = sound_options.analyze_bpm(f'{user_dir}/{file}')
+                
+                rounded_bpm = "{:.2f}".format(bpm)
+
+                await message.reply(f"<b>{rounded_bpm}bpm</b>", parse_mode='html')
+
+                # Удаляем временный файл 
+                if path.exists(f'{user_dir}/{file}'):
+                    remove(f'{user_dir}/{file}')
+                
+                # Прибавляем к количеству исопльзуемых опции
+                db_connect.get_free_option(chat_id)
+
+                await remove_usage(chat_id)
+            else:
+                # Так как проверка на подходящий chosen_style уже была ранее, то несовпадение может быть только формате файла.
+                await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
+                
+
+            db_connect.del_wait_for_file(chat_id)
+        elif chosen_style in processed_options:
+            # Путь к директории для сохранения файла
+            user_dir = f"users_sounds/{chat_id}"
+
+            # Создаем директорию пользователя, если она не существует
+            makedirs(user_dir, exist_ok=True)
+                
+            # Проверяем размер директории users_sounds
+            total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
+
+            if total_size_mb > 300:
+                await bot.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
+                return
+
+            if audio_extension in ['mp3', 'wav', 'mid'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[7]]:
+                
+                db_connect.del_wait_for_file(chat_id)
+                
+                file = f'fragment.{audio.file_name.split(".")[-1]}'
+                
+                # Проверка файла .mid
+                if audio_extension == 'mid':
+                    if  audio.file_size > 5000 * 1024:
+                        await bot.send_message(chat_id, "🔊 Midi слишком большой. Пожалуйста, загрузите файл размером до 5мб.")
+                        
+                        # Удалить processing для пользователя
+                        db_connect.del_processing(chat_id)
+
+                        db_connect.set_wait_for_file(chat_id)
+
+                        return
+                    else:
+                        # Скачиваем файл на сервер
+                        await audio.download(destination_file=f'{user_dir}/{file}')
+
+                        length = au.get_midi_length(f'{user_dir}/fragment.mid')
+                        if not length:
+                            remove(glob(f'users_sounds/{chat_id}/fragment.mid')[0])
+                            # Удалить processing для пользователя
+                            db_connect.del_processing(chat_id)
+                            db_connect.set_wait_for_file(chat_id)
+                            return await bot.send_message(chat_id, "⚠️ Не удаётся обработать этот midi файл. Пожалуйста, загрузите другой файл для обработки", parse_mode='Markdown')
+                        
+                        if length > 480000:
+                        # if False:
+                            await bot.send_message(chat_id, "🔊 Midi слишком длинное. Пожалуйста, загрузите файл длительностью до 8 минут.")
                             
-                            if chosen_style in [keyboards.options[keyboards.OPTIONS_BUTTONS[1]], keyboards.options[keyboards.OPTIONS_BUTTONS[0]], keyboards.options[keyboards.OPTIONS_BUTTONS[3]], keyboards.options[keyboards.OPTIONS_BUTTONS[4]], keyboards.options[keyboards.OPTIONS_BUTTONS[5]], keyboards.options[keyboards.OPTIONS_BUTTONS[6]]]:
-                                if db_connect.get_free_options_limit(chat_id) > 0:
-                                    
-                                    # Проверяем размер директории users_sounds
-                                    total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
-
-                                    if total_size_mb > 500:
-                                        await bot.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
-                                        
-                                        # Удалить processing для пользователя
-                                        db_connect.del_processing(chat_id)
-                                        
-                                        return
-
-                                    # Проверяем размер загруженного файла
-                                    if audio.file_size > 20000 * 1024:
-                                        await bot.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 20мб.")
-                                        
-                                        # Удалить processing для пользователя
-                                        db_connect.del_processing(chat_id)
-                                        
-                                        return
-
-                                    # Путь к директории для сохранения файла
-                                    user_dir = f"users_sounds/{chat_id}"
-
-                                    # Создаем директорию пользователя, если она не существует
-                                    makedirs(user_dir, exist_ok=True)
-
-                                    if audio_extension == 'mp3' and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[0]]:
-                                        
-                                        db_connect.del_wait_for_file(chat_id)
-                                        # Скачиваем файл на сервер
-                                        await audio.download(destination_file=f'{user_dir}/sound.mp3')
-
-                                        # УСКОРИТЬ ЗВУК
-                                        sound_options.speed_up(audio, user_dir)
-
-                                        # Отправляем обратно пользователю обработанный файл
-                                        with open(f'{user_dir}/sound.mp3', 'rb') as f:
-                                            await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - speed up')
-
-                                        # Прибавляем к количеству исопльзуемых опции
-                                        db_connect.get_free_option(chat_id)
-
-                                        # Удаляем временный файл
-                                        remove(f'{user_dir}/sound.mp3')
-
-                                        # Если нет премиум подписки, отнять от дневного лимита
-                                        if db_connect.get_has_subscription(chat_id):
-                                            # Если подписка устарела
-                                            if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
-                                                db_connect.del_subscription(chat_id)
-                                                db_connect.draw_free_options_limit(chat_id)
-                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")
-                                        else:  
-                                            db_connect.draw_free_options_limit(chat_id)                             
-                                    elif audio_extension == 'mp3' and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[1]]:
-                                        
-                                        db_connect.del_wait_for_file(chat_id)
-
-                                        # Скачиваем файл на сервер
-                                        await audio.download(destination_file=f'{user_dir}/sound.mp3')
-                                        
-                                        # ЗАМЕДЛИТЬ ЗВУК
-                                        sound_options.slow_down(audio, user_dir)
-
-                                        # Отправляем обратно пользователю обработанный файл
-                                        with open(f'{user_dir}/sound.mp3', 'rb') as f:
-                                            await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - slowed + rvb')
-
-                                        # Прибавляем к количеству исопльзуемых опции
-                                        db_connect.get_free_option(chat_id)
-
-                                        # Удаляем временный файл
-                                        remove(f'{user_dir}/sound.mp3')
-
-                                        # Если нет премиум подписки, отнять от дневного лимита
-                                        if db_connect.get_has_subscription(chat_id):
-                                            # Если подписка устарела
-                                            if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
-                                                db_connect.del_subscription(chat_id)
-                                                db_connect.draw_free_options_limit(chat_id)
-                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")    
-                                        else:  
-                                            db_connect.draw_free_options_limit(chat_id)
-                                    elif audio_extension in ['mp3', 'wav'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[3]]:
-                                        
-                                        db_connect.del_wait_for_file(chat_id)
-
-                                        file = f'sound.{audio.file_name.split(".")[-1]}'
-
-                                        # Скачиваем файл на сервер
-                                        await audio.download(destination_file=f'{user_dir}/{file}')
-                                        
-                                        # УЛУЧШИТЬ ЗВУК
-                                        sound_options.normalize_sound(file, user_dir)
-
-                                        # Отправляем обратно пользователю обработанный файл
-                                        with open(f'{user_dir}/sound.wav', 'rb') as f:
-                                            await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - normalized')
-
-                                        # Прибавляем к количеству исопльзуемых опции
-                                        db_connect.get_free_option(chat_id)
-
-                                        # Удаляем временный файл
-                                        remove(f'{user_dir}/sound.wav')
-                                        if path.exists(f'{user_dir}/sound.mp3'):
-                                            remove(f'{user_dir}/sound.mp3')
-
-                                        # Если нет премиум подписки, отнять от дневного лимита
-                                        if db_connect.get_has_subscription(chat_id):
-                                            # Если подписка устарела
-                                            if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
-                                                db_connect.del_subscription(chat_id)
-                                                db_connect.draw_free_options_limit(chat_id)
-                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")    
-                                        else:  
-                                            db_connect.draw_free_options_limit(chat_id)    
-                                    elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[4]]:
-                                        
-                                        db_connect.del_wait_for_file(chat_id)
-
-                                        current_time = datetime.now()
-                                        formatted_time = current_time.strftime("%Y%m%d_%H%M%S%f")
-                                        unicue_file = f'sound_{formatted_time}.{audio.file_name.split(".")[-1]}'
-                                        # Скачиваем файл на сервер
-                                        await audio.download(destination_file=f'{user_dir}/{unicue_file}')
-                                        
-                                        # Определить тональность
-                                        key, corr, altkey, altcorr =sound_options.analyze_key(f'{user_dir}/{unicue_file}')
-                                        await message.reply(f"<i>{audio.file_name}</i>\n<b>{key}</b>", parse_mode='html')
-
-                                        # Удаляем временный файл 
-                                        if path.exists(f'{user_dir}/{unicue_file}'):
-                                            remove(f'{user_dir}/{unicue_file}')
-                                        
-                                        # Прибавляем к количеству исопльзуемых опции
-                                        db_connect.get_free_option(chat_id)
-
-                                        # Если нет премиум подписки, отнять от дневного лимита
-                                        if db_connect.get_has_subscription(chat_id):
-                                            # Если подписка устарела
-                                            if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
-                                                db_connect.del_subscription(chat_id)
-                                                db_connect.draw_free_options_limit(chat_id)
-                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.") 
-                                        else:
-                                            db_connect.draw_free_options_limit(chat_id)
-                                    elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[6]]:
-
-                                        db_connect.del_wait_for_file(chat_id)
-
-                                        file = f'sound.{audio.file_name.split(".")[-1]}'
-
-                                        # Скачиваем файл на сервер
-                                        await audio.download(destination_file=f'{user_dir}/{file}')
-                                        
-                                        # УСИЛИТЬ НИЗКИЕ ЧАСТОТЫ
-                                        sound_options.bass_boost(file, user_dir)
-
-                                        # Отправляем обратно пользователю обработанный файл
-                                        with open(f'{user_dir}/{file}', 'rb') as f:
-                                            await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - bass boosted')
-
-                                        # Прибавляем к количеству исопльзуемых опции
-                                        db_connect.get_free_option(chat_id)
-
-                                        # Удаляем временный файл
-                                        if path.exists(f'{user_dir}/{file}'):
-                                            remove(f'{user_dir}/{file}')
-
-                                        # Если нет премиум подписки, отнять от дневного лимита
-                                        if db_connect.get_has_subscription(chat_id):
-                                            # Если подписка устарела
-                                            if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
-                                                db_connect.del_subscription(chat_id)
-                                                db_connect.draw_free_options_limit(chat_id)
-                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")
-                                        else:
-                                            db_connect.draw_free_options_limit(chat_id)
-                                    elif audio_extension in ['mp3', 'wav', 'flac', 'ogg'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[5]]:
-
-                                        db_connect.del_wait_for_file(chat_id)
-
-                                        file = f'sound.{audio.file_name.split(".")[-1]}'
-
-                                        # Скачиваем файл на сервер
-                                        await audio.download(destination_file=f'{user_dir}/{file}')
-                                        
-                                        # Определить bpm
-                                        bpm = sound_options.analyze_bpm(f'{user_dir}/{file}')
-                                        
-                                        rounded_bpm = "{:.2f}".format(bpm)
-
-                                        await message.reply(f"<b>{rounded_bpm}bpm</b>", parse_mode='html')
-
-                                        # Удаляем временный файл 
-                                        if path.exists(f'{user_dir}/{file}'):
-                                            remove(f'{user_dir}/{file}')
-                                        
-                                        # Прибавляем к количеству исопльзуемых опции
-                                        db_connect.get_free_option(chat_id)
-
-                                        # Если нет премиум подписки, отнять от дневного лимита
-                                        if db_connect.get_has_subscription(chat_id):
-                                            # Если подписка устарела
-                                            if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
-                                                db_connect.del_subscription(chat_id)
-                                                db_connect.draw_free_options_limit(chat_id)
-                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")     
-                                        else:
-                                            db_connect.draw_free_options_limit(chat_id)
-                                    
-                                    else:
-                                        await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
-                                        
-                                else:
-                                    await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
-
-                                    db_connect.del_wait_for_file(chat_id)
-
-                            elif audio_extension in ['mp3', 'wav', 'mid'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[7]]:
-                                #TODO
-
-                                if db_connect.get_free_options_limit(chat_id) <= 0:
-                                    await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
-                                    db_connect.del_wait_for_file(chat_id)
-                                    # Удалить processing для пользователя
-                                    db_connect.del_processing(chat_id)
-                                    return
-                                
-                                db_connect.del_wait_for_file(chat_id)
-                                
-                                file = f'fragment.{audio.file_name.split(".")[-1]}'
-                                
-                                # Путь к директории для сохранения файла
-                                user_dir = f"users_sounds/{chat_id}"
-
-                                # Создаем директорию пользователя, если она не существует
-                                makedirs(user_dir, exist_ok=True)
-                                    
-                                # Проверяем размер директории users_sounds
-                                total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
-
-                                if total_size_mb > 300:
-                                    await bot.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
-                                    
-                                    # Удалить processing для пользователя
-                                    db_connect.del_processing(chat_id)
-                                    
-                                    return
-                                
-                                # Проверка файла .mid
-                                if audio_extension == 'mid':
-                                    if  audio.file_size > 5000 * 1024:
-                                        await bot.send_message(chat_id, "🔊 Midi слишком большой. Пожалуйста, загрузите файл размером до 5мб.")
-                                        
-                                        # Удалить processing для пользователя
-                                        db_connect.del_processing(chat_id)
-
-                                        db_connect.set_wait_for_file(chat_id)
-
-                                        return
-                                    else:
-                                        # Скачиваем файл на сервер
-                                        await audio.download(destination_file=f'{user_dir}/{file}')
-
-                                        length = au.get_midi_length(f'{user_dir}/fragment.mid')
-                                        if not length:
-                                            remove(glob(f'users_sounds/{chat_id}/fragment.mid')[0])
-                                            # Удалить processing для пользователя
-                                            db_connect.del_processing(chat_id)
-                                            db_connect.set_wait_for_file(chat_id)
-                                            return await bot.send_message(chat_id, "⚠️ Не удаётся обработать этот midi файл. Пожалуйста, загрузите другой файл для обработки", parse_mode='Markdown')
-                                        
-                                        if length > 480000:
-                                        # if False:
-                                            await bot.send_message(chat_id, "🔊 Midi слишком длинное. Пожалуйста, загрузите файл длительностью до 8 минут.")
-                                            
-                                            remove(glob(f'users_sounds/{chat_id}/fragment.mid')[0])
-                                            # Удалить processing для пользователя
-                                            db_connect.del_processing(chat_id)
-                                            db_connect.set_wait_for_file(chat_id)
-                                            return
-
-                                        if not glob(f'{user_dir}/*.wav') + glob(f'{user_dir}/*.mp3'):
-                                            await bot.send_message(chat_id, "Отлично, теперь скинь звук в формате *mp3* или *wav*, примеры звуков есть в нашем канале @beatbotnews", parse_mode='Markdown')
-                                            
-                                            # Удалить processing для пользователя
-                                            db_connect.del_processing(chat_id)
-
-                                            db_connect.set_wait_for_file(chat_id)
-
-                                            return
-
-                                # Проверяем размер загруженного файла
-                                if audio_extension in ['mp3', 'wav']:
-                                    if audio.file_size > 5000 * 1024:
-                                        await bot.send_message(chat_id, "🔊 Звук слишком большой. Пожалуйста, загрузите файл размером до 5мб.")
-                                       
-                                        # Удалить processing для пользователя
-                                        db_connect.del_processing(chat_id)
-
-                                        db_connect.set_wait_for_file(chat_id)
-                                       
-                                        return
-
-                                    else: 
-                                        # Скачиваем файл на сервер
-                                        await audio.download(destination_file=f'{user_dir}/{file}')
-
-                                        db_connect.set_chosen_extension(chat_id, audio_extension)
-
-                                        # Проверяем длительность аудио
-                                        max_duration_seconds = 10 # sec
-                                        audio_duration = get_duration(path=f'{user_dir}/{file}')
-                                        print(audio_duration)
-                                        if audio_duration > max_duration_seconds:  # Преобразуем в миллисекунды
-                                            au.crop_audio(f'{user_dir}/{file}', max_duration_seconds)
-                                            await bot.send_message(chat_id, "🔊 Аудио обрезано до 10 секунд")
-                                        
-                                        if not glob(f'{user_dir}/*.mid'):
-                                            await bot.send_message(chat_id, "Хорошо, теперь скинь трек в формате *mid*, примеры треков есть в нашем канале @beatbotnews, можешь использовать их.", parse_mode='Markdown')
-                                            
-                                            db_connect.set_wait_for_file(chat_id)
-
-                                            # Удалить processing для пользователя
-                                            db_connect.del_processing(chat_id)
-
-                                            return
-                                        
-                                audio_extension = db_connect.get_chosen_extension(chat_id)
-
-                                edit_message = await bot.send_message(chat_id, "🔄 Подготавливаю BeatBot Fusion...", parse_mode='Markdown')
-
-                                await asyncio.sleep(2)
-
-                                await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Подготавливаю BeatBot Fusion...', parse_mode='Markdown') 
-                                
-                                # Добавить в очередь 
-                                db_connect.set_options_query(chat_id, audio_extension)
-
-                                await asyncio.sleep(1)
-
-                                db_connect.del_removes_ready(chat_id)
-                                
-                                if await check_options_handler_response(chat_id, edit_message.message_id):
-
-                                    # Отправляем обратно пользователю обработанныt файлы
-                                    
-                                    with open(f'{user_dir}/output_fragments/output.{audio_extension}', 'rb') as f:
-                                        await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Fusioned')
-                                    
-                                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Отправлено', parse_mode='Markdown')
-
-                                    # Прибавляем к количеству исопльзуемых опции
-                                    db_connect.get_free_option(chat_id)
-
-                                    # Удаляем временный файл
-                                    for file in glob(f'{user_dir}/fragment.*') + glob(f'{user_dir}/output_fragments/.*'):
-                                        remove(file)
-                                    
-                                    # Если нет премиум подписки, отнять от дневного лимита
-                                    if db_connect.get_has_subscription(chat_id):
-                                        # Если подписка устарела
-                                        if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
-                                            db_connect.del_subscription(chat_id)
-                                            db_connect.draw_free_options_limit(chat_id)
-                                            await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")    
-                                    else:  
-                                        db_connect.draw_free_options_limit(chat_id)
-                            elif audio_extension in ['mp3', 'wav'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[2]]:
-                                
-                                db_connect.del_wait_for_file(chat_id)
-                                
-                                if db_connect.get_free_options_limit(chat_id) > 0:
-                                    # Проверяем размер директории users_sounds
-                                    total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
-                                    
-                                    if total_size_mb > 300:
-                                        await bot.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
-                                        
-                                        # Удалить processing для пользователя
-                                        db_connect.del_processing(chat_id)
-                                        
-                                        return
-
-                                    # Проверяем размер загруженного файла
-                                    if audio.file_size > 20000 * 1024:
-                                        await bot.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 20мб.")
-                                        
-                                        # Удалить processing для пользователя
-                                        db_connect.del_processing(chat_id)
-                                        
-                                        return
-
-                                    # Путь к директории для сохранения файла
-                                    user_dir = f"users_sounds/{chat_id}"
-
-                                    # Создаем директорию пользователя, если она не существует
-                                    makedirs(user_dir, exist_ok=True)
-
-                                    file = f'sound.{audio.file_name.split(".")[-1]}'
-
-                                    edit_message = await bot.send_message(chat_id, '🔄 Подготавливаю ремувер...')
-
-                                    # Скачиваем файл на сервер
-                                    await audio.download(destination_file=f'{user_dir}/{file}')
-
-                                    # Проверяем длительность аудио
-                                    max_duration_seconds = 4 * 60  # 4 минуты в секундах
-                                    audio_duration = get_duration(path=f'{user_dir}/{file}')
-                                    print(audio_duration)
-                                    if audio_duration > max_duration_seconds:  # Преобразуем в миллисекунды
-                                        await bot.send_message(chat_id, "🔊 Аудио слишком длинное. Пожалуйста, загрузите аудио длительностью до 4 минут.")
-                                        # Удалить processing для пользователя
-                                        db_connect.del_processing(chat_id)
-                                        return
-
-                                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Подготавливаю ремувер...', parse_mode='Markdown') 
-                                    
-                                    # Добавить в очередь 
-                                    db_connect.set_options_query(chat_id, audio_extension)
-
-                                    await asyncio.sleep(1)
-
-                                    db_connect.del_removes_ready(chat_id)
-                                    
-                                    if await check_options_handler_response(chat_id, edit_message.message_id):
-
-                                        # Отправляем обратно пользователю обработанныt файлы
-                                        with open(f'{user_dir}/final_vocals.{audio_extension}', 'rb') as f:
-                                            await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Vocals')
-
-                                        with open(f'{user_dir}/final_accompaniment.{audio_extension}', 'rb') as f:
-                                            await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Instruments')
-                                        
-                                        edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Отправлено', parse_mode='Markdown') 
-
-                                        # Прибавляем к количеству исопльзуемых опции
-                                        db_connect.get_free_option(chat_id)
-                                        
-                                        # Если нет премиум подписки, отнять от дневного лимита
-                                        if db_connect.get_has_subscription(chat_id):
-                                            # Если подписка устарела
-                                            if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
-                                                db_connect.del_subscription(chat_id)
-                                                db_connect.draw_free_options_limit(chat_id)
-                                                await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.")    
-                                        else:  
-                                            db_connect.draw_free_options_limit(chat_id)
-                                        
-                                    
-                                    for file in glob(f'{user_dir}/*.*'):
-                                        remove(file)
-
-                                else:
-                                    await bot.send_message(chat_id, 'Ваш лимит по бесплатным ремувам на сегодня исчерпан.')
-                            else:
-                                await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
+                            remove(glob(f'users_sounds/{chat_id}/fragment.mid')[0])
+                            # Удалить processing для пользователя
+                            db_connect.del_processing(chat_id)
+                            db_connect.set_wait_for_file(chat_id)
+                            return
+
+                        if not glob(f'{user_dir}/*.wav') + glob(f'{user_dir}/*.mp3'):
+                            await bot.send_message(chat_id, "Отлично, теперь скинь звук в формате *mp3* или *wav*, примеры звуков есть в нашем канале @beatbotnews", parse_mode='Markdown')
+                            
+                            # Удалить processing для пользователя
+                            db_connect.del_processing(chat_id)
+
+                            db_connect.set_wait_for_file(chat_id)
+
+                            return
+
+                # Проверяем размер загруженного файла
+                if audio_extension in ['mp3', 'wav']:
+                    if audio.file_size > 5000 * 1024:
+                        await bot.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 5мб.")
+                        
+                        # Удалить processing для пользователя
+                        db_connect.del_processing(chat_id)
+
+                        db_connect.set_wait_for_file(chat_id)
+                        
+                        return
+
+                    else: 
+                        # Скачиваем файл на сервер
+                        await audio.download(destination_file=f'{user_dir}/{file}')
+
+                        db_connect.set_chosen_extension(chat_id, audio_extension)
+
+                        # Проверяем длительность аудио
+                        max_duration_seconds = 10 # sec
+                        audio_duration = get_duration(path=f'{user_dir}/{file}')
+                        print(audio_duration)
+                        if audio_duration > max_duration_seconds:  # Преобразуем в миллисекунды
+                            au.crop_audio(f'{user_dir}/{file}', max_duration_seconds)
+                            await bot.send_message(chat_id, "🔊 Аудио обрезано до 10 секунд")
+                        
+                        if not glob(f'{user_dir}/*.mid'):
+                            await bot.send_message(chat_id, "Хорошо, теперь скинь трек в формате *mid*, примеры треков есть в нашем канале @beatbotnews, можешь использовать их.", parse_mode='Markdown')
+                            
+                            db_connect.set_wait_for_file(chat_id)
 
                             # Удалить processing для пользователя
                             db_connect.del_processing(chat_id)
-                        else:
-                            await bot.send_message(chat_id, '🔀 Похоже, вы начали генерацию бита. Если вы хотите воспользоваться бесплатными опциями: выберите нужную в разделе с бесплатными опциями.')
-                    else:
-                        await bot.send_message(chat_id, 'Сначала выбери бесплатную опцию', reply_markup=InlineKeyboardMarkup().add(keyboards.btn_free_options))
-                else:
-                    await bot.send_message(chat_id, text=' Бесплатные опции доступны только подписчикам канала', parse_mode='Markdown')
+
+                            return
+                        
+                audio_extension = db_connect.get_chosen_extension(chat_id)
+
+                edit_message = await bot.send_message(chat_id, "🔄 Подготавливаю BeatBot Fusion...", parse_mode='Markdown')
+
+                await asyncio.sleep(2)
+
+                await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Подготавливаю BeatBot Fusion...', parse_mode='Markdown') 
+                
+                # Добавить в очередь 
+                db_connect.set_options_query(chat_id, audio_extension)
+
+                await asyncio.sleep(1)
+
+                db_connect.del_removes_ready(chat_id)
+                
+                if await check_options_handler_response(chat_id, edit_message.message_id):
+
+                    # Отправляем обратно пользователю обработанныt файлы
+                    
+                    with open(f'{user_dir}/output_fragments/output.{audio_extension}', 'rb') as f:
+                        await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Fusioned')
+                    
+                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Отправлено', parse_mode='Markdown')
+
+                    # Прибавляем к количеству исопльзуемых опции
+                    db_connect.get_free_option(chat_id)
+
+                    # Удаляем временный файл
+                    for file in glob(f'{user_dir}/fragment.*') + glob(f'{user_dir}/output_fragments/.*'):
+                        remove(file)
+                    
+                    await remove_usage(chat_id)
+            elif audio_extension in ['mp3', 'wav'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[2]]:
+                
+                db_connect.del_wait_for_file(chat_id)
+                
+                # Проверяем размер директории users_sounds
+                total_size_mb = get_directory_size("users_sounds") / (1024 * 1024)
+                
+                if total_size_mb > 300:
+                    await bot.send_message(chat_id, "Извините, бот перегружен. Пожалуйста, попробуйте позже.")
+                    
+                    # Удалить processing для пользователя
+                    db_connect.del_processing(chat_id)
+                    
+                    return
+
+                # Проверяем размер загруженного файла
+                if audio.file_size > 20000 * 1024:
+                    await bot.send_message(chat_id, "🔊 Файл слишком большой. Пожалуйста, загрузите файл размером до 20мб.")
+                    
+                    # Удалить processing для пользователя
+                    db_connect.del_processing(chat_id)
+                    
+                    return
+
+                # Путь к директории для сохранения файла
+                user_dir = f"users_sounds/{chat_id}"
+
+                # Создаем директорию пользователя, если она не существует
+                makedirs(user_dir, exist_ok=True)
+
+                file = f'sound.{audio.file_name.split(".")[-1]}'
+
+                edit_message = await bot.send_message(chat_id, '🔄 Подготавливаю ремувер...')
+
+                # Скачиваем файл на сервер
+                await audio.download(destination_file=f'{user_dir}/{file}')
+
+                # Проверяем длительность аудио
+                max_duration_seconds = 4 * 60  # 4 минуты в секундах
+                audio_duration = get_duration(path=f'{user_dir}/{file}')
+                print(audio_duration)
+                if audio_duration > max_duration_seconds:  # Преобразуем в миллисекунды
+                    await bot.send_message(chat_id, "🔊 Аудио слишком длинное. Пожалуйста, загрузите аудио длительностью до 4 минут.")
+                    # Удалить processing для пользователя
+                    db_connect.del_processing(chat_id)
+                    return
+
+                edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Подготавливаю ремувер...', parse_mode='Markdown') 
+                
+                # Добавить в очередь 
+                db_connect.set_options_query(chat_id, audio_extension)
+
+                await asyncio.sleep(1)
+
+                db_connect.del_removes_ready(chat_id)
+                
+                if await check_options_handler_response(chat_id, edit_message.message_id):
+
+                    # Отправляем обратно пользователю обработанныt файлы
+                    with open(f'{user_dir}/final_vocals.{audio_extension}', 'rb') as f:
+                        await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Vocals')
+
+                    with open(f'{user_dir}/final_accompaniment.{audio_extension}', 'rb') as f:
+                        await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Instruments')
+                    
+                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'✅ Отправлено', parse_mode='Markdown') 
+
+                    # Прибавляем к количеству исопльзуемых опции
+                    db_connect.get_free_option(chat_id)
+                    
+                    await remove_usage(chat_id)
+                    
+                for file in glob(f'{user_dir}/*.*'):
+                    remove(file)
+            else:
+                # Так как проверка на подходящий chosen_style уже была ранее, то несовпадение может быть только формате файла.
+                await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
+
     except Exception as e:
         print(repr(e))
         await bot.send_message(chat_id, '⚠️ Произошла ошибка на сервере, попробуйте ещё раз, и если она повторится обратитесь в поддержку.', reply_markup=InlineKeyboardMarkup().add(keyboards.btn_free_options))
