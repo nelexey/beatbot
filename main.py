@@ -223,38 +223,34 @@ async def text(message: types.Message):
                 db_connect.set_processing(chat_id)
 
                 response = await client.get(url, headers=headers)
-                response.raise_for_status()
-
-                soup = BeautifulSoup(response.text, "html.parser")
-
-                # Находим элементы списка li с классом riLi и извлекаем значение атрибута data-w из первых 15 элементов
-                word_list = soup.find_all("li", class_="riLi", limit=20)
-                header = soup.find("h2", class_="rifmypervye")
-                new_word_list = []
-
-                for word_item in word_list:
-                    word_data_w = word_item.get("data-w")
-                    new_word_list.append(word_data_w)
-                print(new_word_list)
-                if new_word_list != []:
-                    rhymes = '\n'.join(new_word_list)
-                    rhymes_message = f"<b>{header.text}\n\n</b>{rhymes}"
-                    await bot.send_message(chat_id, rhymes_message, reply_markup=keyboards.rhymes_keyboard, parse_mode='html')
-                else:
-                    await bot.send_message(chat_id, '📭 Не удалось подобрать рифмы', reply_markup=keyboards.rhymes_keyboard)
-
-                await remove_usage(chat_id)
-
-                # Удалить processing для пользователя
-                db_connect.del_processing(chat_id)
-
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code == 302:
-                    await bot.send_message(chat_id, '📭 Не удалось подобрать рифмы', reply_markup=keyboards.rhymes_keyboard)
-                else:
-                    await bot.send_message(chat_id, '⌛️ Опция временно не работает', reply_markup=keyboards.rhymes_keyboard)
+                if response.status_code > 400 and response.status_code < 600:
+                    await bot.send_message(chat_id, '⚠️ Не удалось обратиться к серверу, попробуйте позже.', reply_markup=keyboards.rhymes_keyboard)
                     # Запись ошибки в логгер
                     db_connect.logger(chat_id, '[BAD]', f'rhyme | {e}')
+
+                elif response.status_code == 302:
+                    await bot.send_message(chat_id, '📭 Не удалось подобрать рифмы', reply_markup=keyboards.rhymes_keyboard)
+                else:
+                    soup = BeautifulSoup(response.text, "html.parser")
+
+                    # Находим элементы списка li с классом riLi и извлекаем значение атрибута data-w из первых 15 элементов
+                    word_list = soup.find_all("li", class_="riLi", limit=20)
+                    header = soup.find("h2", class_="rifmypervye")
+                    new_word_list = []
+
+                    for word_item in word_list:
+                        word_data_w = word_item.get("data-w")
+                        new_word_list.append(word_data_w)
+                    print(response.text)
+                    if new_word_list != []:
+                        rhymes = '\n'.join(new_word_list)
+                        rhymes_message = f"<b>{header.text}\n\n</b>{rhymes}"
+                        await bot.send_message(chat_id, rhymes_message, reply_markup=keyboards.rhymes_keyboard, parse_mode='html')
+                    else:
+                        await bot.send_message(chat_id, '📭 Не удалось подобрать рифмы', reply_markup=keyboards.rhymes_keyboard)
+
+                    await remove_usage(chat_id)
+
                 # Удалить processing для пользователя
                 db_connect.del_processing(chat_id)
 
