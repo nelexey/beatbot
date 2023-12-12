@@ -61,6 +61,7 @@ async def safe_launch():
             for chat_id in launch.mailing_list:
                 beat_keyboard = InlineKeyboardMarkup().add(keyboards.btn_generate_beat)
                 await bot.send_message(chat_id, '⚙️ Сожалею, но во время создания твоих битов бот перезапустился\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Деньги за транзакцию не сняты.\n\nТы можешь заказать бит ещё раз 👉', reply_markup=beat_keyboard)          
+                # Запись в логгер
                 db_connect.logger(chat_id, '[RELOAD]', 'Перезапуск во время beats_generating')
             for chat_id in launch.chat_ids_by_messages_to_del_ids:
                 messages_ids = db_connect.get_beats_versions_messages_ids(chat_id).split(', ')
@@ -69,15 +70,18 @@ async def safe_launch():
                 db_connect.del_beats_versions_messages_ids(chat_id)
         except Exception as e:
             print(e)
+            # Запись ошибки в логгер
             db_connect.logger('UNCOLLECTED', '[RELOAD][BAD]', '')
     if launch.removes_mailing_list:
         try:
             for chat_id in launch.removes_mailing_list:
                 beat_keyboard = InlineKeyboardMarkup().add(keyboards.btn_free_options)
                 await bot.send_message(chat_id, '⚙️ Сожалею, но во время обработки бот перезапустился\n\nЭто происходит очень редко, но необходимо для стабильной работы бота. Твоё количество использований бесплатных опций не уменьшилось.\n\nТы можешь использовать опцию ещё раз 👉', reply_markup=beat_keyboard)          
+                # Запись в логгер
                 db_connect.logger(chat_id, '[RELOAD]', 'Перезапуск во время содзания remove_vocal')
         except Exception as e:
             print(e)
+            # Запись ошибки в логгер
             db_connect.logger('UNCOLLECTED', '[RELOAD][BAD]', '')
 
 # Обработка команды /start
@@ -237,15 +241,7 @@ async def text(message: types.Message):
             else:
                 await bot.send_message(chat_id, '📭 Не удалось подобрать рифмы', reply_markup=keyboards.rhymes_keyboard)
             
-            # Если нет премиум подписки, отнять от дневного лимита
-            if db_connect.get_has_subscription(chat_id):
-                # Если подписка устарела
-                if db_connect.get_subscription_expiry_date(chat_id) < datetime.now().date():        
-                    db_connect.del_subscription(chat_id)
-                    db_connect.draw_free_options_limit(chat_id)
-                    await bot.send_message(chat_id, "🌀 Ваша подписка закончилась, для вас снова действуют лимиты.") 
-            else:
-                db_connect.draw_free_options_limit(chat_id)
+            remove_usage(chat_id)
 
             # Удалить processing для пользователя
             db_connect.del_processing(chat_id)
@@ -254,10 +250,9 @@ async def text(message: types.Message):
 
         except requests.RequestException as e:
             await bot.send_message(chat_id, '⌛️ Опция временно не работает', reply_markup=keyboards.rhymes_keyboard)
-            
             # Удалить processing для пользователя
             db_connect.del_processing(chat_id)
-
+            # Запись ошибки в логгер
             db_connect.logger(chat_id, '[BAD]', f'rhyme | {e}')
             return
         
@@ -1192,6 +1187,7 @@ async def handle_audio_file(message: types.Message):
         # Удалить processing для пользователя
         db_connect.del_processing(message.chat.id)   
         db_connect.del_options_query_by_chat_id(chat_id)
+        # Запись ошибки в логгер
         db_connect.logger(chat_id, '[BAD]', f'handle_audio_file | {e}')
 
 ## Обработка кнопок
@@ -1376,9 +1372,8 @@ async def check_payment(payment_id, c, type=''):
             await bot.send_message(c.message.chat.id, f'💵 Твой баланс пополнен на {c.data}', reply_markup=keyboards.to_menu_keyboard)
             # Удалить payment_checking для пользователя
             # db_handler.del_payment_checking(c.message.chat.id)
-
             del_user_payment_transactions(c.message.chat.id, c.data)
-            
+            # Запись ошибки в логгер
             db_connect.logger(c.message.chat.id, '[PAY]', f'Fill balance | amount: {c.data}')
             
             return True
@@ -1399,7 +1394,7 @@ async def check_payment(payment_id, c, type=''):
             db_connect.set_subscription(c.message.chat.id, end_date_str)
             
             del_user_payment_transactions(c.message.chat.id, c.data)
-
+            # Запись ошибки в логгер
             db_connect.logger(c.message.chat.id, '[PAY]', f'Enable subscription')
             
             return True
@@ -1410,7 +1405,7 @@ async def check_payment(payment_id, c, type=''):
         # db_handler.del_payment_checking(c.message.chat.id)
 
         del_user_payment_transactions(c.message.chat.id, c.data)
-
+        # Запись ошибки в логгер
         db_connect.logger(c.message.chat.id, '[PAY][ENDED]', f'Payment checking ended')
 
         return False
