@@ -28,7 +28,7 @@ import json
 from datetime import date, timedelta, datetime
 from librosa import get_duration
 import ffmpeg
-import requests
+import httpx
 from urllib.parse import quote
 from bs4 import BeautifulSoup
 from random import choice
@@ -217,43 +217,54 @@ async def text(message: types.Message):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
 
-        try:
-            # Установить processing для пользователя
-            db_connect.set_processing(chat_id)
+        async with httpx.AsyncClient() as client:
+            try:
+                # Установить processing для пользователя
+                db_connect.set_processing(chat_id)
 
-            response = requests.get(url, headers=headers)
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()
 
-            soup = BeautifulSoup(response.text, "html.parser")
+                soup = BeautifulSoup(response.text, "html.parser")
 
-            # Находим элементы списка li с классом riLi и извлекаем значение атрибута data-w из первых 15 элементов
-            word_list = soup.find_all("li", class_="riLi", limit=20)
-            header = soup.find("h2", class_="rifmypervye")
-            new_word_list = []
+                # Находим элементы списка li с классом riLi и извлекаем значение атрибута data-w из первых 15 элементов
+                word_list = soup.find_all("li", class_="riLi", limit=20)
+                header = soup.find("h2", class_="rifmypervye")
+                new_word_list = []
 
-            for word_item in word_list:
-                word_data_w = word_item.get("data-w")
-                new_word_list.append(word_data_w)
+                for word_item in word_list:
+                    word_data_w = word_item.get("data-w")
+                    new_word_list.append(word_data_w)
+                print(new_word_list)
+                if new_word_list != []:
+                    rhymes = '\n'.join(new_word_list)
+                    rhymes_message = f"<b>{header.text}\n\n</b>{rhymes}"
+                    await bot.send_message(chat_id, rhymes_message, reply_markup=keyboards.rhymes_keyboard, parse_mode='html')
+                else:
+                    await bot.send_message(chat_id, '📭 Не удалось подобрать рифмы', reply_markup=keyboards.rhymes_keyboard)
+
+                await remove_usage(chat_id)
+
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
+
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 302:
+                    await bot.send_message(chat_id, '📭 Не удалось подобрать рифмы', reply_markup=keyboards.rhymes_keyboard)
+                else:
+                    await bot.send_message(chat_id, '⌛️ Опция временно не работает', reply_markup=keyboards.rhymes_keyboard)
+                    # Запись ошибки в логгер
+                    db_connect.logger(chat_id, '[BAD]', f'rhyme | {e}')
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
+
+            except httpx.RequestError as e:
+                await bot.send_message(chat_id, '⌛️ Опция временно не работает', reply_markup=keyboards.rhymes_keyboard)
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
+                # Запись ошибки в логгер
+                db_connect.logger(chat_id, '[BAD]', f'rhyme | {e}')
             
-            if new_word_list != []:
-                rhymes = '\n'.join(new_word_list)
-                rhymes_message = f"<b>{header.text}\n\n</b>{rhymes}"
-                await bot.send_message(chat_id, rhymes_message, reply_markup=keyboards.rhymes_keyboard, parse_mode='html')
-            else:
-                await bot.send_message(chat_id, '📭 Не удалось подобрать рифмы', reply_markup=keyboards.rhymes_keyboard)
-            
-            remove_usage(chat_id)
-
-            # Удалить processing для пользователя
-            db_connect.del_processing(chat_id)
-            
-            return
-
-        except requests.RequestException as e:
-            await bot.send_message(chat_id, '⌛️ Опция временно не работает', reply_markup=keyboards.rhymes_keyboard)
-            # Удалить processing для пользователя
-            db_connect.del_processing(chat_id)
-            # Запись ошибки в логгер
-            db_connect.logger(chat_id, '[BAD]', f'rhyme | {e}')
             return
         
     await bot.send_message(message.chat.id, 'Взаимодействовать с ботом можно по команде /menu')
