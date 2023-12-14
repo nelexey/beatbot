@@ -99,7 +99,7 @@ try:
             cursor.execute(f'''INSERT INTO user_limits (chat_id, free_options_use_limit, free_removes_use_limit, last_updated)
             VALUES ({chat_id}, {10}, {3}, NOW()) ON CONFLICT DO NOTHING;''')
             
-            print(f'[INFO] Values for *{username}* succesfuly added')
+            #print(f'[INFO] Values for *{username}* succesfuly added')
     
     def get_user(chat_id):
         connect()
@@ -121,106 +121,106 @@ try:
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT balance FROM bot_users WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
-            print(f'[INFO] The balance request for the *{chat_id}* was completed successfully')
+            # print(f'[INFO] The balance request for the *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]
     def top_balance(chat_id, money):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE bot_users SET balance = balance + {money} WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] the balance of the *{chat_id}* has been successfully replenished')
+            # print(f'[INFO] the balance of the *{chat_id}* has been successfully replenished')
     def pay(chat_id, payment):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE bot_users SET balance = balance - {payment} WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'A fee of {payment} sizes has been withdrawn from the *{chat_id}* balance')
+            # print(f'A fee of {payment} sizes has been withdrawn from the *{chat_id}* balance')
     
     def get_beat(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE bot_users SET received_beats = received_beats + 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] One received beat added to *{chat_id}* received beats')
+            # print(f'[INFO] One received beat added to *{chat_id}* received beats')
 
     def get_free_option(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE bot_users SET received_free_options = received_free_options + 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] One free option added to *{chat_id}* received beats')
+            # print(f'[INFO] One free option added to *{chat_id}* received beats')
 
     def set_processing(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE bot_users SET processing = 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] *{chat_id}* in processing now')
+            # print(f'[INFO] *{chat_id}* in processing now')
     def del_processing(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE bot_users SET processing = 0 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] *{chat_id}* deleted from processing successfully')
+            # print(f'[INFO] *{chat_id}* deleted from processing successfully')
     def get_processing(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT processing FROM bot_users WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
-            print(f'[INFO] Getting processing for *{chat_id}* was completed successfully')
+            # print(f'[INFO] Getting processing for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]  
     def del_processing_for_all():
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE bot_users SET processing = 0''')
-            print(f'[INFO] All deleted from processing successfully')   
+            # print(f'[INFO] All deleted from processing successfully')   
     
     def set_beats_generating(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE bot_users SET beats_generating = 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Setting beats_generating for *{chat_id}* was successfully')
+            # print(f'[INFO] Setting beats_generating for *{chat_id}* was successfully')
     def del_beats_generating(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE bot_users SET beats_generating = 0 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] *{chat_id}* reset to 0 in beats_generating successfully') 
+            # print(f'[INFO] *{chat_id}* reset to 0 in beats_generating successfully') 
     def get_beats_generating(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT beats_generating FROM bot_users WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
-            print(f'[INFO] Getting beats_generating for *{chat_id}* was completed successfully')
+            # print(f'[INFO] Getting beats_generating for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]      
     
     def set_beats_versions_messages_ids(chat_id, messages_ids):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE bot_users SET beats_vers_messages = '{messages_ids}' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Setting beats_vers_messages for *{chat_id}* was completed successfully')
+            # print(f'[INFO] Setting beats_vers_messages for *{chat_id}* was completed successfully')
     def get_beats_versions_messages_ids(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT beats_vers_messages FROM bot_users WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
-            print(f'[INFO] Getting beats_vers_messages was successfully')
+            # print(f'[INFO] Getting beats_vers_messages was successfully')
             return cursor.fetchone()[0]      
     def del_beats_versions_messages_ids(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE bot_users SET beats_vers_messages = '' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Deleting *{chat_id}* beats_vers_messages was successfully')
+            # print(f'[INFO] Deleting *{chat_id}* beats_vers_messages was successfully')
 
     def get_beats_generating_chat_ids():
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT chat_id FROM bot_users WHERE CAST(beats_generating AS INTEGER) = 1;''')
-            print(f'[INFO] Getting chat_ids by beats_generating was completed successfully')
+            # print(f'[INFO] Getting chat_ids by beats_generating was completed successfully')
             result = cursor.fetchall()
             return [row[0] for row in result]
     def get_chat_ids_by_messages_to_del_ids():
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT chat_id FROM bot_users WHERE beats_vers_messages != '';''')
-            print(f'[INFO] Getting chat_ids by messages_to_del_ids was completed successfully')
+            # print(f'[INFO] Getting chat_ids by messages_to_del_ids was completed successfully')
             result = cursor.fetchall()
             return [row[0] for row in result]
     def get_all_chat_ids():
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT chat_id FROM bot_users;''')
-            print(f'[INFO] Getting chat_ids was completed successfully')
+            # print(f'[INFO] Getting chat_ids was completed successfully')
             result = cursor.fetchall()
             return [row[0] for row in result]
 
@@ -229,119 +229,119 @@ try:
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET chosen_style = '{user_chosen_style}' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Setting chosen_style for *{chat_id}* was successfully')
+            # print(f'[INFO] Setting chosen_style for *{chat_id}* was successfully')
     def get_chosen_style(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT chosen_style FROM orders WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
-            print(f'[INFO] Getting chosen_style was successfully')
+            # print(f'[INFO] Getting chosen_style was successfully')
             return cursor.fetchone()[0]   
     def del_chosen_style(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET chosen_style = '' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Deleting *{chat_id}* chosen_style was successfully')
+            # print(f'[INFO] Deleting *{chat_id}* chosen_style was successfully')
     
     def set_chosen_bpm(chat_id, user_chosen_bpm):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET chosen_bpm = '{user_chosen_bpm}' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Setting chosen_bpm for *{chat_id}* was successfully')
+            # print(f'[INFO] Setting chosen_bpm for *{chat_id}* was successfully')
     def get_chosen_bpm(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT chosen_bpm FROM orders WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
-            print(f'[INFO] Getting chosen_bpm was successfully')
+            # print(f'[INFO] Getting chosen_bpm was successfully')
             return cursor.fetchone()[0]   
     def del_chosen_bpm(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET chosen_bpm = '' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Deleting *{chat_id}* chosen_bpm was successfully')
+            # print(f'[INFO] Deleting *{chat_id}* chosen_bpm was successfully')
 
     def set_chosen_extension(chat_id, user_chosen_extension):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET chosen_extension = '{user_chosen_extension}' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Setting chosen_extension for *{chat_id}* was successfully')    
+            # print(f'[INFO] Setting chosen_extension for *{chat_id}* was successfully')    
     def get_chosen_extension(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT chosen_extension FROM orders WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
-            print(f'[INFO] Getting chosen_extension was successfully')
+            # print(f'[INFO] Getting chosen_extension was successfully')
             return cursor.fetchone()[0]   
     def del_chosen_extension(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET chosen_extension = '' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Deleting *{chat_id}* chosen_extension was successfully')
+            # print(f'[INFO] Deleting *{chat_id}* chosen_extension was successfully')
 
     def set_chosen_harmony(chat_id, user_chosen_harmony):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET chosen_harmony = '{user_chosen_harmony}' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Setting chosen_harmony for *{chat_id}* was successfully')    
+            # print(f'[INFO] Setting chosen_harmony for *{chat_id}* was successfully')    
     def get_chosen_harmony(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT chosen_harmony FROM orders WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
-            print(f'[INFO] Getting chosen_harmony was successfully')
+            # print(f'[INFO] Getting chosen_harmony was successfully')
             return cursor.fetchone()[0]   
     def del_chosen_harmony(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET chosen_harmony = '' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Deleting *{chat_id}* chosen_harmony was successfully')
+            # print(f'[INFO] Deleting *{chat_id}* chosen_harmony was successfully')
 
     def set_beats_ready(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET beats_ready = 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Setting beats_ready for *{chat_id}* was successfully')
+            # print(f'[INFO] Setting beats_ready for *{chat_id}* was successfully')
     def del_beats_ready(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET beats_ready = 0 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] *{chat_id}* reset to 0 in beats_ready successfully') 
+            # print(f'[INFO] *{chat_id}* reset to 0 in beats_ready successfully') 
     def get_beats_ready(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT beats_ready FROM orders WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
-            print(f'[INFO] Getting beats_ready for *{chat_id}* was completed successfully')
+            # print(f'[INFO] Getting beats_ready for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]
 
     def set_removes_ready(chat_id, status=1):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET removes_ready = {status} WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Setting removes_ready for *{chat_id}* was successfully')
+            # print(f'[INFO] Setting removes_ready for *{chat_id}* was successfully')
     def del_removes_ready(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET removes_ready = 0 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] *{chat_id}* reset to 0 in removes_ready successfully') 
+            # print(f'[INFO] *{chat_id}* reset to 0 in removes_ready successfully') 
     def get_removes_ready(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT removes_ready FROM orders WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
-            print(f'[INFO] Getting removes_ready for *{chat_id}* was completed successfully')
+            # print(f'[INFO] Getting removes_ready for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]     
         
     def set_wait_for_file(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET wait_for_file = 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Setting beats_ready for *{chat_id}* was successfully')
+            # print(f'[INFO] Setting beats_ready for *{chat_id}* was successfully')
     def del_wait_for_file(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE orders SET wait_for_file = 0 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] *{chat_id}* reset to 0 in beats_ready successfully') 
+            # print(f'[INFO] *{chat_id}* reset to 0 in beats_ready successfully') 
     def get_wait_for_file(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT wait_for_file FROM orders WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
-            print(f'[INFO] Getting beats_ready for *{chat_id}* was completed successfully')
+            # print(f'[INFO] Getting beats_ready for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]     
     
     # запросы к таблице query
@@ -349,126 +349,126 @@ try:
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''INSERT INTO query (chat_id, chosen_beat, chosen_bpm, chosen_format, chosen_harmony, order_number) VALUES ('{chat_id}', '{chosen_beat}', '{chosen_bpm}', '{chosen_harmony}', '{chosen_format}',  (SELECT COALESCE(MAX(order_number), 0) + 1 FROM query));''')
-            print(f'[INFO] Query for {chat_id} added') 
+            # print(f'[INFO] Query for {chat_id} added') 
     def get_query():
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT chat_id, chosen_beat, chosen_bpm, chosen_format, chosen_harmony, order_number FROM query WHERE order_number = (SELECT MIN(order_number) FROM query);''')
-            print(f'[INFO] Getting query')
+            # print(f'[INFO] Getting query')
             return cursor.fetchone()   
     def get_query_by_chat_id(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT COUNT(*) AS position FROM query WHERE order_number <= (SELECT order_number FROM query WHERE CAST(chat_id AS BIGINT) = {chat_id});''')
-            print(f'[INFO] Getting query for {chat_id}')
+            # print(f'[INFO] Getting query for {chat_id}')
             return cursor.fetchone()[0] 
     def del_query():
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''DELETE FROM query WHERE order_number = (SELECT MIN(order_number) FROM query);''')
-            print(f'[INFO] Deleted query')
+            # print(f'[INFO] Deleted query')
     def del_all_queries():
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''DELETE FROM query;''')
-            print(f'[INFO] Deleted all queries')
+            # print(f'[INFO] Deleted all queries')
     def del_query_by_chat_id(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''DELETE FROM query WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
-            print(f'[INFO] Deleted query for {chat_id}')
+            # print(f'[INFO] Deleted query for {chat_id}')
 
     # запросы к таблице options_query
     def set_options_query(chat_id, chosen_format):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''INSERT INTO options_query (chat_id, chosen_format, order_number) VALUES ('{chat_id}', '{chosen_format}', (SELECT COALESCE(MAX(order_number), 0) + 1 FROM options_query));''')
-            print(f'[INFO] Options query for {chat_id} added') 
+            # print(f'[INFO] Options query for {chat_id} added') 
     def get_option_query():
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT chat_id, chosen_format, order_number FROM options_query WHERE order_number = (SELECT MIN(order_number) FROM options_query);''')
-            print(f'[INFO] Getting options_query')
+            # print(f'[INFO] Getting options_query')
             return cursor.fetchone()   
     def get_options_query_by_chat_id(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT COUNT(*) AS position FROM options_query WHERE order_number <= (SELECT order_number FROM options_query WHERE CAST(chat_id AS BIGINT) = {chat_id});''')
-            print(f'[INFO] Getting options_query for {chat_id}')
+            # print(f'[INFO] Getting options_query for {chat_id}')
             return cursor.fetchone()[0]
     def get_options_query_chat_ids():
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT chat_id FROM options_query;''')
-            print(f'[INFO] Getting all chat_ids from options_query')
+            # print(f'[INFO] Getting all chat_ids from options_query')
             result = cursor.fetchall()
             return [row[0] for row in result] 
     def del_options_query():
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''DELETE FROM options_query WHERE order_number = (SELECT MIN(order_number) FROM options_query);''')
-            print(f'[INFO] Deleted first options_query')       
+            # print(f'[INFO] Deleted first options_query')       
     def del_all_options_queries():
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''DELETE FROM options_query;''')
-            print(f'[INFO] Deleted all queries')
+            # print(f'[INFO] Deleted all queries')
     def del_options_query_by_chat_id(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''DELETE FROM options_query WHERE CAST(chat_id AS BIGINT) = {chat_id};''')
-            print(f'[INFO] Deleted options_query for {chat_id}')
+            # print(f'[INFO] Deleted options_query for {chat_id}')
     
     # запросы к таблице user_limits
     def get_free_options_limit(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT free_options_use_limit FROM user_limits WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Getting free_options_use_limit for *{chat_id}* was completed successfully')
+            # print(f'[INFO] Getting free_options_use_limit for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]        
     def draw_free_options_limit(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE user_limits SET free_options_use_limit = free_options_use_limit - 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] *{chat_id}* free_options_use_limit - 1')
+            # print(f'[INFO] *{chat_id}* free_options_use_limit - 1')
     
     def get_removes_limit(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT free_removes_use_limit FROM user_limits WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Getting free_removes_use_limit for *{chat_id}* was completed successfully')
+            # print(f'[INFO] Getting free_removes_use_limit for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]   
     def draw_removes_limit(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE user_limits SET free_removes_use_limit = free_removes_use_limit - 1 WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] *{chat_id}* free_removes_use_limit - 1')
+            # print(f'[INFO] *{chat_id}* free_removes_use_limit - 1')
 
     def refill_limits(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE user_limits SET free_removes_use_limit = 3, free_options_use_limit = 10, last_updated = NOW() WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] *{chat_id}* limits refilled')
+            # print(f'[INFO] *{chat_id}* limits refilled')
 
     def get_last_updated_limits(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT last_updated FROM user_limits WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Getting last_updated_limits for *{chat_id}* was completed successfully')
+            # print(f'[INFO] Getting last_updated_limits for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]
 
     def get_has_subscription(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT has_subscription FROM user_limits WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Getting has_subscription for *{chat_id}* was completed successfully')
+            # print(f'[INFO] Getting has_subscription for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]
         
     def get_subscription_expiry_date(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''SELECT subscription_expiry_date FROM user_limits WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] Getting subscription_expiry_date for *{chat_id}* was completed successfully')
+            # print(f'[INFO] Getting subscription_expiry_date for *{chat_id}* was completed successfully')
             return cursor.fetchone()[0]  
 
     def set_subscription(chat_id, date):
@@ -476,13 +476,13 @@ try:
         with connection.cursor() as cursor:
             cursor.execute("SET datestyle = 'DMY';")
             cursor.execute(f'''UPDATE user_limits SET free_removes_use_limit = 3, free_options_use_limit = 10, last_updated = NOW(), has_subscription=true, subscription_expiry_date = '{date}' WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] *{chat_id}* subscription updated')
+            # print(f'[INFO] *{chat_id}* subscription updated')
 
     def del_subscription(chat_id):
         connect()
         with connection.cursor() as cursor:
             cursor.execute(f'''UPDATE user_limits SET has_subscription=false WHERE CAST(chat_id AS BIGINT) = {chat_id}''')
-            print(f'[INFO] *{chat_id}* subscription deleted')
+            # print(f'[INFO] *{chat_id}* subscription deleted')
 
     # запросы к таблице logger
     def logger(chat_id, short_error, description):
