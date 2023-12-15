@@ -198,6 +198,7 @@ async def text(message: types.Message):
             await bot.answer_callback_query(callback_query_id=c.id, 
                                             text='🔀 Похоже, вы начали генерацию бита. Если вы хотите воспользоваться бесплатными опциями: выберите нужную в разделе с бесплатными опциями.', 
                                             show_alert=True)
+            return
 
         if db_connect.get_free_options_limit(chat_id) <= 0:
             await bot.send_message(chat_id, 'Ваш лимит по бесплатным опциям на сегодня исчерпан.')
@@ -209,6 +210,9 @@ async def text(message: types.Message):
         if not is_subscribed:
             await bot.send_message(chat_id, text=' Бесплатные опции доступны только подписчикам канала', parse_mode='Markdown')
             return
+        
+        # Установить processing для пользователя
+        db_connect.set_processing(chat_id)
 
         url = f"https://rifme.net/r/{quote(text)}/0"
 
@@ -218,8 +222,6 @@ async def text(message: types.Message):
 
         async with httpx.AsyncClient() as client:
             try:
-                # Установить processing для пользователя
-                db_connect.set_processing(chat_id)
 
                 response = await client.get(url, headers=headers)
                 if response.status_code > 400 and response.status_code < 600:
@@ -240,7 +242,7 @@ async def text(message: types.Message):
                     for word_item in word_list:
                         word_data_w = word_item.get("data-w")
                         new_word_list.append(word_data_w)
-                    print(response.text)
+                    # print(response.text)
                     if new_word_list != []:
                         rhymes = '\n'.join(new_word_list)
                         rhymes_message = f"<b>{header.text}\n\n</b>{rhymes}"
@@ -663,7 +665,7 @@ async def handle_audio_file(message: types.Message):
                         # Проверяем длительность аудио
                         max_duration_seconds = 10 # sec
                         audio_duration = get_duration(path=f'{user_dir}/{file}')
-                        print(audio_duration)
+                        # print(audio_duration)
                         if audio_duration > max_duration_seconds:  # Преобразуем в миллисекунды
                             au.crop_audio(f'{user_dir}/{file}', max_duration_seconds)
                             await bot.send_message(chat_id, "🔊 Аудио обрезано до 10 секунд")
@@ -750,7 +752,7 @@ async def handle_audio_file(message: types.Message):
                 # Проверяем длительность аудио
                 max_duration_seconds = 4 * 60  # 4 минуты в секундах
                 audio_duration = get_duration(path=f'{user_dir}/{file}')
-                print(audio_duration)
+                # print(audio_duration)
                 if audio_duration > max_duration_seconds:  # Преобразуем в миллисекунды
                     await bot.send_message(chat_id, "🔊 Аудио слишком длинное. Пожалуйста, загрузите аудио длительностью до 4 минут.")
                     # Удалить processing для пользователя
@@ -972,7 +974,7 @@ async def check_payment(payment_id, c, type=''):
         await asyncio.sleep(3)
 
     if payment['status']=='succeeded':
-        print("SUCCSESS RETURN")
+        # print("SUCCSESS RETURN")
         if type == 'balance':
             # Обновить баланс в БД
             db_connect.top_balance(c.message.chat.id, c.data.split('₽')[0])
@@ -1608,7 +1610,7 @@ async def make_query(c: types.CallbackQuery):
 
                     messages_ids = []
                     
-                    print(chat_id, c.message.message_id)
+                    # print(chat_id, c.message.message_id)
 
                     await bot.delete_message(chat_id=chat_id, message_id=c.message.message_id)
 
@@ -1698,7 +1700,7 @@ async def send_beat(c: types.CallbackQuery):
 
             await bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\n\nБот не может отправить файл, больше 50мб из-за ограничения Telegram.\n🔄 Файл был форматирован во *FLAC*. Качество бита при этом не изменилось.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')                        
 
-            print(path.getsize(f'output_beats/{chat_id}_{pressed_button}.flac'))
+            # print(path.getsize(f'output_beats/{chat_id}_{pressed_button}.flac'))
 
             # Удаляем временный файл FLAC
             remove(temp_flac_path)
