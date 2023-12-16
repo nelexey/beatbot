@@ -186,6 +186,7 @@ async def text(message: types.Message):
         return
     
     elif db_connect.get_chosen_style(chat_id) == 'rhymes':
+
         if not await get_user(chat_id):
             return
         
@@ -215,16 +216,17 @@ async def text(message: types.Message):
         # Установить processing для пользователя
         db_connect.set_processing(chat_id)
 
-        url = f"https://rifme.net/r/{quote(text)}/0"
+        url = f"https://rifme.net/r/{quote(text.lower())}/0"
 
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
 
         async with httpx.AsyncClient() as client:
             try:
 
                 response = await client.get(url, headers=headers)
+
                 if response.status_code > 400 and response.status_code < 600:
                     await bot.send_message(chat_id, '⚠️ Не удалось обратиться к серверу, попробуйте позже.', reply_markup=keyboards.rhymes_keyboard)
                     # Запись ошибки в логгер
@@ -246,7 +248,10 @@ async def text(message: types.Message):
                     # print(response.text)
                     if new_word_list != []:
                         rhymes = '\n'.join(new_word_list)
-                        rhymes_message = f"<b>{header.text}\n\n</b>{rhymes}"
+                        if header != None:
+                            rhymes_message = f"<b>{header.text}\n\n</b>{rhymes}"
+                        else:
+                            rhymes_message = f"{rhymes}"
                         await bot.send_message(chat_id, rhymes_message, reply_markup=keyboards.rhymes_keyboard, parse_mode='html')
                     else:
                         await bot.send_message(chat_id, '📭 Не удалось подобрать рифмы', reply_markup=keyboards.rhymes_keyboard)
@@ -255,13 +260,21 @@ async def text(message: types.Message):
 
                 # Удалить processing для пользователя
                 db_connect.del_processing(chat_id)
-
-            except httpx.RequestError as e:
+            except Exception as e:
+                print(repr(e))
                 await bot.send_message(chat_id, '⌛️ Опция временно не работает', reply_markup=keyboards.rhymes_keyboard)
                 # Удалить processing для пользователя
                 db_connect.del_processing(chat_id)
                 # Запись ошибки в логгер
                 db_connect.logger(chat_id, '[BAD]', f'rhyme | {e}')
+                
+            except httpx.RequestError as e:
+                print(repr(e))
+                await bot.send_message(chat_id, '⌛️ Опция временно не работает', reply_markup=keyboards.rhymes_keyboard)
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
+                # Запись ошибки в логгер
+                db_connect.logger(chat_id, '[BAD]', f'rhyme | {repr(e)}')
             
             return
         
@@ -434,6 +447,9 @@ async def handle_audio_file(message: types.Message):
 
             # Создаем директорию пользователя, если она не существует
             makedirs(f"users_sounds/{chat_id}", exist_ok=True)
+            
+            # Путь к директории для сохранения файла
+            user_dir = f"users_sounds/{chat_id}"
 
             if audio_extension == 'mp3' and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[0]]:
                 
@@ -575,8 +591,8 @@ async def handle_audio_file(message: types.Message):
             else:
                 # Так как проверка на подходящий chosen_style уже была ранее, то несовпадение может быть только формате файла.
                 await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
-                # Удалить processing для пользователя
-                db_connect.del_processing(chat_id)
+            # Удалить processing для пользователя
+            db_connect.del_processing(chat_id)
                 
 
             db_connect.del_wait_for_file(chat_id)
@@ -792,6 +808,7 @@ async def handle_audio_file(message: types.Message):
                 await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
                 # Удалить processing для пользователя
                 db_connect.del_processing(chat_id)
+            
 
     except Exception as e:
         print(repr(e))
@@ -1699,7 +1716,7 @@ async def send_beat(c: types.CallbackQuery):
             with open(temp_flac_path, 'rb') as flac_file:
                 await bot.send_audio(chat_id, flac_file, title='BEAT - tg: @NeuralBeatBot')
 
-            await bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\n\nБот не может отправить файл, больше 50мб из-за ограничения Telegram.\n🔄 Файл был форматирован во *FLAC*. Качество бита при этом не изменилось.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')                        
+            await bot.send_message(chat_id, f'С твоего баланса снято *{beat_price}₽*\n\nБот не может отправить файл больше 50мб из-за ограничения Telegram.\n🔄 Файл был форматирован во *FLAC*. Качество бита при этом не изменилось.', reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')                        
 
             # print(path.getsize(f'output_beats/{chat_id}_{pressed_button}.flac'))
 
