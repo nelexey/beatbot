@@ -31,7 +31,7 @@ class Handler():
         # Получить текущую дату и время.
         now = datetime.datetime.now()
         
-        chat_id, style, bpm, harmony, extension = query[0], query[1], query[2], query[3], query[4]
+        chat_id, style, bpm, extension, harmony = query[0], query[1], query[2], query[3], query[4]
 
         print(f'• {now.date()} {now.time()} | Got query: [chat_id: {chat_id}, style: {style}, bpm: {bpm}, harmony: {harmony}, extension: {extension}]')
         
