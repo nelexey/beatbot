@@ -51,7 +51,7 @@ beat_price = config.beat_price # RUB
 start_balance = config.start_balance # RUB
 
 # Константы сообщений
-MENU_MESSAGE_TEXT = "🔣 <b>МЕНЮ</b>\n\nЛучший и единственный бот для комплексной работы со звуком, а также возможностью генерации битов на основе обученной нейронной сети.\n\n<b>Генерация:</b>\n— 🎙️<b>Бит под запись</b>🎙️\n\n<b>Работа с аудио:</b>\n— ⏩ Сделать <b>speed up</b>\n— ⏪ Сделать <b>slowed + reverb</b>\n— 🔀️ <b>Vocal Remover</b>\n— 📶 <b>Улучшение</b> звука\n— #️⃣ Определитель <b>тональности</b>\n— ⏩ Определитель <b>темпа</b>\n— ⬆️ <b>BASSBOOST</b>\n— 🔥 <b>Музыка из своих звуков</b>\n— 📜 <b>Подобрать рифму</b>\n\nНаш телеграм-канал: @beatbotnews"
+MENU_MESSAGE_TEXT = "🎄 <b>МЕНЮ</b>\n\nЛучший и единственный бот для комплексной работы со звуком, а также возможностью генерации битов на основе обученной нейронной сети.\n\n<b>Генерация:</b>\n— 🎙️<b>Бит под запись</b>🎙️\n\n<b>Работа с аудио:</b>\n— ⏩ Сделать <b>speed up</b>\n— ⏪ Сделать <b>slowed + reverb</b>\n— 🔀️ <b>Vocal Remover</b>\n— 📶 <b>Улучшение</b> звука\n— #️⃣ Определитель <b>тональности</b>\n— ⏩ Определитель <b>темпа</b>\n— ⬆️ <b>BASSBOOST</b>\n— 🔥 <b>Музыка из своих звуков</b>\n— 📜 <b>Подобрать рифму</b>\n\nНаш телеграм-канал: @beatbotnews"
 STYLES_MESSAGE_TEXT = '🪩 *СТИЛИ*\n\nЯ могу генерировать в разных стилях, каждый из них имеет свои особенности. Такие биты подойдут под запись голоса.\n\n*⏺ - Стиль*\n⏺ - Темп\n⏺ - Лад\n⏺ - Формат'
 
 # Безопасный запуск
@@ -100,7 +100,8 @@ async def menu(message: types.Message):
     # Имя и фамилия пользователя
     user_initials = f'{message.from_user.first_name} {message.from_user.last_name}'
     # Если пользователь уже добавлен то повторная запись не произойдет
-    db_connect.add_user(message.chat.username, message.chat.id, user_initials, start_balance)
+    username = 'None' if message.chat.username == None else message.chat.username
+    db_connect.add_user(username, message.chat.id, user_initials, start_balance)
 
 # Функция для проверки подписки на канал
 async def check_subscription(user_id, channel_username, status=None):
@@ -729,6 +730,9 @@ async def handle_audio_file(message: types.Message):
                         remove(file)
                     
                     await remove_usage(chat_id)
+                
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
             elif audio_extension in ['mp3', 'wav'] and db_connect.get_chosen_style(chat_id) == keyboards.options[keyboards.OPTIONS_BUTTONS[2]]:
                 
                 db_connect.del_wait_for_file(chat_id)
@@ -803,6 +807,9 @@ async def handle_audio_file(message: types.Message):
                     
                 for file in glob(f'{user_dir}/*.*'):
                     remove(file)
+                
+                # Удалить processing для пользователя
+                db_connect.del_processing(chat_id)
             else:
                 # Так как проверка на подходящий chosen_style уже была ранее, то несовпадение может быть только формате файла.
                 await bot.send_message(chat_id, '⚠️ Неподдерживаемый формат аудиофайла')
@@ -926,9 +933,9 @@ async def show_menu(c: types.CallbackQuery):
             # Отправка сообщения
             await bot.edit_message_text(chat_id=c.message.chat.id, 
                                         message_id=c.message.message_id, 
-                                        text=f'*💰 БАЛАНС*\n\nНа твоем балансе: *{balance}₽*\n\n👉 Выбери сумму для пополнения:', 
+                                        text=f'💰 <b>БАЛАНС</b>\n\nНа твоем балансе: <i>{balance}₽</i>\n\n☃️ <b>Новогодние тарифы</b>\n1 бит - <s>180</s> <b>144 рублей</b>   <i>(❄️СКИДКА 20%❄️)</i>\n2 бита - <s>360</s> <b>288 рублей</b>   <i>(❄️СКИДКА 20%❄️)</i>\n3 бита - <s>540</s> <b>432 рубля</b>   <i>(❄️СКИДКА 20%❄️)</i>\nБезлимит на месяц - <s>69</s> <b>54 рубля</b>   <i>(❄️СКИДКА 20%❄️)</i>\n\n👉 Выбери сумму для пополнения:', 
                                         reply_markup=keyboards.balance_keyboard, 
-                                        parse_mode='Markdown')
+                                        parse_mode='html')
         elif pressed_button == keyboards.BUTTON_ABOUT:
             # Отправка сообщения
             await bot.edit_message_text(chat_id=c.message.chat.id, 
@@ -995,14 +1002,14 @@ async def check_payment(payment_id, c, type=''):
         # print("SUCCSESS RETURN")
         if type == 'balance':
             # Обновить баланс в БД
-            db_connect.top_balance(c.message.chat.id, c.data.split('₽')[0])
+            db_connect.top_balance(c.message.chat.id, c.data.split(' ')[-1].split('₽')[0])
             
-            await bot.send_message(c.message.chat.id, f'💵 Твой баланс пополнен на {c.data}', reply_markup=keyboards.to_menu_keyboard)
+            await bot.send_message(c.message.chat.id, f'💵 Твой баланс пополнен на {c.data.split(" ")[-1]}', reply_markup=keyboards.to_menu_keyboard)
             # Удалить payment_checking для пользователя
             # db_handler.del_payment_checking(c.message.chat.id)
             del_user_payment_transactions(c.message.chat.id, c.data)
             # Запись ошибки в логгер
-            db_connect.logger(c.message.chat.id, '[PAY]', f'Fill balance | amount: {c.data}')
+            db_connect.logger(c.message.chat.id, '[PAY]', f'Fill balance | amount: {c.data.split(" ")[-1]}')
             
             return True
         
@@ -1090,7 +1097,7 @@ async def prepare_payment(c: types.CallbackQuery):
             # Если подписки нет
             else:  
                 # Цена подписки в рублях
-                price = 69
+                price = config.options_price
 
                 # print(users_payment_transactions)
 
@@ -1114,7 +1121,7 @@ async def prepare_payment(c: types.CallbackQuery):
 
         else:
             # Получение цены из callback_data
-            price = int(c.data.split('₽')[0])
+            price = int(c.data.split(' ')[-1].split('₽')[0])
 
             # print(users_payment_transactions)
             
@@ -1234,7 +1241,7 @@ async def free_options(c: types.CallbackQuery):
         else:
             await bot.edit_message_text(chat_id=chat_id, 
                                         message_id=c.message.message_id, 
-                                        text=f'🆓 *БЕСПЛАТНЫЕ ОПЦИИ*\n\nМы предоставляем некоторые бесплатные опции для обработки вашего звука.\n\nЕжесуточные лимиты:\n*{db_connect.get_free_options_limit(chat_id)}/10* использований бесплатных опций\n*♾ Безлимит на месяц всего за 69₽*\n\nОбработчик поддерживает *.mp3* формат для всех опций, а также *.wav* для вокал-ремувера.\nБесплатные опции доступны только подписчикам нашего официального канала: *@beatbotnews*', 
+                                        text=f'🆓 *БЕСПЛАТНЫЕ ОПЦИИ*\n\nМы предоставляем некоторые бесплатные опции для обработки вашего звука.\n\nЕжесуточные лимиты:\n*{db_connect.get_free_options_limit(chat_id)}/10* использований бесплатных опций\n*♾ Безлимит на месяц всего за {config.options_price}₽*\n\nОбработчик поддерживает *.mp3* формат для всех опций, а также *.wav* для вокал-ремувера.\nБесплатные опции доступны только подписчикам нашего официального канала: *@beatbotnews*', 
                                         reply_markup=keyboards.free_keyboard, 
                                         parse_mode='Markdown')
         # Удалить processing для пользователя
@@ -1281,23 +1288,23 @@ async def process_the_sound(c: types.CallbackQuery):
         # Ключ - текст на кнопке, список: 1значение - текст ответа, 2значение - название опции.
         button_text_arr = {
             keyboards.OPTIONS_BUTTONS[0]: ['🆓 *SPEED UP*\n\nУвеличить темп аудио\n\nСкинь сюда свой звук в формате *.mp3*.',
-                                            'speed_up'],
+                                            'speed_up', keyboards.to_menu_keyboard],
             keyboards.OPTIONS_BUTTONS[1]: ['🆓 *SLOWED + REVERB*\n\nЗамедлить звук\n\nСкинь сюда свой звук в формате *.mp3*.', 
-                                            'slow_down'],
+                                            'slow_down', keyboards.to_menu_keyboard],
             keyboards.OPTIONS_BUTTONS[2]: ['🗣 *REMOVE VOCAL*\n\nРазделить трек на бит и голос\n\nСкинь сюда свой звук в формате *.mp3* или *.wav*.', 
-                                            'remove_vocal'],
+                                            'remove_vocal', keyboards.to_menu_keyboard],
             keyboards.OPTIONS_BUTTONS[3]: ['🆓 *NORMALIZE SOUND*\n\nНормализовать качество звука\n\nСкинь сюда свой звук в формате *.mp3* или *.wav*\nТебе вернётся звук в формате *.wav*.', 
-                                            'normalize_sound'],
+                                            'normalize_sound', keyboards.to_menu_keyboard],
             keyboards.OPTIONS_BUTTONS[4]: ['🆓 *KEY FINDER*\n\nОпределить тональность\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*, *.ogg*, *.flac*.',
-                                            'key_finder'],
+                                            'key_finder', keyboards.to_menu_keyboard],
             keyboards.OPTIONS_BUTTONS[5]: ['🆓 *BPM FINDER*\n\nОпределить темп\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.',
-                                            'bpm_finder'],
+                                            'bpm_finder', keyboards.to_menu_keyboard],
             keyboards.OPTIONS_BUTTONS[6]: ['🆓 *BASSBOOST*\n\nПовысить низкие частоты\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.',
-                                            'bass_boost'],
+                                            'bass_boost', keyboards.to_menu_keyboard],
             keyboards.OPTIONS_BUTTONS[7]: ['🔥 *МУЗЫКА ИЗ СВОИХ ЗВУКОВ*\n\n*Создать музыку из своих звуков*\n\nСкинь сюда свой звук в формате *.mp3*, *.wav*.\nПотом скинь музыку в формате *.mid*. Если не знаешь, как это работает, можешь выбрать примеры *.mid* файлов из нашего канала.', 
-                                            'midi_to_wav'],
+                                            'midi_to_wav', keyboards.midi_to_wav_keyboard],
             keyboards.OPTIONS_BUTTONS[8]: ['📜 *ПОДОБРАТЬ РИФМУ*\n\nОтправьте слово боту, и он подберёт рифмы.\n\nЕсли в слове есть буква ё, то не заменяйте её буквой е.', 
-                                            'rhymes'],
+                                            'rhymes', keyboards.to_menu_keyboard],
         }
 
         user_chosen_option = button_text_arr[pressed_button][1]
@@ -1306,7 +1313,7 @@ async def process_the_sound(c: types.CallbackQuery):
         db_connect.set_wait_for_file(chat_id)
 
         # Отправка сообщения
-        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=button_text_arr[pressed_button][0], reply_markup=keyboards.to_menu_keyboard, parse_mode='Markdown')
+        await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=button_text_arr[pressed_button][0], reply_markup=button_text_arr[pressed_button][2], parse_mode='Markdown')
 
         # Удалить processing для пользователя
         db_connect.del_processing(chat_id)

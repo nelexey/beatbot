@@ -1,4 +1,4 @@
-from config.config import beats, beat_price
+from config.config import beats, beat_price, options_price
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from data.utility_data import styles_aliases as aliases
 
@@ -15,8 +15,10 @@ BUTTON_TUTORIAL = '🎥 Что умеет Битбот?'
 MENU_BUTTONS = [BUTTON_BALANCE, BUTTON_ABOUT, BUTTON_GENERATE_BEAT, BUTTON_TUTORIAL]
 
 # Кнопки баланса
-PREMIUM_BUTTON = 'Безлимит на месяц - 69₽'
-BALANCE_BUTTONS = ['180₽', '360₽', '540₽']
+PREMIUM_BUTTON = f' Безлимит на месяц - {options_price}₽'
+BALANCE_BUTTONS = [f'Купить 1 бит за {beat_price}₽', 
+                   f'Купить 2 бита за {beat_price*2}₽', 
+                   f'Купить 3 бита за {beat_price*3}₽']
 
 # Кнопки расширения
 BUTTON_MP3 = '.mp3'
@@ -117,12 +119,18 @@ free_keyboard.row(btn_key_finder, btn_bpm_finder)
 free_keyboard.row(btn_normalize_sound, btn_bass_boost)
 free_keyboard.row(btn_undo)
 
+# Клавиатура midi_to_wav
+btn_link_midi = InlineKeyboardButton(text="МИДИ", url=f"https://t.me/beatbotnews/58")
+btn_link_wav =  InlineKeyboardButton(text="ЗВУКИ", url=f"https://t.me/beatbotnews/67")
+btn_menu = InlineKeyboardButton(MENU_BUTTON, callback_data=MENU_BUTTON)
+midi_to_wav_keyboard = InlineKeyboardMarkup(row_width=2).add(btn_link_midi, btn_link_wav, btn_menu)
+
 # Клавиатура баланса
 btn_pay1 = InlineKeyboardButton(BALANCE_BUTTONS[0], callback_data=BALANCE_BUTTONS[0])
 btn_pay2 = InlineKeyboardButton(BALANCE_BUTTONS[1], callback_data=BALANCE_BUTTONS[1])
 btn_pay3 = InlineKeyboardButton(BALANCE_BUTTONS[2], callback_data=BALANCE_BUTTONS[2])
 btn_pay4 = InlineKeyboardButton(PREMIUM_BUTTON, callback_data=PREMIUM_BUTTON)
-balance_keyboard = InlineKeyboardMarkup(row_width=3)
+balance_keyboard = InlineKeyboardMarkup(row_width=1)
 balance_keyboard.add(btn_pay1, btn_pay2, btn_pay3)
 balance_keyboard.row(btn_pay4)
 balance_keyboard.row(btn_undo)
