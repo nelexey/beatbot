@@ -102,7 +102,7 @@ async def menu(message: types.Message):
     # Если пользователь уже добавлен то повторная запись не произойдет
     username = 'None' if message.chat.username == None else message.chat.username
     db_connect.add_user(username, message.chat.id, user_initials, start_balance)
-
+    
 # Функция для проверки подписки на канал
 async def check_subscription(user_id, channel_username, status=None):
     chat_member = await bot.get_chat_member(chat_id=channel_username, user_id=user_id)
@@ -152,7 +152,7 @@ async def text(message: types.Message):
         # Проверить, не находится ли пользователь в beats_generating
         if db_connect.get_beats_generating(chat_id) != 0:
             # Отправка оповещения
-            await bot.answer_callback_query(callback_query_id=c.id, 
+            await bot.answer_callback_query(callback_query_id=message.chat.id, 
                                             text='🔀 Похоже, вы начали генерацию бита. Если вы хотите воспользоваться бесплатными опциями: выберите нужную в разделе с бесплатными опциями.', 
                                             show_alert=True)
             return
@@ -197,10 +197,6 @@ async def text(message: types.Message):
 
         # Проверить, не находится ли пользователь в beats_generating
         if db_connect.get_beats_generating(chat_id) != 0:
-            # Отправка оповещения
-            await bot.answer_callback_query(callback_query_id=c.id, 
-                                            text='🔀 Похоже, вы начали генерацию бита. Если вы хотите воспользоваться бесплатными опциями: выберите нужную в разделе с бесплатными опциями.', 
-                                            show_alert=True)
             return
 
         if db_connect.get_free_options_limit(chat_id) <= 0:
@@ -268,14 +264,6 @@ async def text(message: types.Message):
                 db_connect.del_processing(chat_id)
                 # Запись ошибки в логгер
                 db_connect.logger(chat_id, '[BAD]', f'rhyme | {e}')
-                
-            except httpx.RequestError as e:
-                print(repr(e))
-                await bot.send_message(chat_id, '⌛️ Опция временно не работает', reply_markup=keyboards.rhymes_keyboard)
-                # Удалить processing для пользователя
-                db_connect.del_processing(chat_id)
-                # Запись ошибки в логгер
-                db_connect.logger(chat_id, '[BAD]', f'rhyme | {repr(e)}')
             
             return
         
@@ -933,7 +921,7 @@ async def show_menu(c: types.CallbackQuery):
             # Отправка сообщения
             await bot.edit_message_text(chat_id=c.message.chat.id, 
                                         message_id=c.message.message_id, 
-                                        text=f'💰 <b>БАЛАНС</b>\n\nНа твоем балансе: <i>{balance}₽</i>\n\n☃️ <b>Новогодние тарифы</b>\n1 бит - <s>180</s> <b>144 рублей</b>   <i>(❄️СКИДКА 20%❄️)</i>\n2 бита - <s>360</s> <b>288 рублей</b>   <i>(❄️СКИДКА 20%❄️)</i>\n3 бита - <s>540</s> <b>432 рубля</b>   <i>(❄️СКИДКА 20%❄️)</i>\nБезлимит на месяц - <s>69</s> <b>54 рубля</b>   <i>(❄️СКИДКА 20%❄️)</i>\n\n👉 Выбери сумму для пополнения:', 
+                                        text=f'💰 <b>БАЛАНС</b>\n\nНа твоем балансе: <i>{balance}₽</i>\n\n👉 Выбери сумму для пополнения:', 
                                         reply_markup=keyboards.balance_keyboard, 
                                         parse_mode='html')
         elif pressed_button == keyboards.BUTTON_ABOUT:
@@ -1571,10 +1559,14 @@ async def check_response(chat_id, message_id):
     order_number = 0
 
     while True:
+        status = db_connect.get_beats_ready(chat_id)
 
-        if db_connect.get_beats_ready(chat_id) == 1:
+        if status == 1:
             db_connect.del_beats_ready(chat_id)
             return True
+        elif status == 2:
+            db_connect.del_beats_ready(chat_id)
+            return False
 
         new_order_number = db_connect.get_query_by_chat_id(chat_id)
         if new_order_number != order_number:
@@ -1656,6 +1648,11 @@ async def make_query(c: types.CallbackQuery):
                             else:
                                 message = await bot.send_audio(c.message.chat.id, trimmed_sound, title='demo - @NeuralBeatBot gen.')
                                 messages_ids.append(message.message_id)
+                else:
+                    # Отправка сообщения
+                    await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Не удалось сгенерировать бит в этом стиле, пожалуйста, выберите другой стиль.\n\nЕсли ошибка повторится, то обратитесь в поддержку.', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')
+                    # Удалить beats_generating для пользователя
+                    db_connect.del_beats_generating(c.message.chat.id)
             else:
                 # Отправка сообщения
                 await bot.edit_message_text(chat_id=chat_id, message_id=c.message.message_id, text=f'⚠️ Не удалось выбрать расширение, попробуй ещё раз. Выбрать параметры бита нужно строго в предлагаемом ботом порядке и в одном сообщении.', reply_markup=keyboards.to_styles_keyboard, parse_mode='Markdown')

@@ -457,13 +457,13 @@ try:
             # print(f'[INFO] Deleting *{chat_id}* chosen_harmony was successfully')
 
     # Установка флага готовности битов для указанного пользователя
-    def set_beats_ready(chat_id):
+    def set_beats_ready(chat_id, status=1):
         connect()
         with connection.cursor() as cursor:
             update_beats_ready_query = sql.SQL('''
-                UPDATE orders SET beats_ready = 1 WHERE CAST(chat_id AS BIGINT) = %s;
+                UPDATE orders SET beats_ready = %s WHERE CAST(chat_id AS BIGINT) = %s;
             ''')
-            cursor.execute(update_beats_ready_query, (chat_id,))
+            cursor.execute(update_beats_ready_query, (status, chat_id,))
             # print(f'[INFO] Setting beats_ready for *{chat_id}* was successfully')
 
     # Сброс флага готовности битов для указанного пользователя

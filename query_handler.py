@@ -17,17 +17,7 @@ from data.utility_data import harmony_styles, keys, styles_aliases, non_bass_sty
 class Handler():
 
     @staticmethod
-    def check_for_query():
-
-        # Получить первый запрос из очереди.
-        query = db_connect.get_query()
-        
-        # Если запросов нет.
-        if query is None:
-            # Время ожидания между запросами.
-            sleep(5)
-            return
-        
+    def check_for_query(query):    
         # Получить текущую дату и время.
         now = datetime.datetime.now()
         
@@ -91,11 +81,10 @@ class Handler():
             # Если недостаточно подходящих лидов, то добрать любыми.
             if len(harmony_correct_leads) < beats:
                 print(f'Not enough relevant leads: {len(harmony_correct_leads)}')
-                while len(harmony_correct_leads) < beats:
-                    for lead in get_all_leads:
-                        if lead not in harmony_correct_leads:
-                            harmony_correct_leads.append(lead)
-                
+                for lead in get_all_leads:
+                    if lead not in harmony_correct_leads:
+                        harmony_correct_leads.append(lead)
+
             # Перемешать лиды и собрать пути.
             leads_presets = []
             for file in random.sample(harmony_correct_leads, beats):
@@ -147,13 +136,29 @@ class Handler():
             Make_Beat.make_beat(style, filename, extension, bpm, lead_path, bass_path)
             Audio_Action.trimmed_audio(glob(f'output_beats/{filename}.*')[0])
  
-        
         # Удалить из очереди.
         db_connect.del_query()
         # Установить готовность битов.
         db_connect.set_beats_ready(chat_id)
-
-# Зациклить проверку.
-while True:
-    Handler.check_for_query()
     
+    @staticmethod
+    def checking():
+        while True:
+            # Получить первый запрос из очереди.
+            query = db_connect.get_query()
+                
+            # Если запросов нет.
+            if query is not None: 
+                chat_id = query[0]
+                try:   
+                    Handler.check_for_query(query)
+                except Exception as e:
+                    db_connect.del_query()
+                    db_connect.set_beats_ready(chat_id, 2)
+                    print(repr(e))
+                    # Запись ошибки в логгер
+                    db_connect.logger(chat_id, '[BAD][BEATS]', f'query_handler | {repr(e)}')              
+
+            # Время ожидания между запросами.
+            sleep(5)
+Handler.checking()
