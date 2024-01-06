@@ -305,9 +305,11 @@ async def check_options_handler_response(chat_id, message_id):
 
                 if db_connect.get_removes_ready(chat_id) == 1:
                     db_connect.del_removes_ready(chat_id)
-                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'🔄 Отправляю вокал и минус...', parse_mode='Markdown')  
-
                     return True
+                
+                elif db_connect.get_removes_ready(chat_id) == 2:
+                    db_connect.del_removes_ready(chat_id)
+                    return False
 
                 new_order_number = db_connect.get_options_query_by_chat_id(chat_id)
                 if new_order_number != order_number:
@@ -321,13 +323,11 @@ async def check_options_handler_response(chat_id, message_id):
 
                 if db_connect.get_removes_ready(chat_id) == 1:
                     db_connect.del_removes_ready(chat_id)
-                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'🔄 Отправляю трек...', parse_mode='Markdown')  
 
                     return True
                 
                 elif db_connect.get_removes_ready(chat_id) == 2:
                     db_connect.del_removes_ready(chat_id)
-                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f'0️⃣ Не удалось определить ноты в этом midi файле', parse_mode='Markdown')  
 
                     return False
 
@@ -702,8 +702,9 @@ async def handle_audio_file(message: types.Message):
                 db_connect.del_removes_ready(chat_id)
                 
                 if await check_options_handler_response(chat_id, edit_message.message_id):
+                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'🔄 Отправляю трек...', parse_mode='Markdown')  
 
-                    # Отправляем обратно пользователю обработанныt файлы
+                    # Отправляем обратно пользователю обработанные файлы
                     
                     with open(f'{user_dir}/output_fragments/output.{audio_extension}', 'rb') as f:
                         await bot.send_audio(chat_id, audio=f, title='tg: @NeuralBeatBot - Fusioned')
@@ -718,6 +719,8 @@ async def handle_audio_file(message: types.Message):
                         remove(file)
                     
                     await remove_usage(chat_id)
+                else:
+                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'0️⃣ Не удалось определить ноты в этом midi файле.', parse_mode='Markdown')  
                 
                 # Удалить processing для пользователя
                 db_connect.del_processing(chat_id)
@@ -778,6 +781,7 @@ async def handle_audio_file(message: types.Message):
                 db_connect.del_removes_ready(chat_id)
                 
                 if await check_options_handler_response(chat_id, edit_message.message_id):
+                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'🔄 Отправляю вокал и минус...', parse_mode='Markdown')  
 
                     # Отправляем обратно пользователю обработанныt файлы
                     with open(f'{user_dir}/final_vocals.{audio_extension}', 'rb') as f:
@@ -792,6 +796,8 @@ async def handle_audio_file(message: types.Message):
                     db_connect.get_free_option(chat_id)
                     
                     await remove_usage(chat_id)
+                else:
+                    edit_message = await bot.edit_message_text(chat_id=chat_id, message_id=edit_message.message_id, text=f'⚠️ Не удалось разделить трек, если ошибка повторится, то обратитесь в поддержку.', parse_mode='Markdown')  
                     
                 for file in glob(f'{user_dir}/*.*'):
                     remove(file)

@@ -11,8 +11,7 @@ from glob import glob
 
 class Handler():
 
-    def remove_vocal(chat_id, chosen_format):
-        
+    def remove_vocal(chat_id, chosen_format): 
         sound_path = f'users_sounds/{chat_id}/sound.{chosen_format}'
         output_folder = f'users_sounds/{chat_id}/fragments'
         output_folder_final = f'users_sounds/{chat_id}/output_fragments'
@@ -105,8 +104,8 @@ class Handler():
         for file in all_vocals + all_accompaniment + fragments:
             remove(file)
 
-        db_connect.set_removes_ready(chat_id)
         db_connect.del_options_query()
+        db_connect.set_removes_ready(chat_id)
 
     @staticmethod
     def midi_to_wav(chat_id, chosen_format):
@@ -126,13 +125,15 @@ class Handler():
             for file in glob(f'users_sounds/{chat_id}/fragment.*'):
                 remove(file)
             db_connect.del_options_query()
+            # Запись ошибки в логгер
+            db_connect.logger(chat_id, '[BAD][MIDI_TO_WAV]', f'options_handler | sound_markup data is empty')   
             return
 
         # Создайте пустую аудиодорожку длиной 30 секунд (30 000 миллисекунд)
         track = AudioSegment.silent(duration=time)
 
         def change_pitch_without_quality_loss(audio_path, cent_change, output_path):
-            if not glob(output_path): 
+            if not glob(output_path):
                 # Загрузка аудиофайла
                 audio_data, sample_rate = sf.read(audio_path)
 
@@ -151,6 +152,8 @@ class Handler():
             cent_change = (note - 72) * 100
 
             output_path = f'{output_folder}/{note}.wav'
+            
+            print(wav_file_path)
 
             change_pitch_without_quality_loss(wav_file_path, cent_change, output_path)
 
@@ -166,20 +169,33 @@ class Handler():
         # Сохраните полученное аудио в файл
         track.export(f"{output_folder_final}/output.{chosen_format}", format=chosen_format)
 
-        db_connect.set_removes_ready(chat_id)
         db_connect.del_options_query()
+        db_connect.set_removes_ready(chat_id)
+            
 
     @staticmethod
     def checking():
-        while True:
-            query = db_connect.get_option_query()
+        while True: 
+            query = db_connect.get_options_query()
             if query is not None:
                 chat_id, chosen_format, order_number = query[0], query[1], query[2]
 
                 if db_connect.get_chosen_style(chat_id)=='remove_vocal':
-                    Handler.remove_vocal(chat_id, chosen_format)
-                elif db_connect.get_chosen_style(chat_id)=='midi_to_wav':                    
-                    Handler.midi_to_wav(chat_id, chosen_format)
+                    try:
+                        Handler.remove_vocal(chat_id, chosen_format)
+                    except Exception as e:
+                        db_connect.del_options_query()
+                        db_connect.set_removes_ready(chat_id, 2)
+                        # Запись ошибки в логгер
+                        db_connect.logger(chat_id, '[BAD][VOCAL_REMOVER]', f'options_handler | {repr(e)}')
+                elif db_connect.get_chosen_style(chat_id)=='midi_to_wav': 
+                    try:                   
+                        Handler.midi_to_wav(chat_id, chosen_format)
+                    except Exception as e:
+                        db_connect.del_options_query()
+                        db_connect.set_removes_ready(chat_id, 2)
+                        # Запись ошибки в логгер
+                        db_connect.logger(chat_id, '[BAD][MIDI_TO_WAV]', f'options_handler | {repr(e)}')              
 
             time.sleep(3)
 
