@@ -1316,6 +1316,8 @@ async def process_the_sound(c: types.CallbackQuery):
         print(repr(e))
         # Удалить processing для пользователя
         db_connect.del_processing(c.message.chat.id)
+	    
+	db_connect.del_wait_for_file(chat_id)
         # Запись ошибки в логгер
         db_connect.logger(c.message.chat.id, '[BAD]', f'process_the_sound | {e}')
 
