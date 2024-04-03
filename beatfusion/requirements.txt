@@ -1,0 +1,5 @@
+musical-scales==1.0.1
+pyrubberband==0.3.0
+soundfile==0.12.1
+pydub==0.25.1
+numpy==1.26.4
