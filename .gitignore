@@ -8,3 +8,10 @@ env/
 /pretrained_models/
 /example_beats/
 .DS_Store
+/beatbot/.idea
+beatbot/.env
+/generator/pretrained_models
+/beatbot/re_save
+generator/.env
+/generator/.idea
+/generator/generator/beats/platinum/sounds
